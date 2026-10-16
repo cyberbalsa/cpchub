@@ -4,10 +4,11 @@ from unittest.mock import patch
 
 from botocore.exceptions import BotoCoreError
 from django.contrib.auth import get_user_model
+from django.core.files.storage import default_storage
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
-from hub.models import ContentType, Item, Release, Screenshot
+from hub.models import ContentType, Item, Release, Screenshot, UploadEvent
 from tests.test_hub import package, screenshot
 
 
@@ -133,9 +134,17 @@ class UploadRulesTests(TestCase):
         self.assertFalse(item.releases.exists())
 
     def test_failed_first_release_removes_new_screenshots(self):
-        with patch("hub.services.add_release", side_effect=BotoCoreError()):
+        save = default_storage.save
+
+        def fail_release(name, content, **kwargs):
+            if name.startswith("releases/"):
+                raise BotoCoreError()
+            return save(name, content, **kwargs)
+
+        with patch.object(default_storage, "save", side_effect=fail_release):
             response = self.web_upload([screenshot(), screenshot("second.png")])
         self.assertContains(response, "File storage is temporarily unavailable.")
         self.assertFalse(Item.objects.exists())
         self.assertFalse(Screenshot.objects.exists())
+        self.assertFalse(UploadEvent.objects.exists())
         self.assertFalse(any(Path(self.directory.name).rglob("*.*")))

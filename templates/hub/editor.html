@@ -2,6 +2,7 @@
 {% block title %}{% if creating %}Share a creation{% else %}Edit {{ item.title }}{% endif %} — CPC Hub{% endblock %}
 {% block content %}<div class="page-content"><div class="breadcrumbs"><a href="/">Community</a> › {% if creating %}New creation{% else %}<a href="{{ item.get_absolute_url }}">{{ item.title }}</a> › Edit{% endif %}</div><div class="section-heading"><div><span class="eyebrow dark-eyebrow">COMMUNITY CONTRIBUTIONS</span><h1>{% if creating %}Upload a creation{% else %}Edit creation{% endif %}</h1><p>{% if creating %}Add a file, description, and at least one screenshot.{% else %}Update the details, add screenshots, or publish a new release.{% endif %}</p></div></div>
 {% include 'hub/deleted_notice.html' %}
+{% if not can_moderate %}<p class="muted small">You can upload 16 creations or new releases per hour. Screenshots don’t count toward this limit.</p>{% endif %}
 <p class="muted small">Your IP address and browser details are recorded with uploads for moderation.</p>
 {% if item.is_hidden %}<div class="moderation-notice" role="status"><h2>This creation is hidden</h2>{{ item.hidden_reason|linebreaks }}<p>Editing or publishing will not remove the restriction. A Moderator or Admin must restore the creation.</p></div>{% endif %}
 {% if item and can_moderate %}<p><a class="win-button" href="{% url 'moderation-item' item.pk %}">Moderation tools</a></p>{% endif %}

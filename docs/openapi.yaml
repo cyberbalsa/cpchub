@@ -294,7 +294,11 @@ paths:
       description: Upload to an owned creation, or use an Admin or Moderator browser
         session to add a release to any creation. The file type must be enabled. Published
         items must have at least one screenshot before adding a release. Version strings
-        are unique per item. Existing releases cannot be overwritten.
+        are unique per item. Existing releases cannot be overwritten. Successful creation
+        files and new releases share a rolling limit of 16 uploads per hour per account
+        across sessions, API keys and OAuth tokens. Admins, Moderators and Reviewers
+        are exempt; screenshots do not use slots. A 429 response includes Retry-After
+        in seconds.
       parameters:
       - in: path
         name: id
@@ -338,6 +342,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
           description: ''
+        '429':
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until an upload slot becomes available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
         '503':
           content:
             application/json:
@@ -347,11 +362,15 @@ paths:
   /api/v1/items/{id}/releases/{release_id}/download/:
     get:
       operationId: v1_items_releases_download_retrieve
-      description: Checks item visibility, then redirects to a short-lived signed
+      description: 'Checks item visibility, then redirects to a short-lived signed
         Wasabi URL (302), or streams a local development file (200). Follow redirects
-        without forwarding CPC Hub credentials to the storage host. A GET counts a
-        download link issued, not a completed transfer; HEAD does not increment counts.
-        Signed URLs default to 300 seconds. SHA-256 and size are in release metadata.
+        without forwarding CPC Hub credentials to the storage host. Successful GETs
+        count link issuance, not completed transfers. Creation and release counters
+        each deduplicate by account and IP: a match on either prevents another count.
+        Account markers persist; IP markers expire 14 days after their last download.
+        IPv4 uses the individual address; IPv6 uses the /32 subnet. HEAD does not
+        count. Signed URLs default to 300 seconds. SHA-256 and size are in release
+        metadata.'
       parameters:
       - in: path
         name: id
@@ -1018,7 +1037,12 @@ components:
           readOnly: true
         downloads:
           type: integer
+          maximum: 2147483647
+          minimum: 0
           readOnly: true
+          description: Download links issued across all releases, deduplicated by
+            account and by IP for 14 days. IPv6 uses /32 subnets. Downloading another
+            release does not recount the creation. Historical totals are retained.
         collection_count:
           type: integer
           minimum: 0
@@ -1267,6 +1291,8 @@ components:
           maximum: 2147483647
           minimum: 0
           readOnly: true
+          description: Download links issued for this release, deduplicated by account
+            and by IP for 14 days. IPv6 uses /32 subnets. Historical totals are retained.
         created_at:
           type: string
           format: date-time

@@ -1,6 +1,6 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import Q
 from rest_framework.generics import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
@@ -20,6 +20,7 @@ from .serializers import (ContentTypeSerializer, ErrorSerializer, IssuedKeySeria
                           ReleaseUploadSerializer, RevisionSerializer, ScreenshotSerializer, ScreenshotUploadSerializer)
 from .services import add_release, add_screenshot, record_revision, remove_screenshot, validate_publication
 from .file_delivery import file_response
+from .download_counts import count_download
 from .access import accessible_items, can_edit_item, can_moderate, item_query, visible_items
 
 
@@ -117,7 +118,7 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         if previous_status != Item.Status.PUBLISHED and item.status == Item.Status.PUBLISHED:
             record_activity(self.request, AccountActivity.Action.PUBLISH, item=item)
 
-    @extend_schema(request=ReleaseUploadSerializer, responses={201: ReleaseSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 503: ErrorSerializer}, description="Upload to an owned creation, or use an Admin or Moderator browser session to add a release to any creation. The file type must be enabled. Published items must have at least one screenshot before adding a release. Version strings are unique per item. Existing releases cannot be overwritten.")
+    @extend_schema(request=ReleaseUploadSerializer, responses={201: ReleaseSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 429: ErrorSerializer, 503: ErrorSerializer}, parameters=[OpenApiParameter("Retry-After", OpenApiTypes.INT, OpenApiParameter.HEADER, response=[429], description="Seconds until an upload slot becomes available.")], description="Upload to an owned creation, or use an Admin or Moderator browser session to add a release to any creation. The file type must be enabled. Published items must have at least one screenshot before adding a release. Version strings are unique per item. Existing releases cannot be overwritten. Successful creation files and new releases share a rolling limit of 16 uploads per hour per account across sessions, API keys and OAuth tokens. Admins, Moderators and Reviewers are exempt; screenshots do not use slots. A 429 response includes Retry-After in seconds.")
     @action(detail=True, methods=["post"], url_path="releases", parser_classes=[MultiPartParser, FormParser])
     def release_upload(self, request, pk=None):
         item = self.get_object()
@@ -131,7 +132,7 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
 
     @extend_schema(
         responses={(200, "application/octet-stream"): OpenApiTypes.BINARY, 302: None, 403: ErrorSerializer, 404: ErrorSerializer, 503: ErrorSerializer},
-        description="Checks item visibility, then redirects to a short-lived signed Wasabi URL (302), or streams a local development file (200). Follow redirects without forwarding CPC Hub credentials to the storage host. A GET counts a download link issued, not a completed transfer; HEAD does not increment counts. Signed URLs default to 300 seconds. SHA-256 and size are in release metadata.",
+        description="Checks item visibility, then redirects to a short-lived signed Wasabi URL (302), or streams a local development file (200). Follow redirects without forwarding CPC Hub credentials to the storage host. Successful GETs count link issuance, not completed transfers. Creation and release counters each deduplicate by account and IP: a match on either prevents another count. Account markers persist; IP markers expire 14 days after their last download. IPv4 uses the individual address; IPv6 uses the /32 subnet. HEAD does not count. Signed URLs default to 300 seconds. SHA-256 and size are in release metadata.",
         parameters=[OpenApiParameter("release_id", OpenApiTypes.UUID, OpenApiParameter.PATH),
                     OpenApiParameter("Location", str, OpenApiParameter.HEADER, response=[302], description="Expiring signed URL. Request this endpoint again for a fresh URL."),
                     OpenApiParameter("X-Content-SHA256", str, OpenApiParameter.HEADER, response=[200, 302], description="SHA-256 of the release file.")],
@@ -142,8 +143,7 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         release = get_object_or_404(item.releases, pk=release_id)
         response = file_response(release.file, method=request.method, filename=release.original_filename)
         if request.method == "GET":
-            Item.objects.filter(pk=item.pk).update(downloads=F("downloads") + 1)
-            Release.objects.filter(pk=release.pk).update(downloads=F("downloads") + 1)
+            count_download(request, release)
         response["X-Content-SHA256"] = release.sha256
         return response
 

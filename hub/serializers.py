@@ -17,7 +17,7 @@ class ContentTypeSerializer(serializers.ModelSerializer):
 
 class ReleaseSerializer(serializers.ModelSerializer):
     # Keep the PostgreSQL counter limit in the schema when developing with SQLite.
-    downloads = serializers.IntegerField(min_value=0, max_value=2147483647, read_only=True)
+    downloads = serializers.IntegerField(min_value=0, max_value=2147483647, read_only=True, help_text="Download links issued for this release, deduplicated by account and by IP for 14 days. IPv6 uses /32 subnets. Historical totals are retained.")
     download_url = serializers.SerializerMethodField(help_text="Stable application URL. Checks permissions and redirects to an expiring signed download URL when using Wasabi.")
 
     def get_download_url(self, obj) -> str:
@@ -58,6 +58,7 @@ class RevisionSerializer(serializers.ModelSerializer):
 
 
 class ItemSerializer(serializers.ModelSerializer):
+    downloads = serializers.IntegerField(min_value=0, max_value=2147483647, read_only=True, help_text="Download links issued across all releases, deduplicated by account and by IP for 14 days. IPv6 uses /32 subnets. Downloading another release does not recount the creation. Historical totals are retained.")
     author = serializers.CharField(source="author.username", read_only=True)
     collection_count = serializers.IntegerField(min_value=0, read_only=True, help_text="Number of people who currently have this creation saved in their collection.")
     content_type = serializers.SlugRelatedField(slug_field="slug", queryset=ContentType.objects.filter(uploads_enabled=True), help_text="An enabled type from /api/v1/types/: blueprints, blueprint-packs or scenarios. Mod uploads are currently disabled.")

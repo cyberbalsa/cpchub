@@ -135,6 +135,42 @@ class Release(models.Model):
         constraints = [models.UniqueConstraint(fields=["item", "version"], name="unique_item_release_version")]
 
 
+class DownloadUser(models.Model):
+    """A permanent account marker for a creation or one of its releases."""
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="download_users")
+    release = models.ForeignKey(Release, null=True, on_delete=models.CASCADE, related_name="download_users")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="download_markers")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["item", "user"], condition=models.Q(release__isnull=True), name="unique_item_download_user"),
+            models.UniqueConstraint(fields=["release", "user"], condition=models.Q(release__isnull=False), name="unique_release_download_user"),
+        ]
+
+
+class DownloadIP(models.Model):
+    """Short-lived IPv4 address or IPv6 /32 markers, kept separate from accounts."""
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="download_ips")
+    release = models.ForeignKey(Release, null=True, on_delete=models.CASCADE, related_name="download_ips")
+    network = models.CharField(max_length=43)
+    expires_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["item", "network"], condition=models.Q(release__isnull=True), name="unique_item_download_ip"),
+            models.UniqueConstraint(fields=["release", "network"], condition=models.Q(release__isnull=False), name="unique_release_download_ip"),
+        ]
+
+
+class UploadEvent(models.Model):
+    """Successful file uploads; deleting a creation does not reset its quota."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="upload_events")
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "created_at"])]
+
+
 class Screenshot(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="screenshots")

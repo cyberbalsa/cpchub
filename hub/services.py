@@ -10,6 +10,7 @@ from django.utils import timezone
 from .models import AccountActivity, Item, Release, Revision, Screenshot
 from .activity import record_activity
 from .reviews import queue_for_review
+from .upload_limits import upload_slot
 from .validators import clean_screenshot, validate_package, validate_version
 
 
@@ -25,12 +26,12 @@ def create_with_release(item, *, release_data, screenshots, request=None):
     intended_status = item.status
     stored_files = []
     try:
-        with transaction.atomic():
+        with upload_slot(request.user if request else item.author):
             item.status = Item.Status.DRAFT
             item.save()
             for image in screenshots:
                 stored_files.append(Screenshot.objects.create(item=item, image=image).image)
-            stored_files.append(add_release(item, **release_data).file)
+            stored_files.append(_save_release(item, **release_data).file)
             item.status = intended_status
             if item.status == Item.Status.PUBLISHED:
                 validate_publication(item)
@@ -74,8 +75,13 @@ def record_revision(item, editor):
     return Revision.objects.create(item=item, editor=editor, snapshot=snapshot)
 
 
-@transaction.atomic
 def add_release(item, *, file, version, game_version="", changelog="", request=None):
+    with upload_slot(request.user if request else item.author):
+        return _save_release(item, file=file, version=version, game_version=game_version, changelog=changelog, request=request)
+
+
+@transaction.atomic
+def _save_release(item, *, file, version, game_version="", changelog="", request=None):
     item = Item.objects.select_for_update(of=("self",)).select_related("content_type").get(pk=item.pk)
     validate_upload_type(item.content_type)
     if item.status == Item.Status.PUBLISHED:

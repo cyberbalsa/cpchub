@@ -2,7 +2,7 @@
 
 A community catalog for **Car Park Capital**, built for **cpchub.net** with Python 3.14, Django 5.2 LTS, HTMX, Bootstrap 5's responsive grid, 98.css, PostgreSQL, and Docker. All browser assets are served locally.
 
-The interface takes its cues from RCT and Car Park Capital: beveled tool buttons, orange and teal window frames, pixel icons, a town viewport, and parchment-colored file panels. The homepage hero uses a screenshot supplied by the site owner. Other illustrations and interface icons are original SVGs; files from the game installation are not included. Sign-in buttons use [Steam and Discord's official brand assets](static/vendor/brands/README.md).
+The interface takes its cues from RCT and Car Park Capital: beveled tool buttons, orange and teal window frames, pixel icons, and parchment-colored file panels. Illustrations and interface icons are original SVGs; files from the game installation are not included. Sign-in buttons use [Steam and Discord's official brand assets](static/vendor/brands/README.md).
 
 ## Included
 
@@ -10,8 +10,9 @@ The interface takes its cues from RCT and Car Park Capital: beveled tool buttons
 - Steam and Discord sign-in through django-allauth. Profiles let users link additional accounts and unlink all but their last login. Password login, password resets, and local registration are disabled. Email is not required.
 - Author edits with metadata snapshots; versioned files with changelogs, game-version labels, sizes, SHA-256 checksums, and historical downloads. Admins and Moderators can edit other creators’ metadata and add releases or screenshots. Uploaded file bytes are immutable; staff can correct release labels and notes.
 - Website downloads show a fan-content warning. “Don’t show this again” saves a signed one-year browser cookie and a profile preference when signed in. Users can restore the warning from their profile. A confirmation page works without JavaScript; API downloads keep their file/redirect response for mod managers.
-- Two to eight screenshots per published item; PNG/JPEG/WebP inputs are resized and re-encoded to WebP, with metadata removed.
+- One to eight screenshots per published item; PNG/JPEG/WebP inputs are resized and re-encoded to WebP, with metadata removed.
 - Configurable categories and file extensions. Enabled uploads: blueprints, blueprint packs, and scenarios. Other mod uploads are disabled. Accepts native `.cpbp`/`.cpcs`, ZIPs, and JSON as appropriate. ZIPs are stored without extracting their contents. New types/extensions can be added in Django admin; new types start with uploads disabled.
+- Uploads limited to 16 creation files or new releases per rolling hour per account, shared across browser sessions, API keys, and OAuth tokens. Admins, Moderators, and Reviewers are exempt. Screenshots do not use slots; failed uploads do not consume the allowance.
 - Drafts visible to the author and staff; file delivery checks the same permissions as the catalog.
 - Three staff roles, required hide reasons, front-page highlights, shadow bans, user management, and a private moderation log. Authors can unpublish or self-delete creations, with 14 days to restore them.
 - Private Wasabi storage for uploaded releases and screenshots, with five-minute signed download URLs. CSS, JavaScript, fonts, and site artwork stay local.
@@ -84,7 +85,7 @@ podman-compose -f compose.yaml up --force-recreate --no-deps -d web
 
 The migration verifies SHA-256 checksums, preserves object names and releases, refuses to overwrite conflicting remote content, and keeps the local originals. It can be rerun. If it fails, leave `MEDIA_STORAGE=local` and restart the web service. New installations with no uploads can enable Wasabi directly.
 
-API and HTML links keep their application URLs. Each request checks item visibility and token permissions, then returns a non-cacheable 302 redirect to a signed Wasabi URL. Screenshots load inline; releases download with their original filename. HEAD requests get a HEAD signature and do not increment download counts. GET counts a download link issued, not proof of a completed transfer.
+API and HTML links keep their application URLs. Each request checks item visibility and token permissions, then returns a non-cacheable 302 redirect to a signed Wasabi URL. Screenshots load inline; releases download with their original filename. HEAD requests get a HEAD signature and do not increment download counts. Successful GETs count download links issued, not completed transfers. Both creation and release counters deduplicate by account and IP; a match on either suppresses the count. A new release can receive its first count without increasing the creation’s count again. Account markers persist until the account or creation is purged. IPv4 uses one address; IPv6 uses the /32 subnet, so visitors sharing that subnet share its IP allowance. IP markers expire 14 days after their last download and are removed by the cleanup service. Existing totals stay in place; deduplication starts when this feature is deployed. Repeated downloads still receive fresh signed URLs.
 
 Clients should keep the application URL, follow redirects, and avoid forwarding CPC Hub Authorization headers to Wasabi. A signed URL grants access to its holder until expiry, so hiding an item or revoking a key stops new links but does not cancel a link already issued. Request the application URL again when a signed link expires. The secret access key stays on the server.
 

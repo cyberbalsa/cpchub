@@ -19,6 +19,7 @@ from .access import accessible_items, can_edit_item, can_moderate, can_remove_sc
 from .forms import ItemForm, KeyForm, ReleaseForm, ScreenshotBatchForm, ScreenshotForm
 from .models import APIKey, AccountActivity, Bookmark, ContentType, Item
 from .activity import record_activity
+from .upload_limits import UploadLimitExceeded
 from .services import add_release, add_screenshot, create_with_release, record_revision, remove_screenshot, validate_publication
 
 
@@ -87,6 +88,7 @@ def detail(request, pk):
 
 @login_required
 def create_item(request):
+    retry_after = None
     form = ItemForm(request.POST or None)
     release_form = ReleaseForm(request.POST or None, request.FILES or None)
     screenshot_form = ScreenshotBatchForm(request.POST or None, request.FILES or None)
@@ -97,15 +99,22 @@ def create_item(request):
             create_with_release(item, release_data=release_form.cleaned_data, screenshots=screenshot_form.cleaned_data["screenshots"], request=request)
             messages.success(request, "Creation saved with your file and screenshots.")
             return redirect("item-edit", pk=item.pk)
+        except UploadLimitExceeded as exc:
+            release_form.add_error(None, str(exc))
+            retry_after = exc.retry_after
         except ValidationError as exc:
             release_form.add_error(None, exc)
         except (BotoCoreError, ClientError):
             release_form.add_error(None, "File storage is temporarily unavailable. Try again shortly.")
-    return render(request, "hub/editor.html", {"form": form, "release_form": release_form, "screenshot_form": screenshot_form, "creating": True})
+    response = render(request, "hub/editor.html", {"form": form, "release_form": release_form, "screenshot_form": screenshot_form, "creating": True}, status=429 if retry_after else 200)
+    if retry_after:
+        response["Retry-After"] = str(retry_after)
+    return response
 
 
 @login_required
 def edit_item(request, pk):
+    retry_after = None
     item = get_object_or_404(accessible_items(request.user), pk=pk)
     if not can_edit_item(request.user, item):
         raise Http404
@@ -139,6 +148,9 @@ def edit_item(request, pk):
                     add_release(item, **release_form.cleaned_data, request=request)
                     messages.success(request, "New release published. Previous versions are still available.")
                     return redirect("item-edit", pk=pk)
+                except UploadLimitExceeded as exc:
+                    release_form.add_error(None, str(exc))
+                    retry_after = exc.retry_after
                 except ValidationError as exc:
                     release_form.add_error(None, exc)
                 except (BotoCoreError, ClientError):
@@ -163,8 +175,11 @@ def edit_item(request, pk):
             except ValidationError as exc:
                 messages.error(request, " ".join(exc.messages))
             return redirect("item-edit", pk=pk)
-    return render(request, "hub/editor.html", {"item": item, "form": form, "release_form": release_form, "screenshot_form": screenshot_form,
-                                             "can_remove_screenshots": can_remove_screenshot(request.user, item)})
+    response = render(request, "hub/editor.html", {"item": item, "form": form, "release_form": release_form, "screenshot_form": screenshot_form,
+                                             "can_remove_screenshots": can_remove_screenshot(request.user, item)}, status=429 if retry_after else 200)
+    if retry_after:
+        response["Retry-After"] = str(retry_after)
+    return response
 
 
 @login_required

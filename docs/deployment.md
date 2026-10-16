@@ -17,7 +17,7 @@ Cloudflared remains a host service. It sends requests to Nginx at `127.0.0.1:808
 | `cpchub-app.service` | Migrations followed by Gunicorn |
 | `cpchub-edge.service` | Nginx on localhost:8080 |
 | `cpchub-backup.timer` | Daily database backup, retaining 14 days |
-| `cpchub-cleanup.timer` | Every five minutes: purge expired self-deletions and retry file removal |
+| `cpchub-cleanup.timer` | Every five minutes: remove expired download IPs, upload quota events and self-deletions; retry file removal |
 
 The [Quadlet files](../deploy/quadlet) install in `/home/cpchub/.config/containers/systemd/`. The backup service and timer install in `/home/cpchub/.config/systemd/user/`. [Podman's Quadlet documentation](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html) describes service generation and health checks.
 
@@ -38,6 +38,14 @@ The request path is Cloudflare → host cloudflared → loopback-only Nginx → 
 Successful Steam/Discord sign-ins, new creations, publication, new releases, and screenshot uploads create database records. They contain the account, timestamp, IP and its source, user-agent, language header, authentication method, social provider ID for sign-ins, request path without query strings, and Cloudflare Ray ID when available. Cookies, authorization headers, passwords, OAuth codes, tokens, and uploaded file contents are not copied into the records. Browser and language headers are client-supplied and are not verified identity.
 
 Admins can search records by account, IP, and action at `/moderation/activity/`, or follow “View login & upload history” from user management. Moderators, Reviewers, ordinary users, and the public API cannot access this history. Purging an account removes its activity records. Records start at deployment; past logins are not reconstructed. IP bans are not implemented yet; their future controls and enforcement changes must be Admin-only.
+
+### Download counts and upload limits
+
+Download counts use the trusted address above: an individual IPv4 address or an IPv6 /32 subnet. Creation and release counters each check both the account and network; either match prevents an additional count. Account markers persist. Network records expire 14 days after their last download, are ignored immediately at expiry, and are deleted by the five-minute cleanup job. They are not exposed through profiles or the API. Existing counts are preserved.
+
+The backup script excludes `hub_downloadip` data so backups do not prolong IP retention. Nginx and Gunicorn omit client addresses from new download access-log entries. Login and upload activity retention remains separate. Restoring a backup restores account markers and totals but starts with empty IP markers.
+
+Successful creation files and new releases share 16 slots per rolling hour per account. Screenshots and metadata edits do not consume slots. All three staff roles are exempt. PostgreSQL account locks prevent parallel uploads from exceeding the limit; validation or storage failures roll back their slots. Deleting a release or creation does not reset the allowance. Rejections return HTTP 429 and a `Retry-After` header in seconds. Expired quota events are removed by the cleanup job.
 
 ## Service commands
 
@@ -110,4 +118,4 @@ user.save(update_fields=["is_staff", "is_superuser"])
 
 They can then open `/moderation/` and `/admin/` using the same social login. Use the moderation panel’s User management page for subsequent role assignments. New users receive no staff permissions automatically.
 
-The cleanup timer runs `python manage.py cleanup_deleted_files` every five minutes. It permanently removes creations whose 14-day self-deletion period has ended, then retries pending file deletions. Check pending counts in the moderation panel and service logs with `cpc journalctl --user -u cpchub-cleanup.service`. Hiding or shadow banning blocks new signed URLs; already issued Wasabi URLs retain their original expiry, up to five minutes on this deployment.
+The cleanup timer runs `python manage.py cleanup_deleted_files` every five minutes. It deletes expired download IP records and upload quota events, permanently removes creations whose 14-day self-deletion period has ended, then retries pending file deletions. Check pending counts in the moderation panel and service logs with `cpc journalctl --user -u cpchub-cleanup.service`. Hiding or shadow banning blocks new signed URLs; already issued Wasabi URLs retain their original expiry, up to five minutes on this deployment.
