@@ -57,6 +57,9 @@ class Item(models.Model):
     hidden_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="hidden_creations", editable=False)
     featured_at = models.DateTimeField(null=True, blank=True, db_index=True, editable=False)
     featured_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="featured_creations", editable=False)
+    content_revision = models.PositiveBigIntegerField(default=1, editable=False)
+    reviewed_revision = models.PositiveBigIntegerField(default=0, editable=False)
+    review_requested_at = models.DateTimeField(default=timezone.now, db_index=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -96,6 +99,22 @@ class Item(models.Model):
     @property
     def can_restore(self):
         return self.deleted_at is not None and timezone.now() < self.delete_after
+
+    @property
+    def needs_review(self):
+        return self.reviewed_revision < self.content_revision
+
+
+class ItemReview(models.Model):
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="reviews")
+    reviewer = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="creation_reviews")
+    content_revision = models.PositiveBigIntegerField()
+    note = models.TextField(max_length=2000, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        constraints = [models.UniqueConstraint(fields=["item", "content_revision"], name="unique_item_review_revision")]
 
 
 class Release(models.Model):

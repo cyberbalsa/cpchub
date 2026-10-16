@@ -33,6 +33,7 @@ urlpatterns = [
     path("developers/", views.developers, name="developers"),
     path("donate/", donate, name="donate"),
     path("moderation/", moderation.dashboard, name="moderation"),
+    path("moderation/reviews/", moderation.review_queue, name="moderation-review-queue"),
     path("moderation/activity/", moderation.account_activity, name="moderation-account-activity"),
     path("moderation/items/<uuid:pk>/", moderation.item_tools, name="moderation-item"),
     path("moderation/items/<uuid:pk>/delete/", moderation.remove_item, name="moderation-delete"),

@@ -8,16 +8,17 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, F, OuterRef, Q, Subquery
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from .access import ROLES, assigned_role, can_manage_content, can_moderate, is_admin, item_query
-from .models import AccountActivity, FileDeletion, Item, ModerationLog, Release, Screenshot, UserModeration
+from .models import AccountActivity, FileDeletion, Item, ItemReview, ModerationLog, Release, Screenshot, UserModeration
 from .moderation_services import delete_item, delete_user, log_action, moderate_item, revoke_credentials, shadow_ban_user, update_user
 from .services import record_revision
 from .validators import validate_version
+from .reviews import mark_seen, queue_for_review, review_queue_items
 
 
 def staff_required(*, admin_only=False):
@@ -42,6 +43,11 @@ class ModerationForm(forms.Form):
         if data.get("action") == "hide" and not data.get("reason"):
             self.add_error("reason", "Give a reason before hiding this creation.")
         return data
+
+
+class ReviewForm(forms.Form):
+    content_revision = forms.IntegerField(min_value=1, widget=forms.HiddenInput)
+    note = forms.CharField(required=False, max_length=2000, label="Staff note (optional)", widget=forms.Textarea(attrs={"rows": 3}), help_text="Only staff can read this note.")
 
 
 class ConfirmDeleteForm(forms.Form):
@@ -122,6 +128,29 @@ class ScreenshotCaptionForm(forms.ModelForm):
 
 
 @staff_required()
+def review_queue(request):
+    items = review_queue_items()
+    pending_count = items.filter(reviewed_revision__lt=F("content_revision")).count()
+    q = request.GET.get("q", "").strip()[:200]
+    state = "seen" if request.GET.get("state") == "seen" else "pending"
+    if q:
+        items = items.filter(Q(title__icontains=q) | Q(author__username__icontains=q))
+    if state == "seen":
+        items = items.filter(reviewed_revision=F("content_revision"))
+    else:
+        items = items.filter(reviewed_revision__lt=F("content_revision"))
+    last_review = ItemReview.objects.filter(item_id=OuterRef("pk"))
+    items = items.select_related("author", "content_type").annotate(
+        last_seen_at=Subquery(last_review.values("created_at")[:1]),
+        last_seen_by=Subquery(last_review.values("reviewer__username")[:1]),
+    ).order_by("review_requested_at", "pk")
+    return render(request, "hub/moderation/review_queue.html", {
+        "page_obj": Paginator(items, 25).get_page(request.GET.get("page")),
+        "pending_count": pending_count, "q": q, "state": state,
+    })
+
+
+@staff_required()
 def dashboard(request):
     items = item_query()
     q = request.GET.get("q", "").strip()[:200]
@@ -148,8 +177,20 @@ def dashboard(request):
 @require_http_methods(["GET", "POST"])
 def item_tools(request, pk):
     item = get_object_or_404(item_query(), pk=pk)
-    form = ModerationForm(request.POST if request.method == "POST" else None, initial={"reason": item.hidden_reason})
-    if request.method == "POST" and form.is_valid():
+    reviewing = request.method == "POST" and request.POST.get("action") == "mark-seen"
+    review_form = ReviewForm(request.POST if reviewing else None, initial={"content_revision": item.content_revision})
+    form = ModerationForm(request.POST if request.method == "POST" and not reviewing else None, initial={"reason": item.hidden_reason})
+    response_status = 200
+    if reviewing and review_form.is_valid():
+        try:
+            changed = mark_seen(request.user, item, **review_form.cleaned_data)
+        except ValidationError as exc:
+            review_form.add_error(None, exc)
+            response_status = 409
+        else:
+            messages.success(request, "Marked as seen." if changed else "Another staff member has already marked this version as seen.")
+            return redirect("moderation-review-queue")
+    elif request.method == "POST" and not reviewing and form.is_valid():
         try:
             moderate_item(request.user, item, **form.cleaned_data)
         except ValidationError as exc:
@@ -158,10 +199,12 @@ def item_tools(request, pk):
             messages.success(request, "Moderation changes saved.")
             return redirect("moderation-item", pk=pk)
     return render(request, "hub/moderation/item.html", {
-        "item": item, "form": form, "can_manage": can_manage_content(request.user),
+        "item": item, "form": form, "review_form": review_form,
+        "page_obj": Paginator(item.reviews.select_related("reviewer"), 20).get_page(request.GET.get("page")),
+        "can_manage": can_manage_content(request.user),
         "can_highlight": not (item.is_hidden or item.deleted_at or item.status != Item.Status.PUBLISHED or UserModeration.objects.filter(user=item.author, shadow_banned_at__isnull=False).exists()),
         "logs": item.moderationlog_set.select_related("actor")[:30],
-    })
+    }, status=response_status)
 
 
 @staff_required(admin_only=True)
@@ -190,12 +233,14 @@ def edit_file(request, pk, file_id, kind):
     form = form_class(instance=instance)
     if request.method == "POST":
         with transaction.atomic():
-            Item.objects.select_for_update().get(pk=pk)
+            item = Item.objects.select_for_update().get(pk=pk)
             instance = model.objects.select_for_update().get(pk=file_id, item=item)
             before = {field: getattr(instance, field) for field in form_class._meta.fields}
             form = form_class(request.POST, instance=instance)
             if form.is_valid():
                 form.save()
+                if form.has_changed():
+                    queue_for_review(item)
                 log_action(request.user, f"edit {kind}", item=item, reason=json.dumps({"before": before, "after": form.cleaned_data}))
                 messages.success(request, "File details saved.")
                 return redirect("moderation-item", pk=pk)
@@ -216,6 +261,7 @@ def remove_file(request, pk, file_id, kind):
             instance = get_object_or_404(model, pk=file_id, item=item)
             log_action(request.user, f"delete {kind}", item=item, reason=f"{name}: {form.cleaned_data['reason']}")
             instance.delete()
+            queue_for_review(item)
             from django.conf import settings
             if not item.releases.exists() or item.screenshots.count() < settings.MIN_SCREENSHOTS:
                 item.status = Item.Status.DRAFT

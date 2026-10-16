@@ -5,6 +5,7 @@
   {% include 'hub/moderation/nav.html' %}
   <div class="detail-heading"><div><h1>{{ item.title }}</h1><p>by {{ item.author.username }} · {{ item.content_type.name }}</p></div><div class="detail-actions"><a class="win-button" href="{{ item.get_absolute_url }}">View creation</a>{% if can_manage %}<a class="win-button" href="{% url 'item-edit' item.pk %}">Edit &amp; add files</a>{% endif %}</div></div>
   {% include 'hub/deleted_notice.html' %}
+  {% include 'hub/moderation/review.html' %}
   {% if item.deleted_at and item.can_restore and can_manage %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="restore-deleted"><button>Restore self-deleted creation</button></form>{% endif %}
   {% if form.errors %}<div class="notice" role="alert">{{ form.non_field_errors }}{{ form.action.errors }}{{ form.reason.errors }}</div>{% endif %}
   <div class="row g-4">

@@ -5,12 +5,12 @@ from django.contrib.auth.models import Group
 from django.contrib.sessions.models import Session
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 from oauth2_provider.models import AccessToken, RefreshToken, Grant
 
 from .access import ROLES, assigned_role, can_edit_item, can_manage_content, can_moderate, is_admin
-from .models import APIKey, Item, ModerationLog, Revision, UserModeration
+from .models import APIKey, Item, ItemReview, ModerationLog, Revision, UserModeration
 
 
 def log_action(actor, action, *, item=None, user=None, reason=""):
@@ -124,6 +124,10 @@ def delete_user(actor, user, *, reason):
     reason = staff_reason(reason)
     ModerationLog.objects.filter(Q(actor=user) | Q(target_user=user)).delete()
     Revision.objects.filter(editor=user).delete()
+    Item.objects.filter(reviews__reviewer=user, reviews__content_revision=F("reviewed_revision")).update(
+        reviewed_revision=0, review_requested_at=timezone.now(),
+    )
+    ItemReview.objects.filter(reviewer=user).delete()
     for session in Session.objects.iterator():
         if str(session.get_decoded().get("_auth_user_id")) == str(user.pk):
             session.delete()

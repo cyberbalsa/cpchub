@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from .models import AccountActivity, Item, Release, Revision, Screenshot
 from .activity import record_activity
+from .reviews import queue_for_review
 from .validators import clean_screenshot, validate_package, validate_version
 
 
@@ -64,9 +65,13 @@ def validate_publication(item):
 
 
 def record_revision(item, editor):
-    return Revision.objects.create(item=item, editor=editor, snapshot={
+    snapshot = {
         field: getattr(item, field) for field in ["title", "summary", "description", "tags", "status", "content_type_id"]
-    })
+    }
+    previous = item.revisions.first()
+    if previous is None or previous.snapshot != snapshot:
+        queue_for_review(item)
+    return Revision.objects.create(item=item, editor=editor, snapshot=snapshot)
 
 
 @transaction.atomic
@@ -87,6 +92,7 @@ def add_release(item, *, file, version, game_version="", changelog="", request=N
                                      changelog=changelog, original_filename=Path(file.name).name,
                                      sha256=digest.hexdigest(), size=file.size)
     Item.objects.filter(pk=item.pk).update(updated_at=timezone.now())
+    queue_for_review(item)
     record_activity(request, AccountActivity.Action.RELEASE, item=item)
     return release
 
@@ -97,6 +103,7 @@ def add_screenshot(item, *, image, caption="", request=None):
     if item.screenshots.count() >= settings.MAX_SCREENSHOTS:
         raise ValidationError(f"An item can have up to {settings.MAX_SCREENSHOTS} screenshots. Remove one before adding another.")
     screenshot = Screenshot.objects.create(item=item, image=clean_screenshot(image), caption=caption)
+    queue_for_review(item)
     record_activity(request, AccountActivity.Action.SCREENSHOT, item=item)
     return screenshot
 
@@ -107,3 +114,4 @@ def remove_screenshot(screenshot):
     if item.status == Item.Status.PUBLISHED and item.screenshots.count() <= settings.MIN_SCREENSHOTS:
         raise ValidationError(f"Published creations need at least {settings.MIN_SCREENSHOTS} screenshots. Add a replacement first, or save the creation as a draft.")
     screenshot.delete()
+    queue_for_review(item)

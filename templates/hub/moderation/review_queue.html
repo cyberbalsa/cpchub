@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Review queue · CPC Hub{% endblock %}
+{% block content %}
+<div class="page-content">
+  <div class="section-heading"><h1>Review queue</h1><span>{{ pending_count }} awaiting review</span></div>
+  {% include 'hub/moderation/nav.html' %}
+  <p>Published creations awaiting a staff review, including hidden uploads. Changes to details, releases, or screenshots put them back in the queue.</p>
+  <form method="get" class="moderation-filter">
+    <label for="review-search">Title or author</label><input id="review-search" name="q" value="{{ q }}" type="search">
+    <label for="review-state">Show</label><select id="review-state" name="state"><option value="pending">Awaiting review</option><option value="seen" {% if state == 'seen' %}selected{% endif %}>Seen</option></select><button>Find</button>
+  </form>
+  <div class="moderation-table-wrap"><table class="moderation-table">
+    <thead><tr><th>Creation</th><th>Author</th><th>Review status</th><th>Last seen</th><th>Tools</th></tr></thead>
+    <tbody>{% for item in page_obj %}<tr>
+      <td><a href="{{ item.get_absolute_url }}">{{ item.title }}</a><small>{{ item.content_type.name }}{% if item.is_hidden %} · Hidden{% endif %}</small></td>
+      <td>{{ item.author.username }}</td>
+      <td>{% if item.needs_review %}{% if item.last_seen_at %}Edited since review{% else %}Not yet seen{% endif %}{% else %}Seen{% endif %}<small>Changed {{ item.review_requested_at|date:'M j, Y H:i' }}</small></td>
+      <td>{% if item.last_seen_at %}{{ item.last_seen_by|default:'Deleted account' }}<small>{{ item.last_seen_at|date:'M j, Y H:i' }}</small>{% else %}—{% endif %}</td>
+      <td><a class="win-button" href="{% url 'moderation-item' item.pk %}">Review</a></td>
+    </tr>{% empty %}<tr><td colspan="5">{% if q %}No matching creations.{% elif state == 'seen' %}No creations marked as seen yet.{% else %}Nothing awaiting review.{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% include 'hub/moderation/pagination.html' %}
+</div>
+{% endblock %}

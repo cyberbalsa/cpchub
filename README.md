@@ -161,6 +161,10 @@ Open `/moderation/` from the toolbar after signing in with a staff account. `/mo
 
 An item hide requires a reason visible to visitors on its direct link and to its author in their profile and editor. It removes the item from browsing and highlights and blocks new public download and screenshot links. Authors can edit a hidden creation, but cannot lift the restriction. Moderation actions are recorded with the staff member and time.
 
+All three staff roles can use `/moderation/reviews/` to review published creations, including hidden uploads. Open a creation, check its details and files, then choose **Mark as seen**. An optional note stays private to staff. The review history records who saw each version and when; marking something as seen leaves its visibility unchanged.
+
+Metadata edits, release uploads, screenshot additions or removals, and staff edits or deletions of files return a creation to the queue. Earlier reviews remain in its history. Drafts and self-deleted creations stay out of the queue until published or restored. If the creation changes while a review page is open, staff must reload and check the changes before marking it as seen. Existing uploads start awaiting review when migration 0010 runs.
+
 Shadow bans require a staff-only reason. Existing and future creations are accessible only to the creator and staff, including direct links, downloads, screenshots, and API responses. Public catalog counts and highlights exclude them. Moderators cannot shadow ban staff accounts. Removing a shadow ban also requires a private reason.
 
 Authors can unpublish a creation as a draft or delete it from the editor. Self-deleted creations remain visible only to the creator and staff for 14 days; the creator can restore them from My uploads. Restoring does not lift moderator hides or shadow bans. Repeating deletion does not extend the deadline. The cleanup service permanently deletes expired creations and their files every five minutes.
