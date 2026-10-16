@@ -1,0 +1,55 @@
+/* Uses CPC Hub's existing parchment, pixel type, and beveled window materials. */
+.support-page { padding-bottom: 34px; }
+.support-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, .8fr); gap: 36px; align-items: start; }
+.support-intro { padding-top: 10px; }
+.support-intro h1 { font-size: clamp(32px, 4vw, 52px); line-height: 1.08; margin: 15px 0 20px; color: #344f3f; text-shadow: 2px 2px #fff0c4; }
+.support-lead { font-size: 15px; line-height: 1.8; max-width: 510px; color: #4e5740; }
+.support-town { position: relative; margin-top: 25px; padding: 4px; background: #6f8067; border: 1px solid #4a5a41; box-shadow: inset 1px 1px #b5b993, inset -1px -1px #4e6048; }
+.support-town .viewport-title { font-size: 9px; padding: 2px 5px 6px; }
+.support-town .viewport-title > span:last-child { display: none; }
+.support-town img { display: block; width: 100%; height: 185px; object-fit: cover; object-position: 65% 48%; border: 1px solid #344a33; image-rendering: pixelated; }
+.support-town-label { position: absolute; right: 12px; bottom: 12px; background: #304a32; border: 1px solid #9cad7e; padding: 5px 7px; color: #f0ebc7; font: 9px var(--pixel); letter-spacing: 1px; }
+.support-note { display: flex; gap: 10px; margin-top: 18px; color: #515a41; }
+.support-note .online-dot { flex-shrink: 0; margin-top: 5px; }
+.support-note p { font-size: 12px; line-height: 1.7; margin: 0; }
+.support-checkout { margin: 0; min-width: 0; }
+.support-checkout .window-body { padding: 26px 23px 0; margin: 0; }
+.support-checkout .eyebrow { font-size: 9px; color: #585f42; }
+.support-cost { display: flex; align-items: center; gap: 6px; margin: 12px 0 7px; color: #345b44; }
+.support-cost strong { font: bold 70px/.95 var(--pixel); letter-spacing: -4px; text-shadow: 2px 2px #ffefbf; }
+.support-dollar { font: 30px var(--pixel); align-self: flex-start; padding-top: 7px; }
+.support-period { margin-left: 13px; padding-left: 14px; border-left: 1px solid #9d936a; color: #4e5f43; font: 11px/1.8 var(--pixel); }
+.support-cost-caption { font-size: 11px; line-height: 1.7; color: #625a40; margin: 14px 0 20px; }
+.support-receipt { display: grid; grid-template-columns: auto 1fr; gap: 9px 14px; padding: 16px 0; margin-bottom: 24px; border-top: 1px dashed #9f895d; border-bottom: 1px dashed #9f895d; font-size: 11px; }
+.support-receipt > span { color: #625b42; }
+.support-receipt > strong { text-align: right; font-weight: normal; color: #364f39; }
+.support-checkout h2 { font-size: 18px; margin-bottom: 12px; color: #344f3f; }
+.support-checkout p { line-height: 1.7; }
+.support-button { display: flex; justify-content: center; gap: 9px; min-height: 47px; width: 100%; margin-top: 22px; text-align: center; font-size: 12px; }
+.support-button svg { flex-shrink: 0; }
+.support-checkout .support-payment-note { font-size: 10px; text-align: center; color: #625a40; line-height: 1.7; margin: 12px 3px 22px; }
+.support-pending { border: 1px solid #a18c58; background: #f1dfa9; padding: 14px; font-size: 12px; margin: 18px 0 22px; }
+.support-thanks { margin: 0 -23px; padding: 12px 15px; border-top: 1px solid #a18e62; box-shadow: inset 0 1px #efdaa6; text-align: center; font: 10px/1.6 var(--pixel); color: #4c5d40; background: #c4bb91; }
+.support-details { margin-top: 34px; padding-top: 25px; border-top: 1px solid #b7a77b; box-shadow: inset 0 1px #f7e8c0; }
+.support-details > h2 { font-size: 20px; color: #3e573f; margin-bottom: 22px; }
+.support-detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 25px; }
+.support-detail-grid article { position: relative; padding-left: 39px; }
+.support-detail-icon { position: absolute; left: 0; top: 0; }
+.support-detail-grid h3 { font: bold 12px/1.5 Tahoma, sans-serif; margin: 0 0 8px; color: #3d513a; }
+.support-detail-grid p { font-size: 11px; color: #5c6047; line-height: 1.8; margin: 0; }
+@media (max-width: 1000px) {
+  .support-layout { gap: 24px; grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr); }
+  .support-checkout .window-body { padding: 22px 18px 0; }
+  .support-thanks { margin: 0 -18px; }
+  .support-detail-grid { gap: 18px; }
+}
+@media (max-width: 700px) {
+  .support-layout { grid-template-columns: minmax(0, 1fr); }
+  .support-page .support-intro h1 { font-size: 38px; }
+  .support-lead { font-size: 14px; max-width: none; }
+  .support-town img { height: 155px; }
+  .support-checkout { max-width: 460px; width: 100%; justify-self: center; }
+  .support-detail-grid { grid-template-columns: 1fr; gap: 23px; }
+  .support-details { margin-top: 29px; }
+  .support-page .breadcrumbs { font-size: 10px; gap: 7px; }
+}

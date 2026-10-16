@@ -62,6 +62,15 @@ class HubTests(TestCase):
         self.assertEqual(self.api.post("/api/v1/items/", {"title":"Bad"}).status_code,401)
         self.assertEqual(self.api.get("/api/v1/me/").status_code,401)
 
+    @override_settings(DEBUG=False)
+    def test_production_catalog_and_detail_use_collected_artwork(self):
+        from django.contrib.staticfiles.storage import staticfiles_storage
+        expected = staticfiles_storage.url("art/lot-0.svg")
+        for url in ["/", "/?type=blueprints", self.item.get_absolute_url()]:
+            with self.subTest(url=url):
+                self.assertContains(self.client.get(url), expected)
+        self.assertContains(self.client.get("/", HTTP_HX_REQUEST="true"), expected)
+
     def test_only_author_can_edit_or_release(self):
         self.login(self.other)
         self.assertEqual(self.api.patch(self.url, {"title": "Stolen"}).status_code,403)

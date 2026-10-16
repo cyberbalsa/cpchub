@@ -69,6 +69,9 @@ img { max-width: 100%; }
 .toolbar-divider { height: 45px; border-left: 1px solid #303a37; border-right: 1px solid #889089; margin: 0 6px; }
 .tool-button.upload-shortcut { flex-direction: row; background: #4c7970; padding: 6px 18px; box-shadow: inset 1px 1px #a1bca0, inset -1px -1px #254a47, inset 2px 2px #71978a; }
 .tool-button.upload-shortcut:hover { background: #568b7c; }
+.tool-button.donate-shortcut { background: linear-gradient(#bd8950, #9b663d); border-color: #503e2d; box-shadow: inset 1px 1px #f3ca85, inset -1px -1px #64462d, inset 2px 2px #dca667; text-shadow: 1px 1px #65452c; }
+.tool-button.donate-shortcut:hover { background: linear-gradient(#d09a5b, #b27b45); color: #fff6d9; }
+.tool-button.donate-shortcut:active { box-shadow: inset 1px 1px #60422d, inset -1px -1px #e7bb78; }
 .toolbar-account { margin-left: auto; display: flex; align-items: center; gap: 10px; padding: 4px 7px 4px 20px; border-left: 1px solid #394540; min-width: 140px; }
 .toolbar-account a { color: #f7e9c2; display: block; }
 .account-name { font: bold 11px/1.6 var(--pixel); max-width: 160px; overflow-wrap: anywhere; }
@@ -103,6 +106,7 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
 .status-bar-field .online-dot { margin-right: 5px; }
 .status-bar-field:nth-child(2), .status-bar-field:nth-child(3) { flex: 0 1 auto; }
 .desktop-footer { max-width: 1380px; margin: 12px auto 0; display: flex; justify-content: space-between; gap: 12px; font-size: 10px; color: #d0dcc1; }
+.desktop-footer .support-footer-link { color: #fff0c7; text-underline-offset: 2px; }
 .explorer-layout { display: flex; background: var(--paper); border: 1px solid #746e50; margin-top: 4px; }
 .sidebar { width: 210px; flex-shrink: 0; padding: 15px 11px; background: repeating-linear-gradient(0deg, #ffffff06 0 1px, transparent 1px 3px), #b6b08b; border-right: 1px solid #746e50; box-shadow: inset -1px 0 #d8d0aa; }
 .sidebar-heading { padding: 3px 7px 12px; border-bottom: 1px solid #8c8969; box-shadow: 0 1px #dbd5b0; }
@@ -358,10 +362,10 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
   .brand-lettering small { font-size: 7px; letter-spacing: .4px; max-width: 220px; }
   .parking-icon { width: 33px; height: 39px; font-size: 27px; }
   .header-plaque { display: none; }
-  .game-toolbar { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin-bottom: 9px; }
+  .game-toolbar { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; margin-bottom: 9px; }
   .tool-button { min-width: 0; min-height: 55px; padding: 5px 2px; font-size: 9px; gap: 6px; }
   .tool-button.upload-shortcut { grid-column: span 3; flex-direction: row; min-height: 34px; }
-  .toolbar-account { grid-column: span 2; margin-left: 0; justify-content: center; padding: 0 4px; min-width: 0; }
+  .toolbar-account { grid-column: span 3; margin-left: 0; justify-content: center; padding: 0 4px; min-width: 0; }
   .toolbar-account>div { display: flex; align-items: center; gap: 10px; }
   .account-name { font-size: 10px; max-width: 90px; }
   .account-secondary { font-size: 9px; margin-top: 0; }

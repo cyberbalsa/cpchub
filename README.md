@@ -103,6 +103,10 @@ SQLite is a local fallback only. Production refuses to start without a PostgreSQ
 
 ## Deploy cpchub.net
 
+The current host uses Cloudflare Tunnel and rootless Podman under the dedicated `cpchub` account. See [the remote deployment guide](docs/deployment.md) for service commands, updates, and database backups. Cloudflared connects to `127.0.0.1:8080`; the app and database have no public ports.
+
+For a host using direct HTTPS with Caddy instead:
+
 1. Point `cpchub.net` and `www.cpchub.net` DNS at your server, allow inbound 80/443, and install Docker + Compose.
 2. Set production values in `.env`: `DEBUG=0`, `PUBLIC_URL=https://cpchub.net`, `ALLOWED_HOSTS=cpchub.net,www.cpchub.net,127.0.0.1`, `CSRF_TRUSTED_ORIGINS=https://cpchub.net`, strong secrets, SMTP for password resets, and social-provider credentials.
 3. Run `docker compose -f compose.yaml -f compose.production.yaml up --build -d`.

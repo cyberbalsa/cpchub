@@ -6,6 +6,7 @@ from rest_framework.routers import DefaultRouter
 
 from hub import api, views
 from hub.oauth import PKCEAuthorizationView
+from hub.support import donate
 
 router = DefaultRouter()
 router.register("items", api.ItemViewSet, basename="api-item")
@@ -22,6 +23,7 @@ urlpatterns = [
     path("account/keys/<uuid:pk>/revoke/", views.revoke_key, name="key-revoke"),
     path("account/managers/<int:pk>/revoke/", views.revoke_manager, name="manager-revoke"),
     path("developers/", views.developers, name="developers"),
+    path("donate/", donate, name="donate"),
     path("accounts/", include("allauth.urls")),
     # Expose authorization/token/revocation only. Client registration is staff-managed.
     path("o/authorize/", PKCEAuthorizationView.as_view(), name="authorize"),

@@ -63,6 +63,10 @@ class Item(models.Model):
         return reverse("item-detail", args=[self.pk])
 
     @property
+    def artwork_path(self):
+        return f"art/lot-{self.artwork}.svg"
+
+    @property
     def tag_list(self):
         return [tag.strip() for tag in self.tags.split(",") if tag.strip()][:10]
 

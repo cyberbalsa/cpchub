@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Support CPC Hub — help cover server costs{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/support.css' %}">{% endblock %}
+{% block content %}
+<div class="page-content support-page">
+  <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="{% url 'catalog' %}">Community exchange</a><span aria-hidden="true">/</span><span>Support CPC Hub</span></nav>
+  <div class="support-layout">
+    <section class="support-intro" aria-labelledby="support-title">
+      <span class="eyebrow">CPC HUB · COMMUNITY SUPPORTED</span>
+      <h1 id="support-title">Help cover the<br>running costs.</h1>
+      <p class="support-lead">Tips help cover hosting and storage for CPC Hub’s blueprints, scenarios and mods.</p>
+      <div class="support-town">
+        <div class="viewport-title"><span>{% include 'hub/icon.html' with icon='catalog' %} Car Park Capital community</span><span>COMMUNITY EXCHANGE</span></div>
+        <img src="{% static 'art/map.svg' %}" alt="" width="1200" height="440">
+        <span class="support-town-label">CPC HUB</span>
+      </div>
+      <div class="support-note"><span class="online-dot" aria-hidden="true"></span><p>Tips are optional. Browsing and sharing files are free.</p></div>
+    </section>
+    <aside class="window support-checkout" aria-labelledby="support-checkout-title">
+      <div class="title-bar"><div class="title-bar-text">{% include 'hub/icon.html' with icon='parking' %} Hosting and storage</div></div>
+      <div class="window-body">
+        <span class="eyebrow">MONTHLY RUNNING COST</span>
+        <div class="support-cost"><span class="support-dollar">$</span><strong>45</strong><span class="support-period">USD<br>per month</span></div>
+        <p class="support-cost-caption">Running CPC Hub costs about $45 USD a month.</p>
+        <div class="support-receipt"><span>Purpose</span><strong>Hosting and storage</strong><span>Contribution</span><strong>Optional tip</strong></div>
+        <h2 id="support-checkout-title">Leave a tip on Ko-fi</h2>
+        <p>Choose an amount on Ko-fi.</p>
+        {% if kofi_page_url %}
+        <a class="win-button primary-button support-button" href="{{ kofi_page_url }}" rel="noopener noreferrer"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M3 5h13v10l-3 3H6l-3-3V5Zm13 2h4v6h-4M2 21h17"/></svg>Leave a tip <span aria-hidden="true">↗</span></a>
+        <p class="support-payment-note">Ko-fi handles the payment.</p>
+        {% else %}
+        <p class="support-pending">Donations are being set up. Please check back soon.</p>
+        {% endif %}
+        <div class="support-thanks">Thanks for helping keep the Hub online.</div>
+      </div>
+    </aside>
+  </div>
+  <section class="support-details" aria-labelledby="support-details-title">
+    <h2 id="support-details-title">Supporting CPC Hub</h2>
+    <div class="support-detail-grid">
+      <article><span class="support-detail-icon">{% include 'hub/icon.html' with icon='catalog' %}</span><h3>Keep the catalog online</h3><p>Tips go toward hosting the catalog and storing its uploads.</p></article>
+      <article><span class="support-detail-icon">{% include 'hub/icon.html' with icon='saved' %}</span><h3>Give what works for you</h3><p>Choose your amount on Ko-fi. Tipping is optional.</p></article>
+      <article><span class="support-detail-icon">{% include 'hub/icon.html' with icon='upload' %}</span><h3>More ways to help</h3><p>Upload a blueprint, share a scenario, or help another player find a file.</p></article>
+    </div>
+  </section>
+</div>
+{% endblock %}
