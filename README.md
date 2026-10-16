@@ -113,7 +113,7 @@ For a host using direct HTTPS with Caddy instead:
 4. Sign in with Steam or Discord, then grant that account staff and superuser permissions from the Django shell. Administrator sign-in also uses the social providers.
 5. Confirm `/health/`, social sign-in, profile linking, provider callbacks, and an upload/download. Caddy obtains certificates and redirects `www` to the apex domain. Only Caddy is externally exposed; the database has no published port.
 
-Set `TRUST_PROXY=1` only behind a proxy that replaces forwarded protocol headers (the included production config does this). Apply database migrations once per deployment before serving the new application version; back up the database and upload storage before upgrades. Run `python manage.py cleartokens` regularly to prune expired OAuth records.
+Set `TRUST_PROXY=1` only behind a proxy that replaces forwarded protocol and IP headers, and set `TRUSTED_PROXY_CIDRS` to its private subnet plus loopback for container health checks. See [visitor IP and activity setup](docs/deployment.md#visitor-ips-and-account-activity). Apply database migrations once per deployment before serving the new application version; back up the database and upload storage before upgrades. Run `python manage.py cleartokens` regularly to prune expired OAuth records.
 
 The app’s built-in rate limits use a process-local cache. Configure edge rate limits for login, OAuth and uploads before public launch. Native game files remain opaque; ZIP validation checks archive metadata, paths, and declared sizes. Game compatibility and malware scanning require separate checks. Back up the database and upload storage. Keep the Wasabi bucket private and do not serve local media directly from Caddy.
 

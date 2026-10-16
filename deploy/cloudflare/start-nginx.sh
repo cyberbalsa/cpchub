@@ -5,5 +5,7 @@ test -n "$container_dns"
 case "$container_dns" in
     *:*) container_dns="[$container_dns]" ;;
 esac
-sed "s/@CONTAINER_DNS@/$container_dns/g" /etc/nginx/nginx.conf > /tmp/nginx.conf
+edge_ip=$(hostname -i | awk '{print $1}')
+test -n "$edge_ip"
+sed -e "s/@CONTAINER_DNS@/$container_dns/g" -e "s/@EDGE_IP@/$edge_ip/g" /etc/nginx/nginx.conf > /tmp/nginx.conf
 exec /usr/sbin/nginx -c /tmp/nginx.conf -g 'daemon off;'

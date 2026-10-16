@@ -181,6 +181,34 @@ class UserModeration(models.Model):
     shadow_banned_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="shadow_bans")
 
 
+class AccountActivity(models.Model):
+    class Action(models.TextChoices):
+        LOGIN = "login", "Signed in"
+        CREATE = "create", "Created a creation"
+        PUBLISH = "publish", "Published a creation"
+        RELEASE = "release", "Uploaded a release"
+        SCREENSHOT = "screenshot", "Uploaded a screenshot"
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="account_activity")
+    item = models.ForeignKey(Item, null=True, blank=True, on_delete=models.SET_NULL)
+    item_title = models.CharField(max_length=100, blank=True)
+    action = models.CharField(max_length=20, choices=Action.choices)
+    ip_address = models.GenericIPAddressField(null=True, blank=True, unpack_ipv4=True, db_index=True)
+    ip_source = models.CharField(max_length=12, choices=[("proxy", "Trusted proxy"), ("direct", "Direct connection"), ("unknown", "Unavailable")])
+    user_agent = models.CharField(max_length=1024, blank=True)
+    accept_language = models.CharField(max_length=256, blank=True)
+    auth_method = models.CharField(max_length=32)
+    provider_uid = models.CharField(max_length=255, blank=True)
+    request_path = models.CharField(max_length=255)
+    cf_ray = models.CharField(max_length=80, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        indexes = [models.Index(fields=["user", "-created_at"])]
+        verbose_name_plural = "Account activity"
+
+
 class APIKeyQuerySet(models.QuerySet):
     def active(self):
         return self.filter(models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now()), revoked_at__isnull=True)

@@ -7,14 +7,15 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from .models import Item, Release, Revision, Screenshot
+from .models import AccountActivity, Item, Release, Revision, Screenshot
+from .activity import record_activity
 from .validators import clean_screenshot, validate_package, validate_version
 
 
 logger = logging.getLogger(__name__)
 
 
-def create_with_release(item, *, release_data, screenshots):
+def create_with_release(item, *, release_data, screenshots, request=None):
     """Save a web upload only after all its files have passed validation."""
     validate_upload_type(item.content_type)
     validate_package(release_data["file"], item.content_type)
@@ -34,6 +35,7 @@ def create_with_release(item, *, release_data, screenshots):
                 validate_publication(item)
             item.save(update_fields=["status"])
             record_revision(item, item.author)
+            record_activity(request, AccountActivity.Action.CREATE, item=item)
     except Exception:
         for field in stored_files:
             try:
@@ -68,7 +70,7 @@ def record_revision(item, editor):
 
 
 @transaction.atomic
-def add_release(item, *, file, version, game_version="", changelog=""):
+def add_release(item, *, file, version, game_version="", changelog="", request=None):
     item = Item.objects.select_for_update(of=("self",)).select_related("content_type").get(pk=item.pk)
     validate_upload_type(item.content_type)
     if item.status == Item.Status.PUBLISHED:
@@ -85,15 +87,18 @@ def add_release(item, *, file, version, game_version="", changelog=""):
                                      changelog=changelog, original_filename=Path(file.name).name,
                                      sha256=digest.hexdigest(), size=file.size)
     Item.objects.filter(pk=item.pk).update(updated_at=timezone.now())
+    record_activity(request, AccountActivity.Action.RELEASE, item=item)
     return release
 
 
 @transaction.atomic
-def add_screenshot(item, *, image, caption=""):
+def add_screenshot(item, *, image, caption="", request=None):
     item = Item.objects.select_for_update().get(pk=item.pk)
     if item.screenshots.count() >= settings.MAX_SCREENSHOTS:
         raise ValidationError(f"An item can have up to {settings.MAX_SCREENSHOTS} screenshots. Remove one before adding another.")
-    return Screenshot.objects.create(item=item, image=clean_screenshot(image), caption=caption)
+    screenshot = Screenshot.objects.create(item=item, image=clean_screenshot(image), caption=caption)
+    record_activity(request, AccountActivity.Action.SCREENSHOT, item=item)
+    return screenshot
 
 
 @transaction.atomic

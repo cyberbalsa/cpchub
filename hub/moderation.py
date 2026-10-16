@@ -14,7 +14,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from .access import ROLES, assigned_role, can_manage_content, can_moderate, is_admin, item_query
-from .models import FileDeletion, Item, ModerationLog, Release, Screenshot, UserModeration
+from .models import AccountActivity, FileDeletion, Item, ModerationLog, Release, Screenshot, UserModeration
 from .moderation_services import delete_item, delete_user, log_action, moderate_item, revoke_credentials, shadow_ban_user, update_user
 from .services import record_revision
 from .validators import validate_version
@@ -62,6 +62,33 @@ class ConfirmDeleteForm(forms.Form):
 class ShadowBanForm(forms.Form):
     action = forms.ChoiceField(choices=[("shadow-ban", "Shadow ban"), ("remove-shadow-ban", "Remove shadow ban")])
     reason = forms.CharField(max_length=2000, label="Staff-only reason", widget=forms.Textarea(attrs={"rows": 3}), help_text="Required. Only staff can read this in the mod log.")
+
+
+class ActivityFilterForm(forms.Form):
+    user = forms.IntegerField(required=False, min_value=1, widget=forms.HiddenInput)
+    username = forms.CharField(required=False, max_length=150, label="Username")
+    ip = forms.GenericIPAddressField(required=False, unpack_ipv4=True, label="IP address")
+    action = forms.ChoiceField(required=False, choices=[("", "All activity"), *AccountActivity.Action.choices])
+
+
+@staff_required(admin_only=True)
+def account_activity(request):
+    form = ActivityFilterForm(request.GET)
+    events = AccountActivity.objects.select_related("user", "item")
+    if form.is_valid():
+        if form.cleaned_data["user"]:
+            events = events.filter(user_id=form.cleaned_data["user"])
+        if form.cleaned_data["username"]:
+            events = events.filter(user__username__icontains=form.cleaned_data["username"])
+        if form.cleaned_data["ip"]:
+            events = events.filter(ip_address=form.cleaned_data["ip"])
+        if form.cleaned_data["action"]:
+            events = events.filter(action=form.cleaned_data["action"])
+    else:
+        events = events.none()
+    return render(request, "hub/moderation/account_activity.html", {
+        "filter_form": form, "page_obj": Paginator(events, 50).get_page(request.GET.get("page")),
+    })
 
 
 class UserManagementForm(forms.ModelForm):

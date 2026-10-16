@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Login &amp; upload history · CPC Hub{% endblock %}
+{% block content %}
+<div class="page-content">
+  {% include 'hub/moderation/nav.html' %}
+  <h1>Login &amp; upload history</h1>
+  <p>Admin-only records of successful sign-ins and uploads. Browser details and language are supplied by the client.</p>
+  <form method="get" class="moderation-filter">
+    {{ filter_form.user }}{{ filter_form.user.errors }}
+    <label>{{ filter_form.username.label }} {{ filter_form.username }}{{ filter_form.username.errors }}</label>
+    <label>{{ filter_form.ip.label }} {{ filter_form.ip }}{{ filter_form.ip.errors }}</label>
+    <label>Activity {{ filter_form.action }}{{ filter_form.action.errors }}</label>
+    <button>Filter</button><a href="{% url 'moderation-account-activity' %}">Clear filters</a>
+  </form>
+  <p>{{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}</p>
+  <div class="moderation-table-wrap"><table class="moderation-table">
+    <thead><tr><th>Time (UTC)</th><th>Account</th><th>Activity</th><th>IP address</th><th>Browser &amp; request</th></tr></thead>
+    <tbody>{% for event in page_obj %}<tr>
+      <td>{{ event.created_at|date:'Y-m-d H:i:s' }}</td>
+      <td><a href="{% url 'moderation-user' event.user_id %}">{{ event.user.username }}</a><small>{{ event.auth_method }}{% if event.provider_uid %} · {{ event.provider_uid }}{% endif %}</small></td>
+      <td>{{ event.get_action_display }}{% if event.item_id %}<small><a href="{% url 'moderation-item' event.item_id %}">{{ event.item_title }}</a></small>{% elif event.item_title %}<small>{{ event.item_title }} (deleted)</small>{% endif %}</td>
+      <td>{% if event.ip_address %}<a href="{% url 'moderation-account-activity' %}?ip={{ event.ip_address|urlencode }}">{{ event.ip_address }}</a>{% else %}Unavailable{% endif %}<small>{{ event.get_ip_source_display }}</small></td>
+      <td class="activity-browser">{{ event.user_agent|default:'Not supplied' }}<details><summary>Request details</summary><p>Language: {{ event.accept_language|default:'Not supplied' }}</p><p>{{ event.request_path }}</p>{% if event.cf_ray %}<p>Cloudflare Ray: {{ event.cf_ray }}</p>{% endif %}</details></td>
+    </tr>{% empty %}<tr><td colspan="5">No matching activity.</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% if page_obj.paginator.num_pages > 1 %}<nav class="pagination" aria-label="Activity pages">{% if page_obj.has_previous %}<a class="win-button" href="{% querystring page=page_obj.previous_page_number %}">← Previous</a>{% endif %}<span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a class="win-button" href="{% querystring page=page_obj.next_page_number %}">Next →</a>{% endif %}</nav>{% endif %}
+</div>
+{% endblock %}

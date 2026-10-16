@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import Client, TestCase, override_settings
 from openid.consumer.consumer import SUCCESS
+from hub.models import AccountActivity
 
 
 PROVIDERS = {
@@ -63,6 +64,10 @@ class AccountTests(TestCase):
         self.assertFalse(user.is_staff)
         self.assertEqual(int(self.client.session["_auth_user_id"]), user.pk)
         self.assertEqual(len(mail.outbox), 0)
+        event = AccountActivity.objects.get(user=user, action="login")
+        self.assertEqual(event.auth_method, "steam")
+        self.assertEqual(event.provider_uid, "76561198000000001")
+        self.assertEqual(event.request_path, "/accounts/steam/callback/")
 
     def test_discord_signup_and_subsequent_login_use_same_account(self):
         self.assertRedirects(self.discord_flow(), "/", fetch_redirect_response=False)
@@ -73,6 +78,9 @@ class AccountTests(TestCase):
         self.assertEqual(get_user_model().objects.count(), 1)
         self.assertEqual(int(self.client.session["_auth_user_id"]), account.user_id)
         self.assertEqual(len(mail.outbox), 0)
+        events = AccountActivity.objects.filter(user=account.user, action="login")
+        self.assertEqual(events.count(), 2)
+        self.assertTrue(all(event.auth_method == "discord" and event.provider_uid == "discord-test" for event in events))
 
     def test_link_discord_to_existing_steam_profile(self):
         user = get_user_model().objects.create_user("SteamOwner")
@@ -121,6 +129,7 @@ class AccountTests(TestCase):
             self.client.get("/accounts/discord/login/callback/", {"state": "wrong", "code": "unused"})
             exchange.assert_not_called()
         self.assertNotIn("_auth_user_id", self.client.session)
+        self.assertFalse(AccountActivity.objects.exists())
 
     def test_profile_requires_login_and_admin_requires_staff(self):
         self.assertEqual(self.client.get("/account/profile/").status_code, 302)

@@ -16,7 +16,8 @@ from oauth2_provider.models import Application, AccessToken, RefreshToken
 
 from .access import accessible_items, can_edit_item, can_moderate, can_remove_screenshot, hidden_response, item_query, public_items, visible_items
 from .forms import ItemForm, KeyForm, ReleaseForm, ScreenshotBatchForm, ScreenshotForm
-from .models import APIKey, Bookmark, ContentType, Item
+from .models import APIKey, AccountActivity, Bookmark, ContentType, Item
+from .activity import record_activity
 from .services import add_release, add_screenshot, create_with_release, record_revision, remove_screenshot, validate_publication
 
 
@@ -78,7 +79,7 @@ def create_item(request):
         try:
             item = form.save(commit=False)
             item.author = request.user
-            create_with_release(item, release_data=release_form.cleaned_data, screenshots=screenshot_form.cleaned_data["screenshots"])
+            create_with_release(item, release_data=release_form.cleaned_data, screenshots=screenshot_form.cleaned_data["screenshots"], request=request)
             messages.success(request, "Creation saved with your file and screenshots.")
             return redirect("item-edit", pk=item.pk)
         except ValidationError as exc:
@@ -101,6 +102,7 @@ def edit_item(request, pk):
         if action == "metadata":
             with transaction.atomic():
                 item = Item.objects.select_for_update().get(pk=item.pk)
+                previous_status = item.status
                 form = ItemForm(request.POST, instance=item)
                 if form.is_valid():
                     try:
@@ -108,6 +110,8 @@ def edit_item(request, pk):
                             validate_publication(item)
                         item = form.save()
                         record_revision(item, request.user)
+                        if previous_status != Item.Status.PUBLISHED and item.status == Item.Status.PUBLISHED:
+                            record_activity(request, AccountActivity.Action.PUBLISH, item=item)
                     except ValidationError as exc:
                         form.add_error("status", exc)
                     else:
@@ -117,7 +121,7 @@ def edit_item(request, pk):
             release_form = ReleaseForm(request.POST, request.FILES)
             if release_form.is_valid():
                 try:
-                    add_release(item, **release_form.cleaned_data)
+                    add_release(item, **release_form.cleaned_data, request=request)
                     messages.success(request, "New release published. Previous versions are still available.")
                     return redirect("item-edit", pk=pk)
                 except ValidationError as exc:
@@ -128,7 +132,7 @@ def edit_item(request, pk):
             screenshot_form = ScreenshotForm(request.POST, request.FILES)
             if screenshot_form.is_valid():
                 try:
-                    add_screenshot(item, **screenshot_form.cleaned_data)
+                    add_screenshot(item, **screenshot_form.cleaned_data, request=request)
                     messages.success(request, "Screenshot added.")
                     return redirect("item-edit", pk=pk)
                 except ValidationError as exc:

@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "oauth2_provider", "django_htmx", "hub.apps.HubConfig",
 ]
 MIDDLEWARE = [
+    "hub.client_ip.TrustedProxyMiddleware",
     "django.middleware.security.SecurityMiddleware", "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware", "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware", "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -124,9 +125,12 @@ SECURE_SSL_REDIRECT = not DEBUG
 SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
 SECURE_HSTS_PRELOAD = not DEBUG
-# Enable only behind the supplied Caddy proxy, which replaces this header.
-if os.getenv("TRUST_PROXY", "0") == "1":
+# The proxy must replace forwarded headers and be on the explicit peer allowlist.
+TRUST_PROXY = os.getenv("TRUST_PROXY", "0") == "1"
+TRUSTED_PROXY_CIDRS = [value.strip() for value in os.getenv("TRUSTED_PROXY_CIDRS", "").split(",") if value.strip()]
+if TRUST_PROXY:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+ALLAUTH_TRUSTED_PROXY_COUNT = 0
 OAUTH2_PROVIDER = {
     "PKCE_REQUIRED": True,
     "ACCESS_TOKEN_EXPIRE_SECONDS": 900,
@@ -147,6 +151,7 @@ OAUTH2_PROVIDER = {
     "OIDC_ISS_ENDPOINT": PUBLIC_URL,
 }
 REST_FRAMEWORK = {
+    "NUM_PROXIES": 0,
     "DEFAULT_AUTHENTICATION_CLASSES": ["hub.authentication.APIKeyAuthentication", "oauth2_provider.contrib.rest_framework.OAuth2Authentication", "rest_framework.authentication.SessionAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["hub.permissions.CatalogPermission"],
     "DEFAULT_SCHEMA_CLASS": "hub.schema.HubAutoSchema",

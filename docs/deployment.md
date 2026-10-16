@@ -29,6 +29,16 @@ The Donate button opens `/donate/`, which shows the approximate $45 monthly host
 
 Uploads are limited to 90 MiB to leave room for multipart form data below [Cloudflare's 100 MB request limit on Free and Pro plans](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/4xx-client-error/error-413/). Nginx limits authentication POSTs to 10 per minute per IP and upload/edit requests to 30 per minute, each with a burst of 10. It replaces forwarded client-IP headers using Cloudflare's connecting IP. Keep its published listener on loopback.
 
+### Visitor IPs and account activity
+
+Set `TRUSTED_PROXY_CIDRS=127.0.0.1/32,::1/128,10.89.0.0/24` on this host. Verify the private subnet with `podman network inspect cpchub` before using that value on another installation. `TRUST_PROXY=1` also remains required. An empty allowlist trusts no forwarded headers.
+
+The request path is Cloudflare → host cloudflared → loopback-only Nginx → private Gunicorn. Nginx's [real-IP module](https://nginx.org/en/docs/http/ngx_http_realip_module.html) accepts [CF-Connecting-IP](https://developers.cloudflare.com/fundamentals/reference/http-headers/#cf-connecting-ip) only from loopback and its own container address, which is the peer used by rootless port forwarding. It replaces X-Real-IP and X-Forwarded-For. Django accepts X-Real-IP only from the configured private proxy peers, validates IPv4/IPv6, and gives the normalized address to allauth, DRF throttles, and access logs. Keep Cloudflare Pseudo IPv4's “Overwrite Headers” mode disabled so native IPv6 addresses remain intact.
+
+Successful Steam/Discord sign-ins, new creations, publication, new releases, and screenshot uploads create database records. They contain the account, timestamp, IP and its source, user-agent, language header, authentication method, social provider ID for sign-ins, request path without query strings, and Cloudflare Ray ID when available. Cookies, authorization headers, passwords, OAuth codes, tokens, and uploaded file contents are not copied into the records. Browser and language headers are client-supplied and are not verified identity.
+
+Admins can search records by account, IP, and action at `/moderation/activity/`, or follow “View login & upload history” from user management. Moderators, Reviewers, ordinary users, and the public API cannot access this history. Purging an account removes its activity records. Records start at deployment; past logins are not reconstructed. IP bans are not implemented yet; their future controls and enforcement changes must be Admin-only.
+
 ## Service commands
 
 After connecting through SSH, define this helper from an accessible working directory:

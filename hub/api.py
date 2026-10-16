@@ -12,7 +12,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import APIKey, ContentType, Item, Release
+from .models import APIKey, AccountActivity, ContentType, Item, Release
+from .activity import record_activity
 from .permissions import CatalogPermission, KeyPermission, token_scopes
 from .serializers import (ContentTypeSerializer, ErrorSerializer, IssuedKeySerializer, ItemSerializer,
                           KeyCreateSerializer, KeySerializer, ProfileSerializer, ReleaseSerializer,
@@ -97,10 +98,12 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
     def perform_create(self, serializer):
         item = serializer.save(author=self.request.user, status=Item.Status.DRAFT)
         record_revision(item, self.request.user)
+        record_activity(self.request, AccountActivity.Action.CREATE, item=item)
 
     @transaction.atomic
     def perform_update(self, serializer):
         item = Item.objects.select_for_update(of=("self",)).select_related("content_type").get(pk=serializer.instance.pk)
+        previous_status = item.status
         for field, value in serializer.validated_data.items():
             setattr(item, field, value)
         if item.status == Item.Status.PUBLISHED and {"status", "content_type"}.intersection(serializer.validated_data):
@@ -111,6 +114,8 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         serializer.instance = item
         item = serializer.save()
         record_revision(item, self.request.user)
+        if previous_status != Item.Status.PUBLISHED and item.status == Item.Status.PUBLISHED:
+            record_activity(self.request, AccountActivity.Action.PUBLISH, item=item)
 
     @extend_schema(request=ReleaseUploadSerializer, responses={201: ReleaseSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 503: ErrorSerializer}, description="Upload to an owned creation, or use an Admin or Moderator browser session to add a release to any creation. The file type must be enabled. Published items must have at least two screenshots before adding a release. Version strings are unique per item. Existing releases cannot be overwritten.")
     @action(detail=True, methods=["post"], url_path="releases", parser_classes=[MultiPartParser, FormParser])
@@ -119,7 +124,7 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         serializer = ReleaseUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            release = add_release(item, **serializer.validated_data)
+            release = add_release(item, **serializer.validated_data, request=request)
         except DjangoValidationError as exc:
             raise ValidationError({"file": exc.messages})
         return Response(ReleaseSerializer(release, context={"request": request}).data, status=201)
@@ -149,7 +154,7 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         serializer = ScreenshotUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            screenshot = add_screenshot(item, **serializer.validated_data)
+            screenshot = add_screenshot(item, **serializer.validated_data, request=request)
         except DjangoValidationError as exc:
             raise ValidationError({"image": exc.messages})
         return Response(ScreenshotSerializer(screenshot, context={"request": request}).data, status=201)
