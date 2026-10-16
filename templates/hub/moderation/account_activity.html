@@ -17,7 +17,7 @@
     <thead><tr><th>Time (UTC)</th><th>Account</th><th>Activity</th><th>IP address</th><th>Browser &amp; request</th></tr></thead>
     <tbody>{% for event in page_obj %}<tr>
       <td>{{ event.created_at|date:'Y-m-d H:i:s' }}</td>
-      <td><a href="{% url 'moderation-user' event.user_id %}">{{ event.user.username }}</a><small>{{ event.auth_method }}{% if event.provider_uid %} · {{ event.provider_uid }}{% endif %}</small></td>
+      <td><a href="{% url 'creator-profile' event.user_id %}">{{ event.user.username }}</a><small>{{ event.auth_method }}{% if event.provider_uid %} · {{ event.provider_uid }}{% endif %}</small></td>
       <td>{{ event.get_action_display }}{% if event.item_id %}<small><a href="{% url 'moderation-item' event.item_id %}">{{ event.item_title }}</a></small>{% elif event.item_title %}<small>{{ event.item_title }} (deleted)</small>{% endif %}</td>
       <td>{% if event.ip_address %}<a href="{% url 'moderation-account-activity' %}?ip={{ event.ip_address|urlencode }}">{{ event.ip_address }}</a>{% else %}Unavailable{% endif %}<small>{{ event.get_ip_source_display }}</small></td>
       <td class="activity-browser">{{ event.user_agent|default:'Not supplied' }}<details><summary>Request details</summary><p>Language: {{ event.accept_language|default:'Not supplied' }}</p><p>{{ event.request_path }}</p>{% if event.cf_ray %}<p>Cloudflare Ray: {{ event.cf_ray }}</p>{% endif %}</details></td>

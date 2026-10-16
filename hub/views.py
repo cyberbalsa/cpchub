@@ -1,5 +1,6 @@
 from botocore.exceptions import BotoCoreError, ClientError
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
@@ -54,6 +55,21 @@ def catalog(request):
                "featured_items": public_items().filter(featured_at__isnull=False).order_by("-featured_at", "pk")[:6] if view == "all" and not q and not category and not request.GET.get("page") else [],
                "types_with_counts": ContentType.objects.filter(uploads_enabled=True).annotate(total=Count("items", filter=Q(items__status="published", items__is_hidden=False, items__deleted_at=None, items__author__moderation_state__shadow_banned_at__isnull=True))).order_by("position", "name")}
     return render(request, "hub/catalog_results.html" if request.htmx and not request.htmx.history_restore_request else "hub/catalog.html", context)
+
+
+@never_cache
+def creator_profile(request, pk):
+    creator = get_object_or_404(get_user_model().objects.select_related("moderation_state"), pk=pk)
+    owns_profile = request.user.is_authenticated and request.user.pk == creator.pk
+    show_private = owns_profile or can_moderate(request.user)
+    moderation_state = getattr(creator, "moderation_state", None)
+    if moderation_state and moderation_state.shadow_banned_at and not show_private:
+        raise Http404
+    items = (item_query() if show_private else public_items()).filter(author=creator).order_by("-updated_at", "pk")
+    return render(request, "hub/creator_profile.html", {
+        "creator": creator, "owns_profile": owns_profile, "show_private": show_private,
+        "page_obj": Paginator(items, 12).get_page(request.GET.get("page")),
+    })
 
 
 @never_cache

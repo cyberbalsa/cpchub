@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-content">
   {% include 'hub/moderation/nav.html' %}
-  <div class="detail-heading"><div><h1>{{ item.title }}</h1><p>by {{ item.author.username }} · {{ item.content_type.name }}</p></div><div class="detail-actions"><a class="win-button" href="{{ item.get_absolute_url }}">View creation</a>{% if can_manage %}<a class="win-button" href="{% url 'item-edit' item.pk %}">Edit &amp; add files</a>{% endif %}</div></div>
+  <div class="detail-heading"><div><h1>{{ item.title }}</h1><p>by {% include 'hub/user_link.html' with member=item.author only %} · {{ item.content_type.name }}</p></div><div class="detail-actions"><a class="win-button" href="{{ item.get_absolute_url }}">View creation</a>{% if can_manage %}<a class="win-button" href="{% url 'item-edit' item.pk %}">Edit &amp; add files</a>{% endif %}</div></div>
   {% include 'hub/deleted_notice.html' %}
   {% include 'hub/moderation/review.html' %}
   {% if item.deleted_at and item.can_restore and can_manage %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="restore-deleted"><button>Restore self-deleted creation</button></form>{% endif %}

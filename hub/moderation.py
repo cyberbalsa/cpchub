@@ -143,6 +143,7 @@ def review_queue(request):
     items = items.select_related("author", "content_type").annotate(
         last_seen_at=Subquery(last_review.values("created_at")[:1]),
         last_seen_by=Subquery(last_review.values("reviewer__username")[:1]),
+        last_seen_by_id=Subquery(last_review.values("reviewer_id")[:1]),
     ).order_by("review_requested_at", "pk")
     return render(request, "hub/moderation/review_queue.html", {
         "page_obj": Paginator(items, 25).get_page(request.GET.get("page")),

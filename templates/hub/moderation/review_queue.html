@@ -13,9 +13,9 @@
     <thead><tr><th>Creation</th><th>Author</th><th>Review status</th><th>Last seen</th><th>Tools</th></tr></thead>
     <tbody>{% for item in page_obj %}<tr>
       <td><a href="{{ item.get_absolute_url }}">{{ item.title }}</a><small>{{ item.content_type.name }}{% if item.is_hidden %} · Hidden{% endif %}</small></td>
-      <td>{{ item.author.username }}</td>
+      <td>{% include 'hub/user_link.html' with member=item.author only %}</td>
       <td>{% if item.needs_review %}{% if item.last_seen_at %}Edited since review{% else %}Not yet seen{% endif %}{% else %}Seen{% endif %}<small>Changed {{ item.review_requested_at|date:'M j, Y H:i' }}</small></td>
-      <td>{% if item.last_seen_at %}{{ item.last_seen_by|default:'Deleted account' }}<small>{{ item.last_seen_at|date:'M j, Y H:i' }}</small>{% else %}—{% endif %}</td>
+      <td>{% if item.last_seen_at %}{% if item.last_seen_by_id %}<a href="{% url 'creator-profile' item.last_seen_by_id %}">{{ item.last_seen_by }}</a>{% else %}Deleted account{% endif %}<small>{{ item.last_seen_at|date:'M j, Y H:i' }}</small>{% else %}—{% endif %}</td>
       <td><a class="win-button" href="{% url 'moderation-item' item.pk %}">Review</a></td>
     </tr>{% empty %}<tr><td colspan="5">{% if q %}No matching creations.{% elif state == 'seen' %}No creations marked as seen yet.{% else %}Nothing awaiting review.{% endif %}</td></tr>{% endfor %}</tbody>
   </table></div>

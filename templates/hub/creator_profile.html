@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}{{ creator.username }} · CPC Hub{% endblock %}
+{% block content %}
+<div class="page-content">
+  <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="{% url 'catalog' %}">Community</a><span aria-hidden="true">›</span><span>{{ creator.username }}</span></nav>
+  <div class="detail-heading creator-heading">
+    <div><span class="eyebrow dark-eyebrow">CREATOR PROFILE</span><h1>{{ creator.username }}</h1><p>{{ page_obj.paginator.count }} creation{{ page_obj.paginator.count|pluralize }}</p></div>
+    <div class="detail-actions">
+      {% if owns_profile %}<a class="win-button" href="{% url 'profile' %}">Account settings</a><a class="win-button" href="{% url 'item-create' %}">Upload a creation</a>{% endif %}
+      {% if can_manage_content %}<a class="win-button" href="{% url 'moderation-user' creator.pk %}">Manage user</a>{% endif %}
+    </div>
+  </div>
+  {% if show_private %}<p class="notice">{% if owns_profile %}You can also see your drafts, hidden creations, and recently deleted uploads here.{% else %}Staff can also see this creator’s drafts, hidden creations, and recently deleted uploads.{% endif %}</p>{% endif %}
+  <section aria-labelledby="creator-creations">
+    <div class="section-heading"><h2 id="creator-creations">{% if owns_profile %}Your creations{% else %}Creations{% endif %}</h2></div>
+    <div class="row g-3 creation-grid">
+      {% for item in page_obj %}<div class="col-12 col-md-6 col-xl-4">{% include 'hub/card.html' %}</div>
+      {% empty %}<div class="empty-state"><p>{% if owns_profile %}You haven’t uploaded any creations yet.{% elif show_private %}This creator hasn’t uploaded any creations yet.{% else %}No public creations yet.{% endif %}</p></div>{% endfor %}
+    </div>
+    {% include 'hub/moderation/pagination.html' %}
+  </section>
+</div>
+{% endblock %}

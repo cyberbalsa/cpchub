@@ -12,7 +12,7 @@
   {% else %}<p>This version has been marked as seen.</p>{% endif %}
   <h3>Review history</h3>
   {% for review in page_obj %}<details class="history-entry">
-    <summary>{{ review.created_at|date:'M j, Y H:i' }} · {{ review.reviewer.username|default:'Deleted account' }} · {% if review.content_revision == item.content_revision %}Current version{% else %}Before later edits{% endif %}</summary>
+    <summary>{{ review.created_at|date:'M j, Y H:i' }} · {% include 'hub/user_link.html' with member=review.reviewer only %} · {% if review.content_revision == item.content_revision %}Current version{% else %}Before later edits{% endif %}</summary>
     {% if review.note %}<div class="moderation-reason">{{ review.note|linebreaks }}</div>{% else %}<p>No staff note.</p>{% endif %}
   </details>{% empty %}<p>No staff reviews yet.</p>{% endfor %}
   {% include 'hub/moderation/pagination.html' %}

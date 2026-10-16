@@ -17,6 +17,7 @@ router.register("keys", api.KeyViewSet, basename="api-key")
 
 urlpatterns = [
     path("", views.catalog, name="catalog"),
+    path("creators/<int:pk>/", views.creator_profile, name="creator-profile"),
     path("upload/", views.create_item, name="item-create"),
     path("items/<uuid:pk>/", views.detail, name="item-detail"),
     path("items/<uuid:pk>/edit/", views.edit_item, name="item-edit"),

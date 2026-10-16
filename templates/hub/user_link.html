@@ -1,0 +1,1 @@
+{% if member %}<a class="creator-link" href="{% url 'creator-profile' member.pk %}">{{ member.username }}</a>{% else %}Deleted account{% endif %}

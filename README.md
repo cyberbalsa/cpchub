@@ -151,6 +151,8 @@ API keys and OAuth tokens keep their owner-only write permissions, even when the
 
 ## Moderation and deletion
 
+Usernames link to creator profiles at `/creators/<user-id>/`. Visitors see published creations. The creator and staff can also see drafts, hidden creations, and self-deleted uploads. Shadow-banned profiles return 404 to other visitors. Profile links keep working when a username changes. Social login connections and other account settings remain private at `/account/profile/`.
+
 Open `/moderation/` from the toolbar after signing in with a staff account. `/moderation/users/` lets Admins assign roles, rename users, suspend or reactivate accounts, revoke sessions and keys, and purge accounts. The last active Admin cannot be demoted, suspended, or purged.
 
 | Role | Permissions |

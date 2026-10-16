@@ -2,7 +2,7 @@
 {% block title %}{{ item.title }} — CPC Hub{% endblock %}
 {% block content %}<div class="page-content">
 <div class="breadcrumbs"><a href="/">Community</a><span>›</span><a href="/?type={{ item.content_type.slug }}">{{ item.content_type.name }}</a><span>›</span>{{ item.title }}</div>
-<div class="detail-heading"><div><span class="eyebrow dark-eyebrow">{{ item.content_type.name }}{% if item.status == 'draft' %} · PRIVATE DRAFT{% endif %}</span><h1>{{ item.title }}</h1><p>Created by <strong>{{ item.author.username }}</strong> · Updated {{ item.updated_at|date:'F j, Y' }}</p></div><div class="detail-actions">{% include 'hub/bookmark.html' %}{% if can_edit %}<a class="win-button" href="{% url 'item-edit' item.pk %}">Edit creation</a>{% endif %}</div></div>
+<div class="detail-heading"><div><span class="eyebrow dark-eyebrow">{{ item.content_type.name }}{% if item.status == 'draft' %} · PRIVATE DRAFT{% endif %}</span><h1>{{ item.title }}</h1><p>Created by <strong>{% include 'hub/user_link.html' with member=item.author only %}</strong> · Updated {{ item.updated_at|date:'F j, Y' }}</p></div><div class="detail-actions">{% include 'hub/bookmark.html' %}{% if can_edit %}<a class="win-button" href="{% url 'item-edit' item.pk %}">Edit creation</a>{% endif %}</div></div>
 {% if item.is_demo %}<p class="notice">Demo listing. The download contains sample JSON metadata only; it cannot be loaded in Car Park Capital.</p>{% endif %}
 {% include 'hub/deleted_notice.html' %}
 {% if item.is_hidden %}<div class="moderation-notice" role="status"><h2>Hidden creation</h2>{{ item.hidden_reason|linebreaks }}<p>Only the moderation team can view this page. The author can still edit it.</p></div>{% endif %}

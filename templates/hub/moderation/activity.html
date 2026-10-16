@@ -1,4 +1,4 @@
 <section class="paper-panel">
   <h2>Recent activity</h2>
-  {% for log in logs %}<details class="history-entry"><summary>{{ log.created_at|date:'M j, Y H:i' }} · {{ log.actor.username|default:'Deleted account' }} · {{ log.action }}</summary><p>{{ log.item_title }}{% if log.username %} {{ log.username }}{% endif %}</p>{% if log.reason %}<div class="moderation-reason">{{ log.reason|linebreaks }}</div>{% endif %}</details>{% empty %}<p>No moderation actions yet.</p>{% endfor %}
+  {% for log in logs %}<details class="history-entry"><summary>{{ log.created_at|date:'M j, Y H:i' }} · {% include 'hub/user_link.html' with member=log.actor only %} · {{ log.action }}</summary><p>{{ log.item_title }}{% if log.target_user_id %} <a href="{% url 'creator-profile' log.target_user_id %}">{{ log.username }}</a>{% elif log.username %} {{ log.username }}{% endif %}</p>{% if log.reason %}<div class="moderation-reason">{{ log.reason|linebreaks }}</div>{% endif %}</details>{% empty %}<p>No moderation actions yet.</p>{% endfor %}
 </section>

@@ -183,6 +183,9 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
 .card-title-line>a:hover { text-decoration: underline; }
 .card-author { display: flex; gap: 4px; font-size: 10px; color: #746b4e; margin: 5px 0 9px; }
 .card-author strong { font-weight: normal; color: #53664c; }
+.creator-link { color: inherit; text-underline-offset: 2px; overflow-wrap: anywhere; }
+.creator-heading>div:first-child { min-width: 0; }
+.creator-heading h1 { overflow-wrap: anywhere; }
 .card-author>span { margin-left: auto; color: #665e47; font-family: monospace; }
 .card-summary { font-size: 11px; line-height: 1.6; color: #615f47; margin-bottom: 11px; }
 .card-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; }

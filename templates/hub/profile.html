@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 {% load socialaccount %}
-{% block title %}Your profile — CPC Hub{% endblock %}
+{% block title %}Account settings — CPC Hub{% endblock %}
 {% block content %}
 <div class="page-content">
-  <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="{% url 'catalog' %}">Community exchange</a><span aria-hidden="true">/</span><span>Your profile</span></nav>
+  <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="{% url 'catalog' %}">Community exchange</a><span aria-hidden="true">/</span><span>Account settings</span></nav>
   <div class="detail-heading">
-    <div><span class="eyebrow dark-eyebrow">YOUR PROFILE</span><h1>{{ user.username }}</h1><p>Joined {{ user.date_joined|date:'F Y' }}{% if site_role %} · {{ site_role }}{% endif %}</p></div>
-    <div class="detail-actions"><a class="win-button" href="{% url 'catalog' %}?view=mine">My uploads</a><a class="win-button" href="{% url 'keys' %}">API keys &amp; managers</a>{% if can_moderate %}<a class="win-button" href="{% url 'moderation' %}">Moderation</a>{% endif %}</div>
+    <div><span class="eyebrow dark-eyebrow">ACCOUNT SETTINGS</span><h1>{% include 'hub/user_link.html' with member=user only %}</h1><p>Joined {{ user.date_joined|date:'F Y' }}{% if site_role %} · {{ site_role }}{% endif %}</p></div>
+    <div class="detail-actions"><a class="win-button" href="{% url 'creator-profile' user.pk %}">View profile</a><a class="win-button" href="{% url 'keys' %}">API keys &amp; managers</a>{% if can_moderate %}<a class="win-button" href="{% url 'moderation' %}">Moderation</a>{% endif %}</div>
   </div>
   {% if hidden_creations %}<section class="moderation-notice"><h2>Hidden creations</h2>{% for creation in hidden_creations %}<div><h3><a href="{% url 'item-edit' creation.pk %}">{{ creation.title }}</a></h3>{{ creation.hidden_reason|linebreaks }}</div>{% endfor %}<p>Address the reason in your upload. A Moderator or Admin must restore it before others can download it.</p></section>{% endif %}
   <div class="row g-4">
