@@ -2,7 +2,7 @@
 
 A community catalog for **Car Park Capital**, built for **cpchub.net** with Python 3.14, Django 5.2 LTS, HTMX, Bootstrap 5's responsive grid, 98.css, PostgreSQL, and Docker. All browser assets are served locally.
 
-The interface takes its cues from RCT and Car Park Capital: beveled tool buttons, orange and teal window frames, pixel icons, a town viewport, and parchment-colored file panels. The illustrations and icons are original SVGs; game assets are not included.
+The interface takes its cues from RCT and Car Park Capital: beveled tool buttons, orange and teal window frames, pixel icons, a town viewport, and parchment-colored file panels. The game illustrations and interface icons are original SVGs; game assets are not included. Sign-in buttons use [Steam and Discord's official brand assets](static/vendor/brands/README.md).
 
 ## Included
 

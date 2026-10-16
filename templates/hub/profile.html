@@ -30,8 +30,8 @@
           <p>Connect Steam or Discord to use either account for the same uploads and API keys.</p>
           {% url 'profile' as profile_url %}
           <div class="social-buttons social-signin-buttons">
-            {% if steam_enabled %}<form method="post" action="{% provider_login_url 'steam' process='connect' next=profile_url %}">{% csrf_token %}<button type="submit">Link Steam</button></form>{% endif %}
-            {% if discord_enabled %}<form method="post" action="{% provider_login_url 'discord' process='connect' next=profile_url %}">{% csrf_token %}<button type="submit">Link Discord</button></form>{% endif %}
+            {% if steam_enabled %}<form method="post" action="{% provider_login_url 'steam' process='connect' next=profile_url %}">{% csrf_token %}{% include 'socialaccount/provider_button.html' with provider='steam' label='Link Steam: sign in through Steam' %}</form>{% endif %}
+            {% if discord_enabled %}<form method="post" action="{% provider_login_url 'discord' process='connect' next=profile_url %}">{% csrf_token %}{% include 'socialaccount/provider_button.html' with provider='discord' label='Link Discord' %}</form>{% endif %}
           </div>
         </div>
       </section>

@@ -9,8 +9,8 @@
     <h1>Sign in to CPC Hub</h1>
     <p>Use Steam or Discord to upload creations, save files, and connect a mod manager.</p>
     <div class="social-buttons social-signin-buttons">
-      {% if steam_enabled %}<form method="post" action="{% provider_login_url 'steam' %}">{% csrf_token %}<button type="submit">Continue with Steam</button></form>{% endif %}
-      {% if discord_enabled %}<form method="post" action="{% provider_login_url 'discord' %}">{% csrf_token %}<button type="submit">Continue with Discord</button></form>{% endif %}
+      {% if steam_enabled %}<form method="post" action="{% provider_login_url 'steam' %}">{% csrf_token %}{% include 'socialaccount/provider_button.html' with provider='steam' label='Sign in through Steam' %}</form>{% endif %}
+      {% if discord_enabled %}<form method="post" action="{% provider_login_url 'discord' %}">{% csrf_token %}{% include 'socialaccount/provider_button.html' with provider='discord' label='Continue with Discord' %}</form>{% endif %}
     </div>
     {% if steam_enabled or discord_enabled %}
       <p class="muted small">Your first sign-in creates a CPC Hub account. You can link another login from your profile.</p>

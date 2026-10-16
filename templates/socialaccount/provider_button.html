@@ -1,0 +1,9 @@
+{% load static %}
+<button class="provider-button provider-button-{{ provider }}" type="submit" aria-label="{{ label }}">
+  {% if provider == 'steam' %}
+    <img src="{% static 'vendor/brands/steam-sign-in.png' %}" alt="" width="180" height="35">
+  {% elif provider == 'discord' %}
+    <img src="{% static 'vendor/brands/discord-clyde-white.svg' %}" alt="" width="28" height="21">
+    <span>{{ label }}</span>
+  {% endif %}
+</button>

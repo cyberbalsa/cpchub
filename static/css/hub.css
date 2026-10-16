@@ -427,7 +427,19 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
 /* Social sign-in and linked accounts. */
 .social-signin-buttons { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 20px 0; }
 .social-signin-buttons form, .social-signin-buttons button { width: 100%; }
-.social-signin-buttons button { min-height: 42px; }
+.social-signin-buttons .provider-button {
+  min-height: 52px; padding: 8px 16px; gap: 14px; border: 1px solid transparent;
+  border-radius: 4px; box-shadow: none; color: #fff; text-shadow: none;
+  font-size: 14px !important; font-weight: bold; line-height: 1.4;
+}
+.provider-button img { display: block; flex-shrink: 0; object-fit: contain; }
+.social-signin-buttons .provider-button:hover { color: #fff; box-shadow: none; }
+.social-signin-buttons .provider-button-steam { background: #171a21; border-color: #101216; }
+.social-signin-buttons .provider-button-steam:hover { background: #252b36; }
+.social-signin-buttons .provider-button-discord { background: #5865f2; }
+.social-signin-buttons .provider-button-discord:hover { background: #4752c4; }
+.social-signin-buttons .provider-button:active { box-shadow: inset 0 2px 4px #0005; text-shadow: none; }
+.social-signin-buttons .provider-button:focus-visible { outline: 3px solid #083e55; outline-offset: 3px; }
 .profile-panel { margin-top: 0; }
 .linked-account-name { display: block; margin-top: 5px; color: #625f46; overflow-wrap: anywhere; }
 .linked-account { gap: 15px; }

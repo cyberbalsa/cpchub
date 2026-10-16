@@ -37,7 +37,7 @@ class AccountTests(TestCase):
     def test_password_authentication_and_generic_openid_are_unavailable(self):
         user = get_user_model().objects.create_superuser("oldadmin", password="OldPassword!123")
         login = self.client.get("/accounts/login/")
-        self.assertContains(login, "Continue with Steam")
+        self.assertContains(login, "Sign in through Steam")
         self.assertContains(login, "Continue with Discord")
         self.assertNotContains(login, 'type="password"')
         self.assertEqual(self.client.post("/accounts/login/", {"login": user.username, "password": "OldPassword!123"}).status_code, 403)
