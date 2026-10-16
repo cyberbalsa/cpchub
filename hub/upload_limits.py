@@ -26,7 +26,9 @@ class UploadLimitExceeded(Exception):
 def upload_slot(user):
     """Reserve one account-wide slot, rolling it back if the upload fails."""
     with transaction.atomic():
-        user = get_user_model().objects.select_for_update().get(pk=user.pk)
+        # Serialize quota checks while allowing concurrent edit/audit rows to
+        # reference this account without waiting on its foreign-key lock.
+        user = get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
         if can_moderate(user):
             yield
             return

@@ -30,7 +30,7 @@ def count_download(request, release):
 
     # Match upload/account-deletion lock order before locking the creation.
     if user_id:
-        if not get_user_model().objects.select_for_update().filter(pk=user_id).first():
+        if not get_user_model().objects.select_for_update(no_key=True).filter(pk=user_id).first():
             return
     # Serialize every version of this creation, including simultaneous first downloads.
     item = Item.objects.select_for_update().only("pk").get(pk=release.item_id)

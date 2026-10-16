@@ -2,21 +2,21 @@ import io
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
-from threading import Barrier
+from threading import Barrier, Event
 from unittest.mock import patch
 
 from botocore.exceptions import ClientError
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.management import call_command
-from django.db import connections
+from django.db import connections, transaction
 from django.test import TestCase, TransactionTestCase, override_settings, skipUnlessDBFeature
 from django.utils import timezone
 from oauth2_provider.models import AccessToken, Application
 from rest_framework.test import APIClient
 
 from hub.models import APIKey, ContentType, Item, Release, UploadEvent
-from hub.services import add_release
+from hub.services import _save_release, add_release, record_revision
 from hub.upload_limits import UploadLimitExceeded
 from tests.test_hub import package, screenshot
 
@@ -158,6 +158,45 @@ class UploadLimitTests(TestCase):
 
 @override_settings(STORAGES=LOCAL_STORAGE)
 class ConcurrentUploadTests(TransactionTestCase):
+    @skipUnlessDBFeature("has_select_for_no_key_update")
+    def test_simultaneous_edit_and_upload_do_not_deadlock(self):
+        user = get_user_model().objects.create_user("editing-uploader")
+        category = ContentType.objects.create(name="Editing", slug="editing-concurrency", uploads_enabled=True, allowed_extensions=[".json"])
+        item = Item.objects.create(author=user, content_type=category, title="Before", status="draft")
+        item_locked, upload_reserved = Event(), Event()
+
+        def edit():
+            try:
+                with transaction.atomic():
+                    edited = Item.objects.select_for_update().get(pk=item.pk)
+                    item_locked.set()
+                    self.assertTrue(upload_reserved.wait(timeout=10))
+                    edited.title = "After"
+                    edited.save(update_fields=["title"])
+                    record_revision(edited, user)
+            finally:
+                connections.close_all()
+
+        def save_release(*args, **kwargs):
+            upload_reserved.set()
+            self.assertTrue(item_locked.wait(timeout=10))
+            return _save_release(*args, **kwargs)
+
+        def upload():
+            try:
+                add_release(item, file=package(), version="1")
+            finally:
+                connections.close_all()
+
+        with tempfile.TemporaryDirectory() as directory, override_settings(MEDIA_ROOT=directory), patch("hub.services._save_release", side_effect=save_release), ThreadPoolExecutor(max_workers=2) as pool:
+            jobs = [pool.submit(edit), pool.submit(upload)]
+            for job in jobs:
+                job.result(timeout=20)
+        item.refresh_from_db()
+        self.assertEqual(item.title, "After")
+        self.assertEqual(item.releases.count(), 1)
+        self.assertEqual(user.upload_events.count(), 1)
+
     @skipUnlessDBFeature("has_select_for_update")
     def test_parallel_uploads_share_the_last_account_slot(self):
         user = get_user_model().objects.create_user("concurrent-uploader")
