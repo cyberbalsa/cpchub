@@ -1,0 +1,28 @@
+services:
+  web:
+    ports: !reset []
+    environment:
+      DEBUG: "0"
+      PUBLIC_URL: https://cpchub.net
+      ALLOWED_HOSTS: cpchub.net,www.cpchub.net,127.0.0.1
+      CSRF_TRUSTED_ORIGINS: https://cpchub.net
+      TRUST_PROXY: "1"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; r=urllib.request.Request('http://127.0.0.1:8000/health/',headers={'X-Forwarded-Proto':'https'}); urllib.request.urlopen(r).read()"]
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  caddy_data:
+  caddy_config:

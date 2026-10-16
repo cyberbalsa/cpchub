@@ -1,0 +1,46 @@
+name: cpchub
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: cpchub
+      POSTGRES_USER: cpchub
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cpchub -d cpchub"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+  migrate:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://cpchub:${POSTGRES_PASSWORD}@db:5432/cpchub
+    command: ["python", "manage.py", "migrate", "--noinput"]
+    depends_on:
+      db:
+        condition: service_healthy
+  web:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://cpchub:${POSTGRES_PASSWORD}@db:5432/cpchub
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/').read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+volumes:
+  postgres_data:
+  media_data:

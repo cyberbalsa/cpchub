@@ -1,0 +1,179 @@
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
+from django.db import connection, transaction
+from django.db.models import Count, Q, Sum
+from django.http import JsonResponse
+from django.shortcuts import redirect, render
+from rest_framework.generics import get_object_or_404
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+from django.views.decorators.vary import vary_on_headers
+from oauth2_provider.models import Application, AccessToken, RefreshToken
+
+from .api import visible_items
+from .forms import ItemForm, KeyForm, ReleaseForm, ScreenshotForm
+from .models import APIKey, Bookmark, ContentType, Item
+from .services import add_release, add_screenshot, record_revision
+from .validators import validate_package
+
+
+@vary_on_headers("HX-Request")
+def catalog(request):
+    items = visible_items(request.user)
+    q = request.GET.get("q", "").strip()[:200]
+    category = request.GET.get("type", "")
+    view = request.GET.get("view", "all")
+    sort = request.GET.get("sort", "updated")
+    if q:
+        items = items.filter(Q(title__icontains=q) | Q(summary__icontains=q) | Q(tags__icontains=q))
+    if category:
+        items = items.filter(content_type__slug=category)
+    if view in {"saved", "mine"}:
+        if not request.user.is_authenticated:
+            return redirect(f"/accounts/login/?next={request.path}?view={view}")
+        items = items.filter(bookmarks__user=request.user) if view == "saved" else items.filter(author=request.user)
+    items = items.order_by({"popular": "-downloads", "newest": "-created_at"}.get(sort, "-updated_at"), "id")
+    page = Paginator(items, 12).get_page(request.GET.get("page"))
+    public = Item.objects.filter(status="published", is_demo=False)
+    stats = public.aggregate(items=Count("pk"), downloads=Sum("downloads"), authors=Count("author", distinct=True))
+    context = {"page_obj": page, "q": q, "category": category, "catalog_view": view, "sort": sort,
+               "stats": stats, "has_demo": items.filter(is_demo=True).exists(),
+               "types_with_counts": ContentType.objects.annotate(total=Count("items", filter=Q(items__status="published"))).order_by("position", "name")}
+    return render(request, "hub/results.html" if request.htmx and not request.htmx.history_restore_request else "hub/catalog.html", context)
+
+
+def detail(request, pk):
+    item = get_object_or_404(visible_items(request.user), pk=pk)
+    return render(request, "hub/detail.html", {"item": item, "saved": request.user.is_authenticated and Bookmark.objects.filter(user=request.user, item=item).exists()})
+
+
+@login_required
+def create_item(request):
+    form = ItemForm(request.POST or None)
+    release_form = ReleaseForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid() and release_form.is_valid():
+        try:
+            validate_package(release_form.cleaned_data["file"], form.cleaned_data["content_type"])
+            with transaction.atomic():
+                item = form.save(commit=False)
+                item.author = request.user
+                item.save()
+                add_release(item, **release_form.cleaned_data)
+                record_revision(item, request.user)
+            messages.success(request, "Upload saved. You can add screenshots below.")
+            return redirect("item-edit", pk=item.pk)
+        except ValidationError as exc:
+            release_form.add_error(None, exc)
+    return render(request, "hub/editor.html", {"form": form, "release_form": release_form, "creating": True})
+
+
+@login_required
+def edit_item(request, pk):
+    item = get_object_or_404(Item, pk=pk, author=request.user)
+    form = ItemForm(instance=item)
+    release_form = ReleaseForm()
+    screenshot_form = ScreenshotForm()
+    if request.method == "POST":
+        action = request.POST.get("action", "metadata")
+        if action == "metadata":
+            form = ItemForm(request.POST, instance=item)
+            if form.is_valid():
+                if form.cleaned_data["status"] == "published" and not item.releases.exists():
+                    form.add_error("status", "Upload a release before publishing.")
+                else:
+                    with transaction.atomic():
+                        Item.objects.select_for_update().get(pk=item.pk)
+                        item = form.save()
+                        record_revision(item, request.user)
+                    messages.success(request, "Changes saved to the edit history.")
+                    return redirect("item-edit", pk=pk)
+        elif action == "release":
+            release_form = ReleaseForm(request.POST, request.FILES)
+            if release_form.is_valid():
+                try:
+                    add_release(item, **release_form.cleaned_data)
+                    messages.success(request, "New release published. Previous versions are still available.")
+                    return redirect("item-edit", pk=pk)
+                except ValidationError as exc:
+                    release_form.add_error(None, exc)
+        elif action == "screenshot":
+            screenshot_form = ScreenshotForm(request.POST, request.FILES)
+            if screenshot_form.is_valid():
+                try:
+                    add_screenshot(item, **screenshot_form.cleaned_data)
+                    messages.success(request, "Screenshot added.")
+                    return redirect("item-edit", pk=pk)
+                except ValidationError as exc:
+                    screenshot_form.add_error(None, exc)
+        elif action == "remove-screenshot":
+            screenshot = get_object_or_404(item.screenshots, pk=request.POST.get("screenshot_id"))
+            screenshot.image.delete(save=False)
+            screenshot.delete()
+            return redirect("item-edit", pk=pk)
+    return render(request, "hub/editor.html", {"item": item, "form": form, "release_form": release_form, "screenshot_form": screenshot_form})
+
+
+@login_required
+@require_POST
+def bookmark(request, pk):
+    item = get_object_or_404(visible_items(request.user), pk=pk)
+    entry, created = Bookmark.objects.get_or_create(item=item, user=request.user)
+    if not created:
+        entry.delete()
+    if request.htmx:
+        return render(request, "hub/bookmark.html", {"item": item, "saved": created})
+    return redirect(item)
+
+
+@login_required
+def keys(request):
+    form = KeyForm(request.POST or None)
+    raw = None
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            from django.contrib.auth import get_user_model
+            get_user_model().objects.select_for_update().get(pk=request.user.pk)
+            if request.user.api_keys.filter(revoked_at=None, expires_at__gt=timezone.now()).count() >= 20:
+                form.add_error(None, "You have 20 active keys. Revoke one before creating another.")
+            else:
+                _, raw = APIKey.issue(user=request.user, **form.cleaned_data)
+                form = KeyForm()
+    apps = Application.objects.filter(Q(accesstoken__user=request.user) | Q(apikey__user=request.user, apikey__revoked_at=None)).distinct()
+    return render(request, "hub/keys.html", {"form": form, "keys": request.user.api_keys.all(), "new_key": raw, "connected_apps": apps})
+
+
+@login_required
+@require_POST
+def revoke_key(request, pk):
+    key = get_object_or_404(APIKey, pk=pk, user=request.user)
+    key.revoked_at = timezone.now()
+    key.save(update_fields=["revoked_at"])
+    messages.success(request, "API key revoked.")
+    return redirect("keys")
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def revoke_manager(request, pk):
+    app = get_object_or_404(Application, pk=pk)
+    RefreshToken.objects.filter(user=request.user, application=app).delete()
+    AccessToken.objects.filter(user=request.user, application=app).delete()
+    APIKey.objects.filter(user=request.user, application=app, revoked_at=None).update(revoked_at=timezone.now())
+    messages.success(request, "Manager disconnected and its tokens and keys revoked.")
+    return redirect("keys")
+
+
+def developers(request):
+    return render(request, "hub/developers.html")
+
+
+def health(request):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        return JsonResponse({"status": "ok"})
+    except Exception:
+        return JsonResponse({"status": "unavailable"}, status=503)

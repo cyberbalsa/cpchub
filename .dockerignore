@@ -1,0 +1,10 @@
+.git
+.venv
+.env
+wasabis3.txt
+*.sqlite3
+media
+staticfiles
+artifacts
+__pycache__
+node_modules

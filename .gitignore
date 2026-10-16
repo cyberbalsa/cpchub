@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+wasabis3.txt
+*.sqlite3
+media/
+staticfiles/
+.pytest_cache/
+artifacts/
+node_modules/
