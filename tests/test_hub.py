@@ -22,7 +22,10 @@ def package(name="test.json", data=b'{"hello":"parking"}'):
     return SimpleUploadedFile(name, data, content_type="application/octet-stream")
 
 
-@override_settings(DEBUG=True, SECURE_SSL_REDIRECT=False)
+@override_settings(DEBUG=True, SECURE_SSL_REDIRECT=False, STORAGES={
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+})
 class HubTests(TestCase):
     @classmethod
     def setUpTestData(cls):

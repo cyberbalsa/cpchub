@@ -6,5 +6,5 @@ class PrivateResponseMiddleware:
         response = self.get_response(request)
         if request.user.is_authenticated or request.path.startswith(("/account/", "/accounts/", "/o/", "/api/v1/keys/")):
             response["Cache-Control"] = "private, no-store"
-        response["Referrer-Policy"] = "same-origin"
+        response.setdefault("Referrer-Policy", "same-origin")
         return response

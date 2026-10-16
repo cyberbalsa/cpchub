@@ -312,11 +312,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
           description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
   /api/v1/items/{id}/releases/{release_id}/download/:
     get:
       operationId: v1_items_releases_download_retrieve
-      description: Download the exact immutable release. SHA-256 and size are in release
-        metadata. Downloads are counted per request, not unique users.
+      description: Checks item visibility, then redirects to a short-lived signed
+        Wasabi URL (302), or streams a local development file (200). Follow redirects
+        without forwarding CPC Hub credentials to the storage host. A GET counts a
+        download link issued, not a completed transfer; HEAD does not increment counts.
+        Signed URLs default to 300 seconds. SHA-256 and size are in release metadata.
       parameters:
       - in: path
         name: id
@@ -341,13 +350,36 @@ paths:
       - {}
       responses:
         '200':
+          headers:
+            X-Content-SHA256:
+              schema:
+                type: string
+              description: SHA-256 of the release file.
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
           description: ''
+        '302':
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Expiring signed URL. Request this endpoint again for a
+                fresh URL.
+            X-Content-SHA256:
+              schema:
+                type: string
+              description: SHA-256 of the release file.
+          description: No response body
         '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '503':
           content:
             application/json:
               schema:
@@ -399,6 +431,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
           description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
   /api/v1/items/{id}/screenshots/{screenshot_id}/:
     delete:
       operationId: v1_items_screenshots_destroy
@@ -441,6 +479,9 @@ paths:
   /api/v1/items/{id}/screenshots/{screenshot_id}/image/:
     get:
       operationId: v1_items_screenshots_image_retrieve
+      description: Checks item visibility before redirecting to a short-lived signed
+        screenshot URL. Local development can return image bytes directly. Keep this
+        application URL for future requests; signed URLs expire.
       parameters:
       - in: path
         name: id
@@ -471,7 +512,20 @@ paths:
                 type: string
                 format: binary
           description: ''
+        '302':
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Expiring signed WebP image URL.
+          description: No response body
         '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '503':
           content:
             application/json:
               schema:
@@ -1073,9 +1127,9 @@ components:
           format: int64
         downloads:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 2147483647
           minimum: 0
-          format: int64
+          readOnly: true
         created_at:
           type: string
           format: date-time
@@ -1083,9 +1137,12 @@ components:
         download_url:
           type: string
           readOnly: true
+          description: Stable application URL. Checks permissions and redirects to
+            an expiring signed download URL when using Wasabi.
       required:
       - created_at
       - download_url
+      - downloads
       - id
       - original_filename
       - sha256
@@ -1113,11 +1170,6 @@ components:
           minLength: 1
           maxLength: 64
         size:
-          type: integer
-          maximum: 9223372036854775807
-          minimum: 0
-          format: int64
-        downloads:
           type: integer
           maximum: 9223372036854775807
           minimum: 0
@@ -1184,6 +1236,8 @@ components:
         image_url:
           type: string
           readOnly: true
+          description: Stable application URL. Checks permissions and redirects to
+            an expiring signed screenshot URL when using Wasabi.
         created_at:
           type: string
           format: date-time

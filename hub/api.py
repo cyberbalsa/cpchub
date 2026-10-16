@@ -1,7 +1,6 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import F, Q
-from django.http import FileResponse
 from rest_framework.generics import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
@@ -19,6 +18,7 @@ from .serializers import (ContentTypeSerializer, ErrorSerializer, IssuedKeySeria
                           KeyCreateSerializer, KeySerializer, ProfileSerializer, ReleaseSerializer,
                           ReleaseUploadSerializer, RevisionSerializer, ScreenshotSerializer, ScreenshotUploadSerializer)
 from .services import add_release, add_screenshot, record_revision
+from .file_delivery import file_response
 
 
 def visible_items(user):
@@ -75,7 +75,7 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         item = serializer.save()
         record_revision(item, self.request.user)
 
-    @extend_schema(request=ReleaseUploadSerializer, responses={201: ReleaseSerializer, 400: ErrorSerializer, 403: ErrorSerializer}, description="Author-only upload. Version strings are unique per item. Existing releases cannot be overwritten.")
+    @extend_schema(request=ReleaseUploadSerializer, responses={201: ReleaseSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 503: ErrorSerializer}, description="Author-only upload. Version strings are unique per item. Existing releases cannot be overwritten.")
     @action(detail=True, methods=["post"], url_path="releases", parser_classes=[MultiPartParser, FormParser])
     def release_upload(self, request, pk=None):
         item = self.get_object()
@@ -87,24 +87,25 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             raise ValidationError({"file": exc.messages})
         return Response(ReleaseSerializer(release, context={"request": request}).data, status=201)
 
-    @extend_schema(responses={(200, "application/octet-stream"): OpenApiTypes.BINARY, 404: ErrorSerializer}, description="Download the exact immutable release. SHA-256 and size are in release metadata. Downloads are counted per request, not unique users.", parameters=[OpenApiParameter("release_id", OpenApiTypes.UUID, OpenApiParameter.PATH)])
+    @extend_schema(
+        responses={(200, "application/octet-stream"): OpenApiTypes.BINARY, 302: None, 404: ErrorSerializer, 503: ErrorSerializer},
+        description="Checks item visibility, then redirects to a short-lived signed Wasabi URL (302), or streams a local development file (200). Follow redirects without forwarding CPC Hub credentials to the storage host. A GET counts a download link issued, not a completed transfer; HEAD does not increment counts. Signed URLs default to 300 seconds. SHA-256 and size are in release metadata.",
+        parameters=[OpenApiParameter("release_id", OpenApiTypes.UUID, OpenApiParameter.PATH),
+                    OpenApiParameter("Location", str, OpenApiParameter.HEADER, response=[302], description="Expiring signed URL. Request this endpoint again for a fresh URL."),
+                    OpenApiParameter("X-Content-SHA256", str, OpenApiParameter.HEADER, response=[200, 302], description="SHA-256 of the release file.")],
+    )
     @action(detail=True, methods=["get"], url_path=r"releases/(?P<release_id>[0-9a-f-]+)/download")
     def download(self, request, pk=None, release_id=None):
         item = self.get_object()
         release = get_object_or_404(item.releases, pk=release_id)
-        try:
-            handle = release.file.open("rb")
-        except FileNotFoundError:
-            from rest_framework.exceptions import NotFound
-            raise NotFound("This release file is unavailable.")
-        Item.objects.filter(pk=item.pk).update(downloads=F("downloads") + 1)
-        Release.objects.filter(pk=release.pk).update(downloads=F("downloads") + 1)
-        response = FileResponse(handle, as_attachment=True, filename=release.original_filename, content_type="application/octet-stream")
+        response = file_response(release.file, method=request.method, filename=release.original_filename)
+        if request.method == "GET":
+            Item.objects.filter(pk=item.pk).update(downloads=F("downloads") + 1)
+            Release.objects.filter(pk=release.pk).update(downloads=F("downloads") + 1)
         response["X-Content-SHA256"] = release.sha256
-        response["Cache-Control"] = "private, no-store"
         return response
 
-    @extend_schema(request=ScreenshotUploadSerializer, responses={201: ScreenshotSerializer, 400: ErrorSerializer, 403: ErrorSerializer})
+    @extend_schema(request=ScreenshotUploadSerializer, responses={201: ScreenshotSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 503: ErrorSerializer})
     @action(detail=True, methods=["post"], url_path="screenshots", parser_classes=[MultiPartParser, FormParser])
     def screenshot_upload(self, request, pk=None):
         item = self.get_object()
@@ -116,18 +117,16 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             raise ValidationError({"image": exc.messages})
         return Response(ScreenshotSerializer(screenshot, context={"request": request}).data, status=201)
 
-    @extend_schema(responses={(200, "image/webp"): OpenApiTypes.BINARY, 404: ErrorSerializer}, parameters=[OpenApiParameter("screenshot_id", OpenApiTypes.UUID, OpenApiParameter.PATH)])
+    @extend_schema(
+        responses={(200, "image/webp"): OpenApiTypes.BINARY, 302: None, 404: ErrorSerializer, 503: ErrorSerializer},
+        description="Checks item visibility before redirecting to a short-lived signed screenshot URL. Local development can return image bytes directly. Keep this application URL for future requests; signed URLs expire.",
+        parameters=[OpenApiParameter("screenshot_id", OpenApiTypes.UUID, OpenApiParameter.PATH),
+                    OpenApiParameter("Location", str, OpenApiParameter.HEADER, response=[302], description="Expiring signed WebP image URL.")],
+    )
     @action(detail=True, methods=["get"], url_path=r"screenshots/(?P<screenshot_id>[0-9a-f-]+)/image")
     def screenshot_image(self, request, pk=None, screenshot_id=None):
         screenshot = get_object_or_404(self.get_object().screenshots, pk=screenshot_id)
-        try:
-            handle = screenshot.image.open("rb")
-        except FileNotFoundError:
-            from rest_framework.exceptions import NotFound
-            raise NotFound("This screenshot is unavailable.")
-        response = FileResponse(handle, content_type="image/webp")
-        response["Cache-Control"] = "private, no-store"
-        return response
+        return file_response(screenshot.image, method=request.method, content_type="image/webp")
 
     @extend_schema(responses={204: None, 403: ErrorSerializer, 404: ErrorSerializer}, parameters=[OpenApiParameter("screenshot_id", OpenApiTypes.UUID, OpenApiParameter.PATH)])
     @action(detail=True, methods=["delete"], url_path=r"screenshots/(?P<screenshot_id>[0-9a-f-]+)")

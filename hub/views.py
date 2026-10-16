@@ -1,3 +1,4 @@
+from botocore.exceptions import BotoCoreError, ClientError
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
@@ -66,6 +67,8 @@ def create_item(request):
             return redirect("item-edit", pk=item.pk)
         except ValidationError as exc:
             release_form.add_error(None, exc)
+        except (BotoCoreError, ClientError):
+            release_form.add_error(None, "File storage is temporarily unavailable. Try again shortly.")
     return render(request, "hub/editor.html", {"form": form, "release_form": release_form, "creating": True})
 
 
@@ -98,6 +101,8 @@ def edit_item(request, pk):
                     return redirect("item-edit", pk=pk)
                 except ValidationError as exc:
                     release_form.add_error(None, exc)
+                except (BotoCoreError, ClientError):
+                    release_form.add_error(None, "File storage is temporarily unavailable. Try again shortly.")
         elif action == "screenshot":
             screenshot_form = ScreenshotForm(request.POST, request.FILES)
             if screenshot_form.is_valid():
@@ -107,6 +112,8 @@ def edit_item(request, pk):
                     return redirect("item-edit", pk=pk)
                 except ValidationError as exc:
                     screenshot_form.add_error(None, exc)
+                except (BotoCoreError, ClientError):
+                    screenshot_form.add_error(None, "File storage is temporarily unavailable. Try again shortly.")
         elif action == "remove-screenshot":
             screenshot = get_object_or_404(item.screenshots, pk=request.POST.get("screenshot_id"))
             screenshot.image.delete(save=False)

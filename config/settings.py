@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
@@ -74,7 +75,32 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STORAGES = {"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"}}
-# Uploaded files are ONLY served through permission-aware application views.
+# Only UGC uses Wasabi. Static files continue to use WhiteNoise.
+MEDIA_STORAGE = os.getenv("MEDIA_STORAGE", "local")
+if MEDIA_STORAGE not in {"local", "wasabi"}:
+    raise ImproperlyConfigured("MEDIA_STORAGE must be local or wasabi.")
+WASABI_BUCKET_NAME = os.getenv("WASABI_BUCKET_NAME", "")
+WASABI_REGION = os.getenv("WASABI_REGION", "us-east-1")
+WASABI_ENDPOINT_URL = os.getenv("WASABI_ENDPOINT_URL", f"https://s3.{WASABI_REGION}.wasabisys.com")
+WASABI_SIGNED_URL_SECONDS = int(os.getenv("WASABI_SIGNED_URL_SECONDS", "300"))
+if not 60 <= WASABI_SIGNED_URL_SECONDS <= 900:
+    raise ImproperlyConfigured("WASABI_SIGNED_URL_SECONDS must be between 60 and 900.")
+_wasabi_keys = {"access_key": os.getenv("WASABI_ACCESS_KEY_ID", ""), "secret_key": os.getenv("WASABI_SECRET_ACCESS_KEY", "")}
+if MEDIA_STORAGE == "wasabi" or any(_wasabi_keys.values()) or WASABI_BUCKET_NAME:
+    if not all(_wasabi_keys.values()) or not WASABI_BUCKET_NAME:
+        raise ImproperlyConfigured("Set WASABI_BUCKET_NAME, WASABI_ACCESS_KEY_ID and WASABI_SECRET_ACCESS_KEY together.")
+    _endpoint = urlsplit(WASABI_ENDPOINT_URL)
+    if (_endpoint.scheme != "https" or not (_endpoint.hostname or "").endswith(".wasabisys.com")
+            or _endpoint.username or _endpoint.password or _endpoint.port or _endpoint.path not in {"", "/"}
+            or _endpoint.query or _endpoint.fragment):
+        raise ImproperlyConfigured("WASABI_ENDPOINT_URL must be an HTTPS Wasabi S3 regional endpoint.")
+    STORAGES["wasabi"] = {"BACKEND": "hub.storage.WasabiMediaStorage", "OPTIONS": {
+        **_wasabi_keys, "bucket_name": WASABI_BUCKET_NAME, "region_name": WASABI_REGION,
+        "endpoint_url": WASABI_ENDPOINT_URL, "querystring_expire": WASABI_SIGNED_URL_SECONDS,
+    }}
+    if MEDIA_STORAGE == "wasabi":
+        STORAGES["default"] = STORAGES["wasabi"]
+# Application URLs check permissions, then stream local files or redirect to signed URLs.
 MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", str(BASE_DIR / "media")))
 MEDIA_URL = "/private-media/"
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024

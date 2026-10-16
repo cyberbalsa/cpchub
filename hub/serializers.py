@@ -16,7 +16,9 @@ class ContentTypeSerializer(serializers.ModelSerializer):
 
 
 class ReleaseSerializer(serializers.ModelSerializer):
-    download_url = serializers.SerializerMethodField()
+    # Keep the PostgreSQL counter limit in the schema when developing with SQLite.
+    downloads = serializers.IntegerField(min_value=0, max_value=2147483647, read_only=True)
+    download_url = serializers.SerializerMethodField(help_text="Stable application URL. Checks permissions and redirects to an expiring signed download URL when using Wasabi.")
 
     def get_download_url(self, obj) -> str:
         return self.context["request"].build_absolute_uri(f"/api/v1/items/{obj.item_id}/releases/{obj.pk}/download/")
@@ -34,7 +36,7 @@ class ReleaseUploadSerializer(serializers.Serializer):
 
 
 class ScreenshotSerializer(serializers.ModelSerializer):
-    image_url = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField(help_text="Stable application URL. Checks permissions and redirects to an expiring signed screenshot URL when using Wasabi.")
 
     def get_image_url(self, obj) -> str:
         return self.context["request"].build_absolute_uri(f"/api/v1/items/{obj.item_id}/screenshots/{obj.pk}/image/")

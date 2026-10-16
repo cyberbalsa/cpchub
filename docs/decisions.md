@@ -60,6 +60,18 @@ Screenshot removal is an author action; previous screenshots are not retained as
 
 ## Deployment boundary
 
-Docker Compose runs PostgreSQL 17, a one-shot migration service, and Gunicorn. The production override adds Caddy with HTTPS for cpchub.net and removes the published application port. Media storage is a private persistent volume; it must be backed up alongside PostgreSQL. Static assets are served by WhiteNoise. The user-requested Python/Django/PostgreSQL stack is not compatible with the Sites plugin's Worker runtime, so this project uses normal container deployment.
+Docker Compose runs PostgreSQL 17, a one-shot migration service, and Gunicorn. The production override adds Caddy with HTTPS for cpchub.net and removes the published application port. Static assets are served by WhiteNoise. The Python/Django/PostgreSQL stack uses container deployment.
+
+## Private upload storage
+
+Uploaded releases and screenshots use [django-storages' S3 backend](https://django-storages.readthedocs.io/en/latest/backends/amazon-S3.html), configured for the bucket's [Wasabi regional endpoint](https://docs.wasabi.com/docs/service-urls-for-wasabis-storage-regions). Site artwork, CSS, JavaScript, and fonts stay local. All upload types share the same release storage path, so future mod categories use Wasabi without a new backend.
+
+The application uses its own IAM user. Its policy permits access to `ugc/releases/*` and `ugc/screenshots/*` in the configured bucket, plus bucket listing and region lookup. Listing is needed for S3 to distinguish missing objects from access-denied responses. Root keys are used only by the provisioning script against [Wasabi's IAM endpoint](https://docs.wasabi.com/docs/service-url-endpoints); they are excluded from Git and container images.
+
+File endpoints check catalog visibility and API scopes before returning a 302 redirect to a five-minute [Signature V4 presigned URL](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html). This keeps expiring URLs out of catalog metadata and gives lazy-loaded screenshots a fresh link on demand. Downloads retain the original filename through a signed Content-Disposition override. Both redirects and object responses use `private, no-store`.
+
+Presigned URLs remain usable until expiry even after an item is hidden or a manager key is revoked. Clients must request a fresh URL through CPC Hub and must not forward CPC Hub credentials across the redirect. Download counters record GET links issued, while HEAD requests leave counts unchanged. Missing objects return 404; provider failures return 503 without provider diagnostics.
+
+The migration command copies only files referenced by releases and screenshots, verifies their checksums, and leaves the local source intact. It never uploads site assets. Database backups and a separate object-backup/retention policy are still required; release history does not protect against bucket deletion.
 
 Real provider sign-ins, DNS, SMTP and public TLS require operator credentials/infrastructure. Local integration tests cover OAuth consent/code exchange/refresh/key issuance; they do not assert that external Steam or Discord configuration is already working.

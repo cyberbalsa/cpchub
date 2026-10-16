@@ -1,6 +1,8 @@
 .git
 .venv
 .env
+.env.*
+!.env.example
 wasabis3.txt
 *.sqlite3
 media

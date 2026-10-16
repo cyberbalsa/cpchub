@@ -11,7 +11,8 @@ The interface takes its cues from RCT and Car Park Capital: beveled tool buttons
 - Author-only edits with metadata snapshots; immutable versioned releases with changelogs, game-version labels, sizes, SHA-256 checksums, and historical downloads.
 - Up to eight screenshots per item; PNG/JPEG/WebP inputs are resized and re-encoded to WebP, with metadata removed.
 - Configurable categories and file extensions. Initial types: blueprints, blueprint packs, scenarios, and other mods. Accepts native `.cpbp`/`.cpcs`, ZIPs, and JSON as appropriate. ZIPs are stored without extracting their contents. New types/extensions can be added in Django admin.
-- Drafts visible only to the author; authenticated file delivery checks the same permissions as the catalog.
+- Drafts visible only to the author; file delivery checks the same permissions as the catalog.
+- Private Wasabi storage for uploaded releases and screenshots, with five-minute signed download URLs. CSS, JavaScript, fonts, and site artwork stay local.
 - Named, hashed API keys with read/write scopes, expiration (1–90 days), revocation, and a one-time secret display.
 - Mod-manager sign-in through OAuth authorization code + **S256 PKCE**, explicit consent, 15-minute access tokens, rotating refresh tokens, and optional per-manager API-key creation. Keys cannot create additional keys. OAuth clients cannot grant broader permissions or manage another client’s keys.
 - OpenAPI **3.1**, Swagger UI, ReDoc, request/response serializers, multipart upload schemas, authentication scopes, and a consistent API error envelope.
@@ -56,6 +57,37 @@ podman-compose -f compose.yaml up --build --force-recreate --no-deps -d web
 
 This replaces the web container and keeps the database and upload volumes.
 
+## Wasabi upload storage
+
+Only user-generated content goes to Wasabi: release files, ZIP packs, and screenshots. The app validates uploads and converts screenshots to WebP before storing them under `ugc/releases/` and `ugc/screenshots/`. Site assets continue to use WhiteNoise.
+
+Create a private bucket in Wasabi. Use `deploy/wasabi-ugc-policy.json` as the application user's policy, replacing `__BUCKET__` with the bucket name. It allows listing that bucket and reading, writing, and deleting objects in those two prefixes. It grants no IAM, ACL, or bucket-configuration permissions.
+
+The optional provisioning script creates the application user, attaches that policy, and writes restricted access keys to a mode-0600 `.env` file. Supply an ignored local file with `access-key=...`, `secret-key=...`, and `bucket=...` entries. Root keys are used only for provisioning:
+
+```bash
+.venv/bin/python scripts/provision_wasabi.py --credentials-file wasabis3.txt
+```
+
+Alternatively, set the `WASABI_*` values in `.env` with an existing restricted key. Use the endpoint for the bucket's region. `WASABI_SIGNED_URL_SECONDS` defaults to 300 and accepts 60–900 seconds.
+
+For an existing installation, pause uploads while switching storage. With the new image built and Wasabi configured, copy the files before enabling the backend:
+
+```bash
+podman-compose -f compose.yaml build web
+podman-compose -f compose.yaml stop web
+podman-compose -f compose.yaml run --rm --no-deps web python manage.py migrate_uploads_to_wasabi
+podman-compose -f compose.yaml run --rm --no-deps web python manage.py migrate_uploads_to_wasabi --apply
+# Set MEDIA_STORAGE=wasabi in .env after verification succeeds.
+podman-compose -f compose.yaml up --force-recreate --no-deps -d web
+```
+
+The migration verifies SHA-256 checksums, preserves object names and releases, refuses to overwrite conflicting remote content, and keeps the local originals. It can be rerun. If it fails, leave `MEDIA_STORAGE=local` and restart the web service. New installations with no uploads can enable Wasabi directly.
+
+API and HTML links keep their application URLs. Each request checks item visibility and token permissions, then returns a non-cacheable 302 redirect to a signed Wasabi URL. Screenshots load inline; releases download with their original filename. HEAD requests get a HEAD signature and do not increment download counts. GET counts a download link issued, not proof of a completed transfer.
+
+Clients should keep the application URL, follow redirects, and avoid forwarding CPC Hub Authorization headers to Wasabi. A signed URL grants access to its holder until expiry, so hiding an item or revoking a key stops new links but does not cancel a link already issued. Request the application URL again when a signed link expires. The secret access key stays on the server.
+
 ## Local Python development
 
 ```bash
@@ -77,9 +109,9 @@ SQLite is a local fallback only. Production refuses to start without a PostgreSQ
 4. Create an admin using the same Compose files with `exec web python manage.py createsuperuser`.
 5. Confirm `/health/`, registration/login, password-reset email delivery, provider callbacks, and an upload/download. Caddy obtains certificates and redirects `www` to the apex domain. Only Caddy is externally exposed; the database has no published port.
 
-Set `TRUST_PROXY=1` only behind a proxy that replaces forwarded protocol headers (the included production config does this). Apply database migrations once per deployment before serving the new application version; back up the database and media volume before upgrades. Run `python manage.py cleartokens` regularly to prune expired OAuth records.
+Set `TRUST_PROXY=1` only behind a proxy that replaces forwarded protocol headers (the included production config does this). Apply database migrations once per deployment before serving the new application version; back up the database and upload storage before upgrades. Run `python manage.py cleartokens` regularly to prune expired OAuth records.
 
-The app’s built-in rate limits use a process-local cache and are **not a global abuse quota**. Before a public launch, configure edge rate limits for login, OAuth and uploads; decide upload moderation/malware-scanning policy and storage quotas. Native game files remain opaque, ZIP validation checks archive metadata/paths/declared sizes, and this implementation does not certify content as safe or game-compatible. Configure reliable backups for both database and uploads. Do not serve the private media volume directly from Caddy/CDN.
+The app’s built-in rate limits use a process-local cache. Configure edge rate limits for login, OAuth and uploads before public launch. Native game files remain opaque; ZIP validation checks archive metadata, paths, and declared sizes. Game compatibility and malware scanning require separate checks. Back up the database and upload storage. Keep the Wasabi bucket private and do not serve local media directly from Caddy.
 
 ## Social login setup
 
@@ -134,13 +166,13 @@ Read [the authentication and UI research](docs/decisions.md) for standards, alte
 
 ```bash
 DEBUG=1 .venv/bin/python manage.py check
+DEBUG=1 .venv/bin/python manage.py collectstatic --noinput
 DEBUG=1 .venv/bin/python manage.py test tests
 DEBUG=1 .venv/bin/python manage.py spectacular --file docs/openapi.yaml --validate --fail-on-warn
-DEBUG=1 .venv/bin/python manage.py collectstatic --noinput
 ```
 
 Run the same test command with a PostgreSQL `DATABASE_URL` to test the production engine. CI uses PostgreSQL. `docs/openapi.yaml` is the checked-in API contract; regenerate it when the API changes.
 
 Frontend vendor versions and licenses live in `static/vendor/`. `scripts/fetch_vendor.py` refreshes the pinned files; `scripts/create_art.py` regenerates original illustrations.
 
-Validation covers catalog rendering, uploads, version history, screenshot processing, author permissions, API keys, and the OAuth flow. CI runs against PostgreSQL 17 and checks that the OpenAPI schema matches the source. The local Podman stack has also been checked in Firefox for layout, search, login, and file-detail navigation.
+Validation covers catalog rendering, uploads, version history, screenshot processing, author permissions, API keys, and the OAuth flow. Storage tests check signed links, draft permissions, provider failures, and migration checksums without contacting Wasabi. CI runs against PostgreSQL 17 and checks that the OpenAPI schema matches the source. The local Podman stack has also been checked in Firefox for layout, search, login, file details, and screenshots delivered through Wasabi.
