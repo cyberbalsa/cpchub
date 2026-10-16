@@ -120,14 +120,6 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
 .sidebar-note h2 { font-size: 18px; margin-bottom: 16px; }
 .sidebar-note p { font-size: 12px; line-height: 1.7; color: #635c3e; }
 .sidebar-note a { font-size: 11px; }
-.noticeboard { position: relative; padding: 25px 13px 15px; transform: rotate(-1deg); background-image: repeating-linear-gradient(0deg, transparent 0 20px, #a3906220 20px 21px); }
-.noticeboard .eyebrow { color: #79704c; font-size: 8px; letter-spacing: 1px; }
-.noticeboard p { font-size: 11px; }
-.noticeboard .win-button { width: 100%; }
-.pin { position: absolute; top: 8px; left: calc(50% - 3px); width: 7px; height: 7px; border: 1px solid #823f2d; background: #c76e46; box-shadow: inset 1px 1px #fbb984, 1px 2px #81755080; }
-.sidebar-dev { display: flex; gap: 9px; align-items: center; text-decoration: none; padding: 12px 3px 0; color: #3e5745; }
-.sidebar-dev strong { font-size: 11px; }
-.sidebar-dev small { display: block; font-size: 10px; margin-top: 4px; color: #5f634a; }
 .catalog-main { flex: 1; min-width: 0; padding: 12px; background-image: url('../art/paper.svg'); }
 
 /* A town viewport with an in-game welcome dialog. */
