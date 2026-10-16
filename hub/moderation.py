@@ -268,11 +268,11 @@ def remove_file(request, pk, file_id, kind):
                 item.featured_at = item.featured_by = None
                 item.save(update_fields=["status", "featured_at", "featured_by"])
                 record_revision(item, request.user)
-        messages.success(request, "File deleted. Creations without a release and two screenshots are saved as drafts.")
+        messages.success(request, "File deleted. Creations without a release or screenshot are saved as drafts.")
         return redirect("moderation-item", pk=pk)
     return render(request, "hub/moderation/delete.html", {
         "form": form, "name": name, "cancel_url": item.get_absolute_url(),
-        "consequence": "This permanently deletes the file. If the creation has no releases or fewer than two screenshots left, it becomes a draft.",
+        "consequence": "This permanently deletes the file. If the creation has no releases or screenshots left, it becomes a draft.",
     })
 
 

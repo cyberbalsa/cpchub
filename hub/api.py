@@ -34,8 +34,8 @@ class ContentTypeViewSet(viewsets.ReadOnlyModelViewSet):
 @extend_schema_view(
     retrieve=extend_schema(description="Read a visible creation. Hidden creations return 403 with the public moderation reason. Shadow-banned and self-deleted creations return 404 to other users; their creator and staff browser sessions retain access. Drafts remain private to the creator and staff.", responses={200: ItemSerializer, 403: ErrorSerializer, 404: ErrorSerializer}),
     list=extend_schema(parameters=[OpenApiParameter("q", str, description="Search titles, descriptions and tags"), OpenApiParameter("type", str, description="Content type slug"), OpenApiParameter("sort", str, enum=["newest", "popular", "updated"]), OpenApiParameter("mine", bool, description="Only your uploads")]),
-    create=extend_schema(description="Create metadata for a blueprint, blueprint pack or scenario. Mod uploads are disabled. API items start as drafts; upload a release and at least two screenshots, then PATCH status to published. Each item can have up to eight screenshots.", responses={201: ItemSerializer, 400: ErrorSerializer, 403: ErrorSerializer}),
-    partial_update=extend_schema(description="Authors can edit their own metadata. Admin and Moderator browser sessions may edit any creation; API keys and OAuth tokens remain limited to their owner. Publishing requires an enabled file type, a release and at least two screenshots. Records a revision; files and previous releases are immutable.", responses={200: ItemSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 404: ErrorSerializer}),
+    create=extend_schema(description="Create metadata for a blueprint, blueprint pack or scenario. Mod uploads are disabled. API items start as drafts; upload a release and at least one screenshot, then PATCH status to published. Each item can have up to eight screenshots.", responses={201: ItemSerializer, 400: ErrorSerializer, 403: ErrorSerializer}),
+    partial_update=extend_schema(description="Authors can edit their own metadata. Admin and Moderator browser sessions may edit any creation; API keys and OAuth tokens remain limited to their owner. Publishing requires an enabled file type, a release and at least one screenshot. Records a revision; files and previous releases are immutable.", responses={200: ItemSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 404: ErrorSerializer}),
 )
 class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin,
                   mixins.UpdateModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet):
@@ -117,7 +117,7 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         if previous_status != Item.Status.PUBLISHED and item.status == Item.Status.PUBLISHED:
             record_activity(self.request, AccountActivity.Action.PUBLISH, item=item)
 
-    @extend_schema(request=ReleaseUploadSerializer, responses={201: ReleaseSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 503: ErrorSerializer}, description="Upload to an owned creation, or use an Admin or Moderator browser session to add a release to any creation. The file type must be enabled. Published items must have at least two screenshots before adding a release. Version strings are unique per item. Existing releases cannot be overwritten.")
+    @extend_schema(request=ReleaseUploadSerializer, responses={201: ReleaseSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 503: ErrorSerializer}, description="Upload to an owned creation, or use an Admin or Moderator browser session to add a release to any creation. The file type must be enabled. Published items must have at least one screenshot before adding a release. Version strings are unique per item. Existing releases cannot be overwritten.")
     @action(detail=True, methods=["post"], url_path="releases", parser_classes=[MultiPartParser, FormParser])
     def release_upload(self, request, pk=None):
         item = self.get_object()
@@ -170,7 +170,7 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         screenshot = get_object_or_404(self.get_object().screenshots, pk=screenshot_id)
         return file_response(screenshot.image, method=request.method, content_type="image/webp")
 
-    @extend_schema(responses={204: None, 400: ErrorSerializer, 403: ErrorSerializer, 404: ErrorSerializer}, description="Remove an owned screenshot, or use an Admin browser session to remove any screenshot. Published creations must keep at least two screenshots; add a replacement or save as a draft first.", parameters=[OpenApiParameter("screenshot_id", OpenApiTypes.UUID, OpenApiParameter.PATH)])
+    @extend_schema(responses={204: None, 400: ErrorSerializer, 403: ErrorSerializer, 404: ErrorSerializer}, description="Remove an owned screenshot, or use an Admin browser session to remove any screenshot. Published creations must keep at least one screenshot; add a replacement or save as a draft first.", parameters=[OpenApiParameter("screenshot_id", OpenApiTypes.UUID, OpenApiParameter.PATH)])
     @action(detail=True, methods=["delete"], url_path=r"screenshots/(?P<screenshot_id>[0-9a-f-]+)")
     def screenshot_delete(self, request, pk=None, screenshot_id=None):
         screenshot = get_object_or_404(self.get_object().screenshots, pk=screenshot_id)

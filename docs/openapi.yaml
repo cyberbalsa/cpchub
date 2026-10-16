@@ -87,8 +87,8 @@ paths:
       operationId: v1_items_create
       description: Create metadata for a blueprint, blueprint pack or scenario. Mod
         uploads are disabled. API items start as drafts; upload a release and at least
-        two screenshots, then PATCH status to published. Each item can have up to
-        eight screenshots.
+        one screenshot, then PATCH status to published. Each item can have up to eight
+        screenshots.
       tags:
       - v1
       requestBody:
@@ -174,7 +174,7 @@ paths:
       description: Authors can edit their own metadata. Admin and Moderator browser
         sessions may edit any creation; API keys and OAuth tokens remain limited to
         their owner. Publishing requires an enabled file type, a release and at least
-        two screenshots. Records a revision; files and previous releases are immutable.
+        one screenshot. Records a revision; files and previous releases are immutable.
       parameters:
       - in: path
         name: id
@@ -293,8 +293,8 @@ paths:
       operationId: v1_items_releases_create
       description: Upload to an owned creation, or use an Admin or Moderator browser
         session to add a release to any creation. The file type must be enabled. Published
-        items must have at least two screenshots before adding a release. Version
-        strings are unique per item. Existing releases cannot be overwritten.
+        items must have at least one screenshot before adding a release. Version strings
+        are unique per item. Existing releases cannot be overwritten.
       parameters:
       - in: path
         name: id
@@ -518,7 +518,7 @@ paths:
     delete:
       operationId: v1_items_screenshots_destroy
       description: Remove an owned screenshot, or use an Admin browser session to
-        remove any screenshot. Published creations must keep at least two screenshots;
+        remove any screenshot. Published creations must keep at least one screenshot;
         add a replacement or save as a draft first.
       parameters:
       - in: path

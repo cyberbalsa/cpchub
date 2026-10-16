@@ -38,11 +38,11 @@ class UploadRulesTests(TestCase):
         self.assertEqual(response.data["status"], "draft")
         return Item.objects.get(pk=response.data["id"]), f'/api/v1/items/{response.data["id"]}/'
 
-    def test_web_upload_requires_two_to_eight_valid_screenshots(self):
-        for count in [0, 1, 9]:
+    def test_web_upload_requires_one_to_eight_valid_screenshots(self):
+        for count in [0, 9]:
             with self.subTest(count=count):
                 response = self.web_upload([screenshot(f"{index}.png") for index in range(count)])
-                self.assertContains(response, "Choose 2–8 screenshots.")
+                self.assertContains(response, "Choose 1–8 screenshots.")
                 self.assertEqual(Item.objects.count(), 0)
                 self.assertFalse(any(Path(self.directory.name).rglob("*.*")))
         response = self.web_upload([screenshot(), package("bad.png", b"not an image")])
@@ -51,61 +51,59 @@ class UploadRulesTests(TestCase):
         self.assertFalse(Release.objects.exists())
         self.assertFalse(Screenshot.objects.exists())
         self.assertFalse(any(Path(self.directory.name).rglob("*.*")))
-        response = self.web_upload([screenshot(), screenshot("second.png", (128, 0, 128))])
+        response = self.web_upload([screenshot()])
         self.assertEqual(response.status_code, 302)
         item = Item.objects.get()
         self.assertEqual(item.status, "published")
-        self.assertEqual(item.screenshots.count(), 2)
+        self.assertEqual(item.screenshots.count(), 1)
         self.assertEqual(item.releases.count(), 1)
 
-    def test_api_publish_requires_release_and_two_screenshots(self):
+    def test_api_publish_requires_release_and_one_screenshot(self):
         item, url = self.draft()
         self.assertEqual(self.api.patch(url, {"status": "published"}).status_code, 400)
         self.assertEqual(self.api.post(url + "releases/", {"version": "1", "file": package()}, format="multipart").status_code, 201)
-        for count in [0, 1]:
-            response = self.api.patch(url, {"status": "published"})
-            self.assertEqual(response.status_code, 400)
-            self.assertIn("Add at least 2 screenshots", str(response.data))
-            self.assertEqual(self.api.post(url + "screenshots/", {"image": screenshot(f"{count}.png")}, format="multipart").status_code, 201)
+        response = self.api.patch(url, {"status": "published"})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Add at least 1 screenshot", str(response.data))
+        self.assertEqual(self.api.post(url + "screenshots/", {"image": screenshot()}, format="multipart").status_code, 201)
         self.assertEqual(self.api.patch(url, {"status": "published"}).status_code, 200)
         item.refresh_from_db()
         self.assertEqual(item.status, "published")
 
-    def test_web_cannot_publish_api_draft_with_only_one_screenshot(self):
+    def test_web_can_publish_api_draft_with_one_screenshot_but_not_zero(self):
         item, url = self.draft()
         self.api.post(url + "releases/", {"version": "1", "file": package()}, format="multipart")
-        self.api.post(url + "screenshots/", {"image": screenshot()}, format="multipart")
         target = f"/items/{item.pk}/edit/"
         response = self.client.post(target, {**self.metadata, "action": "metadata"})
-        self.assertContains(response, "Add at least 2 screenshots before publishing.")
+        self.assertContains(response, "Add at least 1 screenshot before publishing.")
         item.refresh_from_db()
         self.assertEqual(item.status, "draft")
-        self.api.post(url + "screenshots/", {"image": screenshot("second.png")}, format="multipart")
+        self.api.post(url + "screenshots/", {"image": screenshot()}, format="multipart")
         self.assertEqual(self.client.post(target, {**self.metadata, "action": "metadata"}).status_code, 302)
         item.refresh_from_db()
         self.assertEqual(item.status, "published")
 
     def test_published_screenshot_minimum_on_api_and_web_deletes(self):
-        self.web_upload([screenshot(), screenshot("second.png")])
+        self.web_upload([screenshot()])
         item = Item.objects.get()
         shot = item.screenshots.first()
         url = f"/api/v1/items/{item.pk}/"
         edit_url = f"/items/{item.pk}/edit/"
         self.assertEqual(self.api.delete(url + f"screenshots/{shot.pk}/").status_code, 400)
         response = self.client.post(edit_url, {"action": "remove-screenshot", "screenshot_id": shot.pk}, follow=True)
-        self.assertContains(response, "Published creations need at least 2 screenshots.")
-        self.assertEqual(item.screenshots.count(), 2)
+        self.assertContains(response, "Published creations need at least 1 screenshot.")
+        self.assertEqual(item.screenshots.count(), 1)
         self.assertTrue(Path(shot.image.path).exists())
         self.api.post(url + "screenshots/", {"image": screenshot("replacement.png")}, format="multipart")
         with self.captureOnCommitCallbacks(execute=True):
             self.assertEqual(self.api.delete(url + f"screenshots/{shot.pk}/").status_code, 204)
-        self.assertEqual(item.screenshots.count(), 2)
+        self.assertEqual(item.screenshots.count(), 1)
         self.assertFalse(Path(shot.image.path).exists())
         self.api.patch(url, {"status": "draft"})
         other = item.screenshots.first()
         with self.captureOnCommitCallbacks(execute=True):
             self.assertEqual(self.client.post(edit_url, {"action": "remove-screenshot", "screenshot_id": other.pk}).status_code, 302)
-        self.assertEqual(item.screenshots.count(), 1)
+        self.assertEqual(item.screenshots.count(), 0)
 
     def test_disabled_mod_types_rejected_by_web_api_and_release_uploads(self):
         mods = ContentType.objects.get(slug="mods")

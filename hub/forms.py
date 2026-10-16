@@ -54,7 +54,7 @@ class ScreenshotBatchField(forms.FileField):
 
 
 class ScreenshotBatchForm(forms.Form):
-    screenshots = ScreenshotBatchField(help_text="Choose 2–8 screenshots. PNG, JPEG or WebP, up to 10 MB each.")
+    screenshots = ScreenshotBatchField(help_text=f"Choose {settings.MIN_SCREENSHOTS}–{settings.MAX_SCREENSHOTS} screenshots. PNG, JPEG or WebP, up to 10 MB each.")
 
 
 class KeyForm(forms.Form):

@@ -145,7 +145,7 @@ Only configured providers appear in the sign-in UI. At least one provider is nee
 - `/api/v1/keys/` — create/list/revoke scoped keys.
 - `/api/schema/`, `/api/docs/`, `/api/redoc/` — schema and API documentation.
 
-Use `Authorization: ApiKey cpc_...` for API keys or `Authorization: Bearer ...` for OAuth. Session-based mutations require CSRF. The API creates drafts first: upload a release and at least two screenshots, then PATCH `{"status":"published"}`. Release ordering is creation time, so always compare immutable release IDs/checksums; version strings are labels, not necessarily SemVer.
+Use `Authorization: ApiKey cpc_...` for API keys or `Authorization: Bearer ...` for OAuth. Session-based mutations require CSRF. The API creates drafts first: upload a release and at least one screenshot, then PATCH `{"status":"published"}`. Release ordering is creation time, so always compare immutable release IDs/checksums; version strings are labels, not necessarily SemVer.
 
 API keys and OAuth tokens keep their owner-only write permissions, even when the owner has a staff role. Admin and Moderator browser sessions can edit other creators’ content. Staff moderation and user management require a browser session and CSRF protection.
 

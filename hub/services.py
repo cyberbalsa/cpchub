@@ -54,7 +54,7 @@ def validate_upload_type(content_type):
 
 def validate_screenshot_minimum(item):
     if Screenshot.objects.filter(item=item).count() < settings.MIN_SCREENSHOTS:
-        raise ValidationError(f"Add at least {settings.MIN_SCREENSHOTS} screenshots before publishing.")
+        raise ValidationError(f"Add at least {settings.MIN_SCREENSHOTS} screenshot{'s' if settings.MIN_SCREENSHOTS != 1 else ''} before publishing.")
 
 
 def validate_publication(item):
@@ -112,6 +112,6 @@ def add_screenshot(item, *, image, caption="", request=None):
 def remove_screenshot(screenshot):
     item = Item.objects.select_for_update().get(pk=screenshot.item_id)
     if item.status == Item.Status.PUBLISHED and item.screenshots.count() <= settings.MIN_SCREENSHOTS:
-        raise ValidationError(f"Published creations need at least {settings.MIN_SCREENSHOTS} screenshots. Add a replacement first, or save the creation as a draft.")
+        raise ValidationError(f"Published creations need at least {settings.MIN_SCREENSHOTS} screenshot{'s' if settings.MIN_SCREENSHOTS != 1 else ''}. Add a replacement first, or save the creation as a draft.")
     screenshot.delete()
     queue_for_review(item)
