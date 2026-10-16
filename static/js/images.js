@@ -35,7 +35,7 @@
     if (event.target.matches?.(selector)) event.target.dataset.imageState = "failed";
   }, true);
   document.addEventListener("DOMContentLoaded", () => prepare(document));
-  // Filters, pagination, the overview panel, and cached history all insert images.
+  // Filters, pagination, and cached history all insert images.
   for (const eventName of ["htmx:afterSwap", "htmx:oobAfterSwap"]) {
     document.addEventListener(eventName, (event) => prepare(event.detail.elt));
   }

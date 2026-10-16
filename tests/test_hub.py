@@ -70,22 +70,23 @@ class HubTests(TestCase):
         self.assertEqual(self.api.post("/api/v1/items/", {"title":"Bad"}).status_code,401)
         self.assertEqual(self.api.get("/api/v1/me/").status_code,401)
 
-    def test_community_overview_only_on_unfiltered_first_page(self):
+    def test_catalog_filters_and_history_render_without_overview(self):
         self.login()
         Item.objects.bulk_create([
             Item(author=self.author, content_type=self.category, title=f"Lot {index}")
             for index in range(12)
         ])
-        for url, show in [("/", True), ("/?q=&type=&sort=updated", True), ("/?page=1", True),
-                          ("/?type=blueprints", False), ("/?q=parking", False),
-                          ("/?view=mine", False), ("/?view=saved", False), ("/?page=2", False)]:
+        for url in ["/", "/?q=&type=&sort=updated", "/?page=1", "/?type=blueprints",
+                    "/?q=parking", "/?view=mine", "/?view=saved", "/?page=2"]:
             for partial in [False, True]:
                 with self.subTest(url=url, partial=partial):
                     response = self.client.get(url, **({"HTTP_HX_REQUEST": "true"} if partial else {}))
                     self.assertEqual(response.status_code, 200)
-                    self.assertContains(response, 'id="community-overview"', count=1)
-                    self.assertContains(response, 'id="community-map"', count=1 if show else 0)
-                    self.assertContains(response, 'hx-swap-oob="outerHTML"', count=1 if partial else 0)
+                    self.assertContains(response, 'id="results"', count=1)
+                    self.assertContains(response, '<!doctype', count=0 if partial else 1)
+                    self.assertNotContains(response, 'id="community-overview"')
+                    self.assertNotContains(response, 'id="community-map"')
+                    self.assertNotContains(response, 'hx-swap-oob="outerHTML"')
         response = self.client.get("/?q=parking", HTTP_HX_REQUEST="true", HTTP_HX_HISTORY_RESTORE_REQUEST="true")
         self.assertContains(response, "<!doctype")
         self.assertNotContains(response, 'id="community-map"')

@@ -4,11 +4,6 @@
 .support-intro { padding-top: 10px; }
 .support-intro h1 { font-size: clamp(32px, 4vw, 52px); line-height: 1.08; margin: 15px 0 20px; color: #344f3f; text-shadow: 2px 2px #fff0c4; }
 .support-lead { font-size: 15px; line-height: 1.8; max-width: 510px; color: #4e5740; }
-.support-town { position: relative; margin-top: 25px; padding: 4px; background: #6f8067; border: 1px solid #4a5a41; box-shadow: inset 1px 1px #b5b993, inset -1px -1px #4e6048; }
-.support-town .viewport-title { font-size: 9px; padding: 2px 5px 6px; }
-.support-town .viewport-title > span:last-child { display: none; }
-.support-town img { display: block; width: 100%; height: 185px; object-fit: cover; object-position: 65% 48%; border: 1px solid #344a33; image-rendering: pixelated; }
-.support-town-label { position: absolute; right: 12px; bottom: 12px; background: #304a32; border: 1px solid #9cad7e; padding: 5px 7px; color: #f0ebc7; font: 9px var(--pixel); letter-spacing: 1px; }
 .support-note { display: flex; gap: 10px; margin-top: 18px; color: #515a41; }
 .support-note .online-dot { flex-shrink: 0; margin-top: 5px; }
 .support-note p { font-size: 12px; line-height: 1.7; margin: 0; }
@@ -47,7 +42,6 @@
   .support-layout { grid-template-columns: minmax(0, 1fr); }
   .support-page .support-intro h1 { font-size: 38px; }
   .support-lead { font-size: 14px; max-width: none; }
-  .support-town img { height: 155px; }
   .support-checkout { max-width: 460px; width: 100%; justify-self: center; }
   .support-detail-grid { grid-template-columns: 1fr; gap: 23px; }
   .support-details { margin-top: 29px; }
