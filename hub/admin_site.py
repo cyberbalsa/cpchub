@@ -10,6 +10,10 @@ class HubAdminSite(AdminSite):
     site_header = "CPC Hub administration"
     site_title = "CPC Hub admin"
 
+    def has_permission(self, request):
+        from .access import is_admin
+        return is_admin(request.user)
+
     def login(self, request, extra_context=None):
         if self.has_permission(request):
             return redirect("admin:index")

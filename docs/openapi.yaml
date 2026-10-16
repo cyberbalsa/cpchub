@@ -130,6 +130,10 @@ paths:
   /api/v1/items/{id}/:
     get:
       operationId: v1_items_retrieve
+      description: Read a visible creation. Hidden creations return 403 with the public
+        moderation reason. Shadow-banned and self-deleted creations return 404 to
+        other users; their creator and staff browser sessions retain access. Drafts
+        remain private to the creator and staff.
       parameters:
       - in: path
         name: id
@@ -153,18 +157,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Item'
           description: ''
-        '400':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '401':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
         '403':
           content:
             application/json:
@@ -177,17 +169,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
           description: ''
-        '429':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
     patch:
       operationId: v1_items_partial_update
-      description: Author-only metadata edit. Publishing requires an enabled file
-        type, a release and at least two screenshots. Records a revision; files and
-        previous releases are immutable.
+      description: Authors can edit their own metadata. Admin and Moderator browser
+        sessions may edit any creation; API keys and OAuth tokens remain limited to
+        their owner. Publishing requires an enabled file type, a release and at least
+        two screenshots. Records a revision; files and previous releases are immutable.
       parameters:
       - in: path
         name: id
@@ -239,6 +226,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
           description: ''
+    delete:
+      operationId: v1_items_destroy
+      description: Author-only soft deletion. Immediately private to the creator and
+        staff; recoverable for 14 days with POST restore/. After 14 days the creation
+        and stored files are permanently removed.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this item.
+        required: true
+      tags:
+      - v1
+      security:
+      - PersonalAPIKey: []
+      - oauth2:
+        - write
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
   /api/v1/items/{id}/history/:
     get:
       operationId: v1_items_history_list
@@ -269,9 +291,10 @@ paths:
   /api/v1/items/{id}/releases/:
     post:
       operationId: v1_items_releases_create
-      description: Author-only upload for an enabled file type. Published items must
-        have at least two screenshots before adding a release. Version strings are
-        unique per item. Existing releases cannot be overwritten.
+      description: Upload to an owned creation, or use an Admin or Moderator browser
+        session to add a release to any creation. The file type must be enabled. Published
+        items must have at least two screenshots before adding a release. Version
+        strings are unique per item. Existing releases cannot be overwritten.
       parameters:
       - in: path
         name: id
@@ -376,6 +399,12 @@ paths:
                 type: string
               description: SHA-256 of the release file.
           description: No response body
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
         '404':
           content:
             application/json:
@@ -383,6 +412,51 @@ paths:
                 $ref: '#/components/schemas/Error'
           description: ''
         '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+  /api/v1/items/{id}/restore/:
+    post:
+      operationId: v1_items_restore_create
+      description: Restore your own self-deleted creation within 14 days. Existing
+        draft status and moderation restrictions remain in effect.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this item.
+        required: true
+      tags:
+      - v1
+      security:
+      - PersonalAPIKey: []
+      - oauth2:
+        - write
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '404':
           content:
             application/json:
               schema:
@@ -443,8 +517,9 @@ paths:
   /api/v1/items/{id}/screenshots/{screenshot_id}/:
     delete:
       operationId: v1_items_screenshots_destroy
-      description: Remove an owned screenshot. Published creations must keep at least
-        two screenshots; add a replacement or save as a draft first.
+      description: Remove an owned screenshot, or use an Admin browser session to
+        remove any screenshot. Published creations must keep at least two screenshots;
+        add a replacement or save as a draft first.
       parameters:
       - in: path
         name: id
@@ -530,6 +605,12 @@ paths:
                 type: string
               description: Expiring signed WebP image URL.
           description: No response body
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
         '404':
           content:
             application/json:
@@ -917,6 +998,24 @@ components:
         is_demo:
           type: boolean
           readOnly: true
+        is_hidden:
+          type: boolean
+          readOnly: true
+        hidden_reason:
+          type: string
+          readOnly: true
+        deleted_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          readOnly: true
+        featured_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          readOnly: true
         downloads:
           type: integer
           readOnly: true
@@ -942,10 +1041,14 @@ components:
       - author
       - content_type
       - created_at
+      - deleted_at
       - description
       - downloads
+      - featured_at
+      - hidden_reason
       - id
       - is_demo
+      - is_hidden
       - releases
       - screenshots
       - summary
@@ -1298,7 +1401,7 @@ components:
       - published
       type: string
       description: |-
-        * `draft` - Draft (only you)
+        * `draft` - Draft (private)
         * `published` - Published
   securitySchemes:
     PersonalAPIKey:

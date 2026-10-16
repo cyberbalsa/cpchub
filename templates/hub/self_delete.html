@@ -1,0 +1,5 @@
+{% extends 'base.html' %}
+{% block title %}Delete {{ item.title }} · CPC Hub{% endblock %}
+{% block content %}
+<div class="account-container"><section class="window form-window"><div class="title-bar"><div class="title-bar-text">Delete your creation</div></div><div class="window-body"><h1>Delete {{ item.title }}?</h1><p>Only you and staff will be able to see it. You can restore it from My uploads for 14 days. After that, the creation, screenshots, and every release file will be permanently removed.</p><form method="post">{% csrf_token %}<div class="form-actions"><button type="submit">Delete for now</button><a class="win-button" href="{{ item.get_absolute_url }}">Cancel</a></div></form></div></section></div>
+{% endblock %}

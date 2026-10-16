@@ -1,0 +1,5 @@
+{% extends 'base.html' %}
+{% block title %}Edit {{ kind }} · CPC Hub{% endblock %}
+{% block content %}
+<div class="account-container"><section class="window form-window"><div class="title-bar"><div class="title-bar-text">{{ item.title }}</div></div><form method="post" class="window-body standard-form">{% csrf_token %}<h1>Edit {{ kind }}</h1>{{ form.as_p }}<div class="form-actions"><button class="primary-button">Save changes</button><a class="win-button" href="{% url 'moderation-item' item.pk %}">Cancel</a></div></form></section></div>
+{% endblock %}

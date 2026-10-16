@@ -1,11 +1,11 @@
 from botocore.exceptions import BotoCoreError, ClientError
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import connection, transaction
 from django.db.models import Count, Q, Sum
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from rest_framework.generics import get_object_or_404
 from django.utils import timezone
@@ -14,12 +14,13 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.vary import vary_on_headers
 from oauth2_provider.models import Application, AccessToken, RefreshToken
 
-from .api import visible_items
+from .access import accessible_items, can_edit_item, can_moderate, can_remove_screenshot, hidden_response, item_query, public_items, visible_items
 from .forms import ItemForm, KeyForm, ReleaseForm, ScreenshotBatchForm, ScreenshotForm
 from .models import APIKey, Bookmark, ContentType, Item
 from .services import add_release, add_screenshot, create_with_release, record_revision, remove_screenshot, validate_publication
 
 
+@never_cache
 @vary_on_headers("HX-Request")
 def catalog(request):
     items = visible_items(request.user)
@@ -34,14 +35,22 @@ def catalog(request):
     if view in {"saved", "mine"}:
         if not request.user.is_authenticated:
             return redirect(f"/accounts/login/?next={request.path}?view={view}")
-        items = items.filter(bookmarks__user=request.user) if view == "saved" else items.filter(author=request.user)
+        if view == "mine":
+            items = item_query().filter(author=request.user)
+            if q:
+                items = items.filter(Q(title__icontains=q) | Q(summary__icontains=q) | Q(tags__icontains=q))
+            if category:
+                items = items.filter(content_type__slug=category)
+        else:
+            items = items.filter(bookmarks__user=request.user)
     items = items.order_by({"popular": "-downloads", "newest": "-created_at"}.get(sort, "-updated_at"), "id")
     page = Paginator(items, 12).get_page(request.GET.get("page"))
-    public = Item.objects.filter(status="published", is_demo=False)
+    public = public_items().filter(is_demo=False)
     stats = public.aggregate(items=Count("pk"), downloads=Sum("downloads"), authors=Count("author", distinct=True))
     context = {"page_obj": page, "q": q, "category": category, "catalog_view": view, "sort": sort,
                "stats": stats, "has_demo": items.filter(is_demo=True).exists(),
-               "types_with_counts": ContentType.objects.filter(uploads_enabled=True).annotate(total=Count("items", filter=Q(items__status="published"))).order_by("position", "name")}
+               "featured_items": public_items().filter(featured_at__isnull=False).order_by("-featured_at", "pk")[:6] if view == "all" and not q and not category and not request.GET.get("page") else [],
+               "types_with_counts": ContentType.objects.filter(uploads_enabled=True).annotate(total=Count("items", filter=Q(items__status="published", items__is_hidden=False, items__deleted_at=None, items__author__moderation_state__shadow_banned_at__isnull=True))).order_by("position", "name")}
     return render(request, "hub/results.html" if request.htmx and not request.htmx.history_restore_request else "hub/catalog.html", context)
 
 
@@ -49,10 +58,13 @@ def catalog(request):
 def detail(request, pk):
     from .download_warning import DownloadWarningForm, warning_acknowledged
 
-    item = get_object_or_404(visible_items(request.user), pk=pk)
+    item = get_object_or_404(accessible_items(request.user), pk=pk)
+    if item.is_hidden and not can_moderate(request.user):
+        return hidden_response(request, item)
     return render(request, "hub/detail.html", {
         "item": item, "saved": request.user.is_authenticated and Bookmark.objects.filter(user=request.user, item=item).exists(),
         "show_download_warning": not warning_acknowledged(request), "download_warning_form": DownloadWarningForm(),
+        "can_edit": can_edit_item(request.user, item),
     })
 
 
@@ -77,7 +89,9 @@ def create_item(request):
 
 @login_required
 def edit_item(request, pk):
-    item = get_object_or_404(Item, pk=pk, author=request.user)
+    item = get_object_or_404(accessible_items(request.user), pk=pk)
+    if not can_edit_item(request.user, item):
+        raise Http404
     form = ItemForm(instance=item)
     release_form = ReleaseForm()
     screenshot_form = ScreenshotForm()
@@ -121,13 +135,16 @@ def edit_item(request, pk):
                 except (BotoCoreError, ClientError):
                     screenshot_form.add_error(None, "File storage is temporarily unavailable. Try again shortly.")
         elif action == "remove-screenshot":
+            if not can_remove_screenshot(request.user, item):
+                raise PermissionDenied
             screenshot = get_object_or_404(item.screenshots, pk=request.POST.get("screenshot_id"))
             try:
                 remove_screenshot(screenshot)
             except ValidationError as exc:
                 messages.error(request, " ".join(exc.messages))
             return redirect("item-edit", pk=pk)
-    return render(request, "hub/editor.html", {"item": item, "form": form, "release_form": release_form, "screenshot_form": screenshot_form})
+    return render(request, "hub/editor.html", {"item": item, "form": form, "release_form": release_form, "screenshot_form": screenshot_form,
+                                             "can_remove_screenshots": can_remove_screenshot(request.user, item)})
 
 
 @login_required

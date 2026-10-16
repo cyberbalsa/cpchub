@@ -1,6 +1,7 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 from .models import APIKey
+from .access import can_edit_item, can_remove_screenshot
 
 
 def token_scopes(request):
@@ -22,7 +23,13 @@ class CatalogPermission(BasePermission):
         return scopes is None or "write" in scopes
 
     def has_object_permission(self, request, view, obj):
-        return request.method in SAFE_METHODS or obj.author_id == request.user.pk
+        if request.method in SAFE_METHODS:
+            return True
+        if request.auth is not None:
+            return obj.author_id == request.user.pk
+        if view.action == "screenshot_delete":
+            return can_remove_screenshot(request.user, obj)
+        return can_edit_item(request.user, obj)
 
 
 class KeyPermission(BasePermission):

@@ -18,6 +18,7 @@
       </div>
     </div>
     <div class="community-strip"><span>{% include 'hub/icon.html' with icon='folder' %}<strong>{{ stats.items|default:0 }}</strong> creations</span><span>{% include 'hub/icon.html' with icon='download' %}<strong>{{ stats.downloads|default:0 }}</strong> downloads</span><span>{% include 'hub/icon.html' with icon='user' %}<strong>{{ stats.authors|default:0 }}</strong> creators</span><span class="strip-note">Demo items excluded</span></div>
+    {% if featured_items %}<section class="featured-section" aria-labelledby="featured-title"><div class="section-heading"><h2 id="featured-title">Highlighted creations</h2><span class="file-label">PICKED BY THE MODERATION TEAM</span></div><div class="row g-3 creation-grid">{% for item in featured_items %}<div class="col-12 col-md-6 col-xl-4">{% include 'hub/card.html' %}</div>{% endfor %}</div></section>{% endif %}
     <section id="browse" class="browse-section" aria-labelledby="browse-title">
       <div class="section-heading"><h2 id="browse-title">{% include 'hub/icon.html' with icon='catalog' %}{% if catalog_view == 'saved' %}Your saved creations{% elif catalog_view == 'mine' %}Your uploads{% else %}Available creations{% endif %}</h2><span class="file-label">CHOOSE A FILE FOR DETAILS</span></div>
       <form id="catalog-filter" class="catalog-filter" action="/" method="get" hx-get="/" hx-target="#results" hx-swap="outerHTML" hx-push-url="true" hx-trigger="submit, input changed delay:350ms from:#search, change from:select" hx-indicator="#search-indicator">

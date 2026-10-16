@@ -9,4 +9,5 @@ def exception_handler(exc, context):
     response = drf_exception_handler(exc, context)
     if response is not None:
         response.data = {"status": response.status_code, "errors": response.data}
+        response["Cache-Control"] = "private, no-store"
     return response

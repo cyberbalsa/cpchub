@@ -72,8 +72,8 @@ class ItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Item
-        fields = ["id", "title", "summary", "description", "content_type", "author", "tags", "status", "is_demo", "downloads", "created_at", "updated_at", "releases", "screenshots"]
-        read_only_fields = ["id", "is_demo", "downloads", "created_at", "updated_at"]
+        fields = ["id", "title", "summary", "description", "content_type", "author", "tags", "status", "is_demo", "is_hidden", "hidden_reason", "deleted_at", "featured_at", "downloads", "created_at", "updated_at", "releases", "screenshots"]
+        read_only_fields = ["id", "is_demo", "is_hidden", "hidden_reason", "deleted_at", "featured_at", "downloads", "created_at", "updated_at"]
 
 
 class KeyCreateSerializer(serializers.Serializer):

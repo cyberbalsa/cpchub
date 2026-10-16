@@ -442,3 +442,29 @@ dialog.download-warning-window::backdrop { background: #15251bd9; }
 .download-warning-window h2 { margin-bottom: 16px; font-size: 22px; }
 .download-warning-file { padding: 10px 12px; background: var(--paper); box-shadow: var(--recessed); overflow-wrap: anywhere; font-weight: bold; }
 .download-warning-window .form-actions { flex-wrap: wrap; }
+
+/* Moderation office: the same windows and paper panels as the catalog. */
+.moderation-nav, .moderation-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 20px 0; }
+.moderation-filter input, .moderation-filter select { min-height: 34px; padding: 8px; max-width: 100%; }
+.moderation-filter select { min-width: 150px; padding-right: 28px; }
+.moderation-table-wrap { overflow-x: auto; margin-bottom: 24px; box-shadow: var(--recessed); background: var(--paper); }
+.moderation-table { width: 100%; border-collapse: collapse; text-align: left; }
+.moderation-table th, .moderation-table td { padding: 12px; border-bottom: 1px solid #aa986e; vertical-align: top; }
+.moderation-table th { background: #c0aa7e; }
+.moderation-table td { background: var(--paper); }
+.moderation-table small, .moderation-file-row small { display: block; margin-top: 4px; color: var(--muted); }
+.moderation-table .badge { margin: 4px; }
+.moderation-notice { padding: 18px; margin: 18px 0; border: 2px solid #916139; background: #f0d9a3; box-shadow: inset 1px 1px #fff4d4; overflow-wrap: anywhere; }
+.moderation-notice h2, .moderation-notice h3 { margin-bottom: 12px; }
+.moderation-notice p:last-child { margin-bottom: 0; }
+.moderation-notice h3 { margin-top: 18px; }
+.hidden-badge { background: #8e432e; color: #fff2d0; }
+.moderation-action { margin-top: 24px; border-top: 1px solid #998057; padding-top: 18px; }
+.moderation-file-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid #aa986e; }
+.moderation-file-row > div { flex: 1; min-width: 180px; overflow-wrap: anywhere; }
+.moderation-reason { overflow-wrap: anywhere; }
+.danger-button { background: #cc9c7e; border-color: #78472f; }
+.role-guide dt { font-weight: bold; margin-top: 14px; }
+.role-guide dd { margin: 4px 0; }
+.featured-section { margin: 28px 0; }
+.game-toolbar { flex-wrap: wrap; }

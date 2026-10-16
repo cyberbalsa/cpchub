@@ -8,11 +8,12 @@ The interface takes its cues from RCT and Car Park Capital: beveled tool buttons
 
 - Searchable catalog with categories, sorting, pagination, saved creations, and an author’s uploads.
 - Steam and Discord sign-in through django-allauth. Profiles let users link additional accounts and unlink all but their last login. Password login, password resets, and local registration are disabled. Email is not required.
-- Author-only edits with metadata snapshots; immutable versioned releases with changelogs, game-version labels, sizes, SHA-256 checksums, and historical downloads.
+- Author edits with metadata snapshots; versioned files with changelogs, game-version labels, sizes, SHA-256 checksums, and historical downloads. Admins and Moderators can edit other creators’ metadata and add releases or screenshots. Uploaded file bytes are immutable; staff can correct release labels and notes.
 - Website downloads show a fan-content warning. “Don’t show this again” saves a signed one-year browser cookie and a profile preference when signed in. Users can restore the warning from their profile. A confirmation page works without JavaScript; API downloads keep their file/redirect response for mod managers.
 - Two to eight screenshots per published item; PNG/JPEG/WebP inputs are resized and re-encoded to WebP, with metadata removed.
 - Configurable categories and file extensions. Enabled uploads: blueprints, blueprint packs, and scenarios. Other mod uploads are disabled. Accepts native `.cpbp`/`.cpcs`, ZIPs, and JSON as appropriate. ZIPs are stored without extracting their contents. New types/extensions can be added in Django admin; new types start with uploads disabled.
-- Drafts visible only to the author; file delivery checks the same permissions as the catalog.
+- Drafts visible to the author and staff; file delivery checks the same permissions as the catalog.
+- Three staff roles, required hide reasons, front-page highlights, shadow bans, user management, and a private moderation log. Authors can unpublish or self-delete creations, with 14 days to restore them.
 - Private Wasabi storage for uploaded releases and screenshots, with five-minute signed download URLs. CSS, JavaScript, fonts, and site artwork stay local.
 - Named, hashed API keys with read/write scopes, no expiry by default, optional expiration (1–90 days), revocation, and a one-time secret display.
 - Mod-manager sign-in through OAuth authorization code + **S256 PKCE**, explicit consent, 15-minute access tokens, rotating refresh tokens, and optional per-manager API-key creation. Keys cannot create additional keys. OAuth clients cannot grant broader permissions or manage another client’s keys.
@@ -134,7 +135,8 @@ Only configured providers appear in the sign-in UI. At least one provider is nee
 
 - `/api/v1/types/` — discover supported categories and file extensions.
 - `/api/v1/items/` — list/search/create draft metadata.
-- `/api/v1/items/{id}/` — read or author-only PATCH.
+- `/api/v1/items/{id}/` — read, PATCH metadata, or DELETE your own creation with a 14-day restoration period.
+- `/api/v1/items/{id}/restore/` — POST to restore your self-deleted creation within 14 days.
 - `/api/v1/items/{id}/releases/` — POST multipart file, unique version, changelog, optional game version.
 - `/api/v1/items/{id}/releases/{release_id}/download/` — download the exact version.
 - `/api/v1/items/{id}/screenshots/` — POST a screenshot.
@@ -144,6 +146,28 @@ Only configured providers appear in the sign-in UI. At least one provider is nee
 - `/api/schema/`, `/api/docs/`, `/api/redoc/` — schema and API documentation.
 
 Use `Authorization: ApiKey cpc_...` for API keys or `Authorization: Bearer ...` for OAuth. Session-based mutations require CSRF. The API creates drafts first: upload a release and at least two screenshots, then PATCH `{"status":"published"}`. Release ordering is creation time, so always compare immutable release IDs/checksums; version strings are labels, not necessarily SemVer.
+
+API keys and OAuth tokens keep their owner-only write permissions, even when the owner has a staff role. Admin and Moderator browser sessions can edit other creators’ content. Staff moderation and user management require a browser session and CSRF protection.
+
+## Moderation and deletion
+
+Open `/moderation/` from the toolbar after signing in with a staff account. `/moderation/users/` lets Admins assign roles, rename users, suspend or reactivate accounts, revoke sessions and keys, and purge accounts. The last active Admin cannot be demoted, suspended, or purged.
+
+| Role | Permissions |
+| --- | --- |
+| Admin | Manage users and roles; edit and add content; hide, restore, highlight, and permanently delete; shadow ban or purge users. |
+| Moderator | Edit and add content; hide, restore, and highlight creations; shadow ban members with a private reason. |
+| Reviewer | Hide creations with a reason; add or remove front-page highlights. |
+
+An item hide requires a reason visible to visitors on its direct link and to its author in their profile and editor. It removes the item from browsing and highlights and blocks new public download and screenshot links. Authors can edit a hidden creation, but cannot lift the restriction. Moderation actions are recorded with the staff member and time.
+
+Shadow bans require a staff-only reason. Existing and future creations are accessible only to the creator and staff, including direct links, downloads, screenshots, and API responses. Public catalog counts and highlights exclude them. Moderators cannot shadow ban staff accounts. Removing a shadow ban also requires a private reason.
+
+Authors can unpublish a creation as a draft or delete it from the editor. Self-deleted creations remain visible only to the creator and staff for 14 days; the creator can restore them from My uploads. Restoring does not lift moderator hides or shadow bans. Repeating deletion does not extend the deadline. The cleanup service permanently deletes expired creations and their files every five minutes.
+
+Admin purges require the exact account name and a staff-only reason. They remove the user, their creations and stored files, social logins, API/OAuth access, bookmarks, sessions, and authored edit/moderation history. One staff-only purge record remains with the target username and reason. Other users’ creations are retained. Database backups keep their existing 14-day retention; they are not rewritten by a purge.
+
+File deletion runs after the database transaction commits. A durable queue retains failed storage deletions for automatic retry. Docker Compose runs the `cleanup` service; the dedicated host uses `cpchub-cleanup.timer`. To run it manually, use `python manage.py cleanup_deleted_files`. The current Wasabi bucket has never had versioning enabled, so deleting an object removes its stored bytes rather than creating a versioned delete marker. If enabling bucket versioning later, extend cleanup to purge object versions first.
 
 Register a manager as a staff operator:
 

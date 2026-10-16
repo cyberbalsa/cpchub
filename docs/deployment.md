@@ -17,6 +17,7 @@ Cloudflared remains a host service. It sends requests to Nginx at `127.0.0.1:808
 | `cpchub-app.service` | Migrations followed by Gunicorn |
 | `cpchub-edge.service` | Nginx on localhost:8080 |
 | `cpchub-backup.timer` | Daily database backup, retaining 14 days |
+| `cpchub-cleanup.timer` | Every five minutes: purge expired self-deletions and retry file removal |
 
 The [Quadlet files](../deploy/quadlet) install in `/home/cpchub/.config/containers/systemd/`. The backup service and timer install in `/home/cpchub/.config/systemd/user/`. [Podman's Quadlet documentation](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html) describes service generation and health checks.
 
@@ -63,6 +64,7 @@ cpc sh -c 'cp /home/cpchub/app/deploy/systemd/* /home/cpchub/.config/systemd/use
 cpc systemctl --user daemon-reload
 cpc systemctl --user restart cpchub-app.service
 cpc systemctl --user restart cpchub-edge.service
+cpc systemctl --user enable --now cpchub-cleanup.timer
 curl --fail https://cpchub.net/health/
 ```
 
@@ -96,4 +98,6 @@ user.is_staff = user.is_superuser = True
 user.save(update_fields=["is_staff", "is_superuser"])
 ```
 
-They can then open `/admin/` using the same social login. New users receive no administrator permissions automatically.
+They can then open `/moderation/` and `/admin/` using the same social login. Use the moderation panel’s User management page for subsequent role assignments. New users receive no staff permissions automatically.
+
+The cleanup timer runs `python manage.py cleanup_deleted_files` every five minutes. It permanently removes creations whose 14-day self-deletion period has ended, then retries pending file deletions. Check pending counts in the moderation panel and service logs with `cpc journalctl --user -u cpchub-cleanup.service`. Hiding or shadow banning blocks new signed URLs; already issued Wasabi URLs retain their original expiry, up to five minutes on this deployment.

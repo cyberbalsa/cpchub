@@ -1,0 +1,5 @@
+{% extends 'base.html' %}
+{% block title %}Confirm deletion · CPC Hub{% endblock %}
+{% block content %}
+<div class="account-container"><section class="window form-window"><div class="title-bar"><div class="title-bar-text">Permanent deletion</div></div><form method="post" class="window-body standard-form">{% csrf_token %}<h1>Delete {{ name }}?</h1><p>{{ consequence }}</p>{{ form.as_p }}<div class="form-actions"><button type="submit" class="danger-button">Delete permanently</button><a class="win-button" href="{{ cancel_url }}">Cancel</a></div></form></section></div>
+{% endblock %}

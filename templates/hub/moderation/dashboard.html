@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Moderation · CPC Hub{% endblock %}
+{% block content %}
+<div class="page-content">
+  <div class="section-heading"><h1>Moderation</h1><span>{{ hidden_count }} hidden creation{{ hidden_count|pluralize }}</span></div>
+  {% include 'hub/moderation/nav.html' %}
+  <form method="get" class="moderation-filter"><label for="moderation-search">Title or author</label><input id="moderation-search" name="q" value="{{ q }}" type="search"><label for="moderation-state">Show</label><select id="moderation-state" name="state"><option value="all">All creations</option><option value="hidden" {% if state == 'hidden' %}selected{% endif %}>Hidden</option><option value="highlighted" {% if state == 'highlighted' %}selected{% endif %}>Highlighted</option><option value="deleted" {% if state == 'deleted' %}selected{% endif %}>Self-deleted</option><option value="draft" {% if state == 'draft' %}selected{% endif %}>Drafts</option></select><button>Find</button></form>
+  <div class="moderation-table-wrap"><table class="moderation-table"><thead><tr><th>Creation</th><th>Author</th><th>Status</th><th>Updated</th><th>Tools</th></tr></thead><tbody>
+  {% for item in page_obj %}<tr><td><a href="{{ item.get_absolute_url }}">{{ item.title }}</a><small>{{ item.content_type.name }}</small></td><td>{{ item.author.username }}</td><td>{% if item.deleted_at %}<span class="badge hidden-badge">Self-deleted</span>{% elif item.is_hidden %}<span class="badge hidden-badge">Hidden</span>{% else %}{{ item.get_status_display }}{% endif %}{% if item.featured_at and not item.is_hidden and item.status == 'published' %}<span class="badge">Highlighted</span>{% endif %}</td><td>{{ item.updated_at|date:'M j, Y' }}</td><td><a class="win-button" href="{% url 'moderation-item' item.pk %}">Review</a></td></tr>{% empty %}<tr><td colspan="5">No matching creations.</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% include 'hub/moderation/pagination.html' %}
+  {% if pending_deletions %}<p class="notice">{{ pending_deletions }} storage deletion{{ pending_deletions|pluralize }} pending retry.</p>{% endif %}
+  {% include 'hub/moderation/activity.html' %}
+</div>
+{% endblock %}

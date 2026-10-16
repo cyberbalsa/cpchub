@@ -101,6 +101,4 @@ def remove_screenshot(screenshot):
     item = Item.objects.select_for_update().get(pk=screenshot.item_id)
     if item.status == Item.Status.PUBLISHED and item.screenshots.count() <= settings.MIN_SCREENSHOTS:
         raise ValidationError(f"Published creations need at least {settings.MIN_SCREENSHOTS} screenshots. Add a replacement first, or save the creation as a draft.")
-    storage, filename = screenshot.image.storage, screenshot.image.name
     screenshot.delete()
-    transaction.on_commit(lambda: storage.delete(filename))

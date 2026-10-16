@@ -36,7 +36,7 @@ class ContentType(models.Model):
 
 class Item(models.Model):
     class Status(models.TextChoices):
-        DRAFT = "draft", "Draft (only you)"
+        DRAFT = "draft", "Draft (private)"
         PUBLISHED = "published", "Published"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -50,12 +50,20 @@ class Item(models.Model):
     is_demo = models.BooleanField(default=False, editable=False)
     artwork = models.PositiveSmallIntegerField(default=0, editable=False)
     downloads = models.PositiveIntegerField(default=0, editable=False)
+    is_hidden = models.BooleanField(default=False, db_index=True, editable=False)
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True, editable=False)
+    hidden_reason = models.TextField(max_length=2000, blank=True, editable=False)
+    hidden_at = models.DateTimeField(null=True, blank=True, editable=False)
+    hidden_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="hidden_creations", editable=False)
+    featured_at = models.DateTimeField(null=True, blank=True, db_index=True, editable=False)
+    featured_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="featured_creations", editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-updated_at"]
         indexes = [models.Index(fields=["status", "-updated_at"]), models.Index(fields=["content_type", "status"])]
+        constraints = [models.CheckConstraint(condition=models.Q(is_hidden=False) | ~models.Q(hidden_reason=""), name="hidden_item_requires_reason")]
 
     def __str__(self):
         return self.title
@@ -74,6 +82,14 @@ class Item(models.Model):
     @property
     def latest_release(self):
         return next(iter(self.releases.all()), None)
+
+    @property
+    def delete_after(self):
+        return self.deleted_at + timedelta(days=14) if self.deleted_at else None
+
+    @property
+    def can_restore(self):
+        return self.deleted_at is not None and timezone.now() < self.delete_after
 
 
 class Release(models.Model):
@@ -131,6 +147,32 @@ class UserPreferences(models.Model):
 
     class Meta:
         verbose_name_plural = "User preferences"
+
+
+class ModerationLog(models.Model):
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="moderation_actions")
+    item = models.ForeignKey(Item, null=True, blank=True, on_delete=models.SET_NULL)
+    item_title = models.CharField(max_length=100, blank=True)
+    target_user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="moderation_history")
+    username = models.CharField(max_length=150, blank=True)
+    action = models.CharField(max_length=40)
+    reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+
+
+class FileDeletion(models.Model):
+    """Keep failed storage deletions available for retry after a database commit."""
+    name = models.CharField(max_length=1024, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class UserModeration(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="moderation_state")
+    shadow_banned_at = models.DateTimeField(null=True, blank=True)
+    shadow_banned_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="shadow_bans")
 
 
 class APIKeyQuerySet(models.QuerySet):

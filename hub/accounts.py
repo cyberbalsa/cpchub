@@ -7,6 +7,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 
 from .download_warning import warning_acknowledged
+from .models import Item
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(never_cache, name="dispatch")
@@ -24,6 +25,7 @@ class ProfileView(ConnectionsView):
         ]
         context["can_disconnect"] = len(accounts) > 1
         context["download_warning_acknowledged"] = warning_acknowledged(self.request)
+        context["hidden_creations"] = Item.objects.filter(author=self.request.user, is_hidden=True).order_by("-hidden_at")
         return context
 
     @transaction.atomic

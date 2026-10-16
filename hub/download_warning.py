@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
 
-from .api import visible_items
+from .access import accessible_items, can_moderate, hidden_response
 from .models import UserPreferences
 
 
@@ -51,7 +51,9 @@ def remember_warning(request, response):
 @never_cache
 @require_http_methods(["GET", "POST"])
 def download(request, pk, release_id):
-    item = get_object_or_404(visible_items(request.user), pk=pk)
+    item = get_object_or_404(accessible_items(request.user), pk=pk)
+    if item.is_hidden and not can_moderate(request.user):
+        return hidden_response(request, item)
     release = get_object_or_404(item.releases, pk=release_id)
     destination = reverse("api-item-download", kwargs={"pk": item.pk, "release_id": release.pk})
     form = DownloadWarningForm(request.POST if request.method == "POST" else None)

@@ -19,13 +19,7 @@ from .serializers import (ContentTypeSerializer, ErrorSerializer, IssuedKeySeria
                           ReleaseUploadSerializer, RevisionSerializer, ScreenshotSerializer, ScreenshotUploadSerializer)
 from .services import add_release, add_screenshot, record_revision, remove_screenshot, validate_publication
 from .file_delivery import file_response
-
-
-def visible_items(user):
-    query = Q(status=Item.Status.PUBLISHED)
-    if user.is_authenticated:
-        query |= Q(author=user)
-    return Item.objects.filter(query).select_related("author", "content_type").prefetch_related("releases", "screenshots")
+from .access import accessible_items, can_edit_item, can_moderate, item_query, visible_items
 
 
 class ContentTypeViewSet(viewsets.ReadOnlyModelViewSet):
@@ -37,30 +31,67 @@ class ContentTypeViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 @extend_schema_view(
+    retrieve=extend_schema(description="Read a visible creation. Hidden creations return 403 with the public moderation reason. Shadow-banned and self-deleted creations return 404 to other users; their creator and staff browser sessions retain access. Drafts remain private to the creator and staff.", responses={200: ItemSerializer, 403: ErrorSerializer, 404: ErrorSerializer}),
     list=extend_schema(parameters=[OpenApiParameter("q", str, description="Search titles, descriptions and tags"), OpenApiParameter("type", str, description="Content type slug"), OpenApiParameter("sort", str, enum=["newest", "popular", "updated"]), OpenApiParameter("mine", bool, description="Only your uploads")]),
     create=extend_schema(description="Create metadata for a blueprint, blueprint pack or scenario. Mod uploads are disabled. API items start as drafts; upload a release and at least two screenshots, then PATCH status to published. Each item can have up to eight screenshots.", responses={201: ItemSerializer, 400: ErrorSerializer, 403: ErrorSerializer}),
-    partial_update=extend_schema(description="Author-only metadata edit. Publishing requires an enabled file type, a release and at least two screenshots. Records a revision; files and previous releases are immutable.", responses={200: ItemSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 404: ErrorSerializer}),
+    partial_update=extend_schema(description="Authors can edit their own metadata. Admin and Moderator browser sessions may edit any creation; API keys and OAuth tokens remain limited to their owner. Publishing requires an enabled file type, a release and at least two screenshots. Records a revision; files and previous releases are immutable.", responses={200: ItemSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 404: ErrorSerializer}),
 )
 class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin,
-                  mixins.UpdateModelMixin, viewsets.GenericViewSet):
+                  mixins.UpdateModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet):
     serializer_class = ItemSerializer
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return Item.objects.none()
-        qs = visible_items(self.request.user)
+        qs = accessible_items(self.request.user, staff_access=self.request.auth is None)
         if self.action == "list":
+            qs = visible_items(self.request.user)
             params = self.request.query_params
+            if params.get("mine") == "true":
+                qs = item_query().filter(author=self.request.user) if self.request.user.is_authenticated else qs.none()
             if params.get("q"):
                 qs = qs.filter(Q(title__icontains=params["q"]) | Q(description__icontains=params["q"]) | Q(tags__icontains=params["q"]))
             if params.get("type"):
                 qs = qs.filter(content_type__slug=params["type"])
-            if params.get("mine") == "true":
-                qs = qs.filter(author=self.request.user) if self.request.user.is_authenticated else qs.none()
             qs = qs.order_by({"newest": "-created_at", "popular": "-downloads"}.get(params.get("sort"), "-updated_at"), "id")
         return qs
+
+    def get_object(self):
+        item = super().get_object()
+        staff = self.request.auth is None and can_moderate(self.request.user)
+        owner_image = self.action == "screenshot_image" and item.author_id == self.request.user.pk
+        if item.is_hidden and self.action in {"retrieve", "download", "screenshot_image"} and not (staff or owner_image):
+            raise PermissionDenied({"detail": "This creation is hidden.", "reason": item.hidden_reason})
+        return item
+
+    @extend_schema(responses={204: None, 403: ErrorSerializer, 404: ErrorSerializer}, description="Author-only soft deletion. Immediately private to the creator and staff; recoverable for 14 days with POST restore/. After 14 days the creation and stored files are permanently removed.")
+    def destroy(self, request, *args, **kwargs):
+        from .moderation_services import self_delete_item
+        item = self.get_object()
+        if item.author_id != request.user.pk:
+            raise PermissionDenied("Only the author can self-delete this creation.")
+        self_delete_item(request.user, item)
+        return Response(status=204)
+
+    @extend_schema(request=None, responses={200: ItemSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 404: ErrorSerializer}, description="Restore your own self-deleted creation within 14 days. Existing draft status and moderation restrictions remain in effect.")
+    @action(detail=True, methods=["post"], url_path="restore")
+    def restore(self, request, pk=None):
+        from .moderation_services import restore_self_deleted_item
+        item = self.get_object()
+        if item.author_id != request.user.pk:
+            raise PermissionDenied("Only the author can restore their own self-deleted creation through the API.")
+        try:
+            item = restore_self_deleted_item(request.user, item)
+        except DjangoValidationError as exc:
+            raise ValidationError(exc.messages)
+        return Response(ItemSerializer(item, context={"request": request}).data)
 
     @transaction.atomic
     def perform_create(self, serializer):
@@ -81,7 +112,7 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         item = serializer.save()
         record_revision(item, self.request.user)
 
-    @extend_schema(request=ReleaseUploadSerializer, responses={201: ReleaseSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 503: ErrorSerializer}, description="Author-only upload for an enabled file type. Published items must have at least two screenshots before adding a release. Version strings are unique per item. Existing releases cannot be overwritten.")
+    @extend_schema(request=ReleaseUploadSerializer, responses={201: ReleaseSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 503: ErrorSerializer}, description="Upload to an owned creation, or use an Admin or Moderator browser session to add a release to any creation. The file type must be enabled. Published items must have at least two screenshots before adding a release. Version strings are unique per item. Existing releases cannot be overwritten.")
     @action(detail=True, methods=["post"], url_path="releases", parser_classes=[MultiPartParser, FormParser])
     def release_upload(self, request, pk=None):
         item = self.get_object()
@@ -94,7 +125,7 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         return Response(ReleaseSerializer(release, context={"request": request}).data, status=201)
 
     @extend_schema(
-        responses={(200, "application/octet-stream"): OpenApiTypes.BINARY, 302: None, 404: ErrorSerializer, 503: ErrorSerializer},
+        responses={(200, "application/octet-stream"): OpenApiTypes.BINARY, 302: None, 403: ErrorSerializer, 404: ErrorSerializer, 503: ErrorSerializer},
         description="Checks item visibility, then redirects to a short-lived signed Wasabi URL (302), or streams a local development file (200). Follow redirects without forwarding CPC Hub credentials to the storage host. A GET counts a download link issued, not a completed transfer; HEAD does not increment counts. Signed URLs default to 300 seconds. SHA-256 and size are in release metadata.",
         parameters=[OpenApiParameter("release_id", OpenApiTypes.UUID, OpenApiParameter.PATH),
                     OpenApiParameter("Location", str, OpenApiParameter.HEADER, response=[302], description="Expiring signed URL. Request this endpoint again for a fresh URL."),
@@ -124,7 +155,7 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         return Response(ScreenshotSerializer(screenshot, context={"request": request}).data, status=201)
 
     @extend_schema(
-        responses={(200, "image/webp"): OpenApiTypes.BINARY, 302: None, 404: ErrorSerializer, 503: ErrorSerializer},
+        responses={(200, "image/webp"): OpenApiTypes.BINARY, 302: None, 403: ErrorSerializer, 404: ErrorSerializer, 503: ErrorSerializer},
         description="Checks item visibility before redirecting to a short-lived signed screenshot URL. Local development can return image bytes directly. Keep this application URL for future requests; signed URLs expire.",
         parameters=[OpenApiParameter("screenshot_id", OpenApiTypes.UUID, OpenApiParameter.PATH),
                     OpenApiParameter("Location", str, OpenApiParameter.HEADER, response=[302], description="Expiring signed WebP image URL.")],
@@ -134,7 +165,7 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         screenshot = get_object_or_404(self.get_object().screenshots, pk=screenshot_id)
         return file_response(screenshot.image, method=request.method, content_type="image/webp")
 
-    @extend_schema(responses={204: None, 400: ErrorSerializer, 403: ErrorSerializer, 404: ErrorSerializer}, description="Remove an owned screenshot. Published creations must keep at least two screenshots; add a replacement or save as a draft first.", parameters=[OpenApiParameter("screenshot_id", OpenApiTypes.UUID, OpenApiParameter.PATH)])
+    @extend_schema(responses={204: None, 400: ErrorSerializer, 403: ErrorSerializer, 404: ErrorSerializer}, description="Remove an owned screenshot, or use an Admin browser session to remove any screenshot. Published creations must keep at least two screenshots; add a replacement or save as a draft first.", parameters=[OpenApiParameter("screenshot_id", OpenApiTypes.UUID, OpenApiParameter.PATH)])
     @action(detail=True, methods=["delete"], url_path=r"screenshots/(?P<screenshot_id>[0-9a-f-]+)")
     def screenshot_delete(self, request, pk=None, screenshot_id=None):
         screenshot = get_object_or_404(self.get_object().screenshots, pk=screenshot_id)
@@ -148,8 +179,8 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
     @action(detail=True, methods=["get"], url_path="history", pagination_class=None)
     def history(self, request, pk=None):
         item = self.get_object()
-        if item.author_id != request.user.pk:
-            raise PermissionDenied("Only the author can view metadata history.")
+        if item.author_id != request.user.pk and not (request.auth is None and can_edit_item(request.user, item)):
+            raise PermissionDenied("Only the author, an Admin, or a Moderator can view metadata history.")
         return Response(RevisionSerializer(item.revisions.all()[:100], many=True).data)
 
 

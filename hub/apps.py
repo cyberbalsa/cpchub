@@ -11,4 +11,4 @@ class HubConfig(AppConfig):
     name = "hub"
 
     def ready(self):
-        from . import schema  # noqa: F401
+        from . import schema, file_cleanup  # noqa: F401

@@ -41,6 +41,18 @@ services:
       timeout: 5s
       retries: 3
     restart: unless-stopped
+  cleanup:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://cpchub:${POSTGRES_PASSWORD}@db:5432/cpchub
+    command: ["sh", "-c", "while :; do python manage.py cleanup_deleted_files; sleep 300; done"]
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
 volumes:
   postgres_data:
   media_data:

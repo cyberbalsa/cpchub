@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Creation hidden · CPC Hub{% endblock %}
+{% block content %}
+<div class="account-container">
+  <section class="window form-window">
+    <div class="title-bar"><div class="title-bar-text">Creation unavailable</div></div>
+    <div class="window-body">
+      <h1>This creation is hidden</h1>
+      <p>It is no longer listed or available to download.</p>
+      <div class="moderation-notice"><h2>Reason</h2>{{ item.hidden_reason|linebreaks }}</div>
+      {% if can_edit %}<p>You can edit your creation to address this reason. A Moderator or Admin must restore it before it is available again.</p>{% endif %}
+      <div class="form-actions"><a class="win-button" href="/">Browse creations</a>{% if can_edit %}<a class="win-button" href="{% url 'item-edit' item.pk %}">Edit creation</a>{% endif %}</div>
+    </div>
+  </section>
+</div>
+{% endblock %}
