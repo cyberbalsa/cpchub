@@ -12,7 +12,7 @@ class ErrorSerializer(serializers.Serializer):
 class ContentTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContentType
-        fields = ["slug", "name", "description", "allowed_extensions"]
+        fields = ["slug", "name", "description", "allowed_extensions", "uploads_enabled"]
 
 
 class ReleaseSerializer(serializers.ModelSerializer):
@@ -59,7 +59,7 @@ class RevisionSerializer(serializers.ModelSerializer):
 
 class ItemSerializer(serializers.ModelSerializer):
     author = serializers.CharField(source="author.username", read_only=True)
-    content_type = serializers.SlugRelatedField(slug_field="slug", queryset=ContentType.objects.all())
+    content_type = serializers.SlugRelatedField(slug_field="slug", queryset=ContentType.objects.filter(uploads_enabled=True), help_text="An enabled type from /api/v1/types/: blueprints, blueprint-packs or scenarios. Mod uploads are currently disabled.")
     releases = ReleaseSerializer(many=True, read_only=True)
     screenshots = ScreenshotSerializer(many=True, read_only=True)
 
@@ -79,7 +79,8 @@ class ItemSerializer(serializers.ModelSerializer):
 class KeyCreateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=80)
     scopes = serializers.ListField(child=serializers.ChoiceField(choices=["read", "write"]), allow_empty=False, default=["read"])
-    days = serializers.IntegerField(min_value=1, max_value=90, default=90)
+    days = serializers.IntegerField(min_value=1, max_value=90, default=None, allow_null=True,
+                                    help_text="Omit or send null for no expiry (default), or choose 1–90 days. Keys can always be revoked.")
 
 
 class KeySerializer(serializers.ModelSerializer):

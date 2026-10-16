@@ -23,7 +23,7 @@ DEMO_DESCRIPTION = (
 
 
 class Command(BaseCommand):
-    help = "Add six labeled demo listings with sample JSON downloads."
+    help = "Add labeled demo listings for enabled types with sample JSON downloads."
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -36,11 +36,19 @@ class Command(BaseCommand):
             user.save()
         elif user.is_active:
             raise CommandError("CPC_Demo is already an active account. Choose another demo username.")
+        created_count = 0
         for n,(title,slug,summary,tags) in enumerate(ENTRIES):
-            item = Item.objects.create(author=user, title=title, content_type=ContentType.objects.get(slug=slug), summary=summary,
+            content_type = ContentType.objects.get(slug=slug)
+            if not content_type.uploads_enabled:
+                continue
+            item = Item.objects.create(author=user, title=title, content_type=content_type, summary=summary,
                 description=DEMO_DESCRIPTION,
-                tags=tags, is_demo=True, artwork=n)
+                tags=tags, is_demo=True, artwork=n, status=Item.Status.DRAFT)
             data = json.dumps({"demo": True, "title": title, "notice": "Sample metadata only. Not a game export."}, indent=2).encode()
             add_release(item, file=ContentFile(data, name="catalog-example.json"), version="1.0.0", changelog="Sample JSON metadata for the demo catalog.")
+            # Trusted development fixtures use the bundled illustrations; real uploads use screenshots.
+            item.status = Item.Status.PUBLISHED
+            item.save(update_fields=["status"])
             record_revision(item,user)
-        self.stdout.write(self.style.SUCCESS("Created 6 demo listings. No login-capable demo accounts or game assets added."))
+            created_count += 1
+        self.stdout.write(self.style.SUCCESS(f"Created {created_count} demo listings. No login-capable demo accounts or game assets added."))

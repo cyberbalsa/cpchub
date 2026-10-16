@@ -25,6 +25,7 @@ class ContentType(models.Model):
     description = models.CharField(max_length=200, blank=True)
     allowed_extensions = models.JSONField(default=list, help_text='Lowercase extensions, e.g. [".zip", ".cpbp", ".json"]. ZIP contents are not executed or extracted.')
     position = models.PositiveIntegerField(default=0)
+    uploads_enabled = models.BooleanField(default=False, help_text="Allow new creations and releases for this type.")
 
     class Meta:
         ordering = ["position", "name"]
@@ -123,7 +124,13 @@ class Bookmark(models.Model):
         constraints = [models.UniqueConstraint(fields=["user", "item"], name="unique_bookmark")]
 
 
+class APIKeyQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now()), revoked_at__isnull=True)
+
+
 class APIKey(models.Model):
+    objects = APIKeyQuerySet.as_manager()
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="api_keys")
     application = models.ForeignKey("oauth2_provider.Application", null=True, blank=True, on_delete=models.CASCADE)
@@ -132,7 +139,7 @@ class APIKey(models.Model):
     digest = models.CharField(max_length=64)
     scopes = models.JSONField(default=list)
     created_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField()
+    expires_at = models.DateTimeField(null=True, blank=True, default=None)
     last_used_at = models.DateTimeField(null=True, blank=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
 
@@ -140,14 +147,14 @@ class APIKey(models.Model):
         ordering = ["-created_at"]
 
     @classmethod
-    def issue(cls, *, user, name, scopes, days=90, application=None):
+    def issue(cls, *, user, name, scopes, days=None, application=None):
         prefix = secrets.token_hex(6)
         raw = f"cpc_{prefix}_{secrets.token_urlsafe(32)}"
         key = cls.objects.create(user=user, name=name, prefix=prefix,
                                  digest=hashlib.sha256(raw.encode()).hexdigest(), scopes=scopes,
-                                 expires_at=timezone.now() + timedelta(days=days), application=application)
+                                 expires_at=timezone.now() + timedelta(days=days) if days is not None else None, application=application)
         return key, raw
 
     @property
     def active(self):
-        return self.revoked_at is None and self.expires_at > timezone.now()
+        return self.revoked_at is None and (self.expires_at is None or self.expires_at > timezone.now())

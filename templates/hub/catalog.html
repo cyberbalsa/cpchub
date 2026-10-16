@@ -2,7 +2,7 @@
 {% block content %}
 <div class="explorer-layout">
   <aside class="sidebar" aria-label="Catalog navigation">
-    <div class="sidebar-heading"><span class="panel-caption">CONSTRUCTION OFFICE</span><h2>Browse the<br> catalog.</h2><p>Filter blueprints, scenarios, and mods by type.</p></div>
+    <div class="sidebar-heading"><span class="panel-caption">CONSTRUCTION OFFICE</span><h2>Browse the<br> catalog.</h2><p>Filter blueprints, packs, and scenarios by type.</p></div>
     <div class="folder-group"><h3>Creation types</h3><a class="folder-link {% if not category and catalog_view == 'all' %}selected{% endif %}" href="/" {% if not category and catalog_view == 'all' %}aria-current="page"{% endif %}>{% include 'hub/icon.html' with icon='catalog' %}<span>All creations</span></a>{% for type in types_with_counts %}<a class="folder-link {% if category == type.slug %}selected{% endif %}" href="/?type={{ type.slug }}" {% if category == type.slug %}aria-current="page"{% endif %}>{% if type.slug == 'blueprints' or type.slug == 'blueprint-packs' or type.slug == 'scenarios' or type.slug == 'mods' %}{% include 'hub/icon.html' with icon=type.slug %}{% else %}{% include 'hub/icon.html' with icon='folder' %}{% endif %}<span>{{ type.name }}</span><small>{{ type.total }}</small></a>{% endfor %}</div>
     <div class="folder-group"><h3>Your toolbox</h3><a class="folder-link {% if catalog_view == 'saved' %}selected{% endif %}" href="/?view=saved">{% include 'hub/icon.html' with icon='saved' %}<span>Saved creations</span></a><a class="folder-link {% if catalog_view == 'mine' %}selected{% endif %}" href="/?view=mine">{% include 'hub/icon.html' with icon='folder' %}<span>My uploads</span></a><a class="folder-link" href="{% url 'keys' %}">{% include 'hub/icon.html' with icon='key' %}<span>API keys & managers</span></a></div>
     <div class="sidebar-note noticeboard"><span class="pin" aria-hidden="true"></span><span class="eyebrow">NOTICE BOARD</span><h3>Share your work</h3><p>Upload a blueprint, scenario, or ZIP pack. Add screenshots and keep older versions available.</p><a class="win-button" href="{% url 'item-create' %}">Upload a creation</a></div>
@@ -12,9 +12,9 @@
     <div class="map-window">
       <div class="viewport-title"><span>{% include 'hub/icon.html' with icon='scenarios' %} Community overview</span><span>ISOMETRIC VIEW</span></div>
       <div class="map-viewport" id="community-map">
-        <img class="map-art" src="{% static 'art/map.svg' %}" alt="Illustrated isometric town with tree-lined roads, colorful buildings, and parking lots" width="1000" height="450">
-        <div class="welcome-panel"><div class="welcome-title">Car Park Capital community</div><div class="welcome-body"><span class="eyebrow">COMMUNITY FILES</span><h1>Blueprints, scenarios<br> &amp; mods</h1><p>Download community files or upload your own.</p><div class="hero-actions"><a class="win-button primary-button" href="#browse">{% include 'hub/icon.html' with icon='blueprints' %} Browse creations</a></div></div></div>
-        <span class="map-label">COMMUNITY GROUNDS · ILLUSTRATION</span>
+        <img class="map-art" src="{% static 'art/community-hero.webp' %}" alt="Isometric city with towers, roads, railways, and trees" width="1781" height="1213" fetchpriority="high">
+        <div class="welcome-panel"><div class="welcome-title">Car Park Capital community</div><div class="welcome-body"><span class="eyebrow">COMMUNITY FILES</span><h1>Blueprints, packs<br> &amp; scenarios</h1><p>Download community files or upload your own.</p><div class="hero-actions"><a class="win-button primary-button" href="#browse">{% include 'hub/icon.html' with icon='blueprints' %} Browse creations</a></div></div></div>
+        <span class="map-label">COMMUNITY VIEW</span>
       </div>
     </div>
     <div class="community-strip"><span>{% include 'hub/icon.html' with icon='folder' %}<strong>{{ stats.items|default:0 }}</strong> creations</span><span>{% include 'hub/icon.html' with icon='download' %}<strong>{{ stats.downloads|default:0 }}</strong> downloads</span><span>{% include 'hub/icon.html' with icon='user' %}<strong>{{ stats.authors|default:0 }}</strong> creators</span><span class="strip-note">Demo items excluded</span></div>

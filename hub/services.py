@@ -1,12 +1,64 @@
 import hashlib
+import logging
 from pathlib import Path
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
 from .models import Item, Release, Revision, Screenshot
 from .validators import clean_screenshot, validate_package, validate_version
+
+
+logger = logging.getLogger(__name__)
+
+
+def create_with_release(item, *, release_data, screenshots):
+    """Save a web upload only after all its files have passed validation."""
+    validate_upload_type(item.content_type)
+    validate_package(release_data["file"], item.content_type)
+    if not settings.MIN_SCREENSHOTS <= len(screenshots) <= settings.MAX_SCREENSHOTS:
+        raise ValidationError(f"Choose {settings.MIN_SCREENSHOTS}–{settings.MAX_SCREENSHOTS} screenshots.")
+    intended_status = item.status
+    stored_files = []
+    try:
+        with transaction.atomic():
+            item.status = Item.Status.DRAFT
+            item.save()
+            for image in screenshots:
+                stored_files.append(Screenshot.objects.create(item=item, image=image).image)
+            stored_files.append(add_release(item, **release_data).file)
+            item.status = intended_status
+            if item.status == Item.Status.PUBLISHED:
+                validate_publication(item)
+            item.save(update_fields=["status"])
+            record_revision(item, item.author)
+    except Exception:
+        for field in stored_files:
+            try:
+                field.storage.delete(field.name)
+            except Exception:
+                logger.exception("Could not remove a file from an incomplete upload.")
+        raise
+    return item
+
+
+def validate_upload_type(content_type):
+    if not content_type.uploads_enabled:
+        raise ValidationError("Uploads for this file type are disabled.")
+
+
+def validate_screenshot_minimum(item):
+    if Screenshot.objects.filter(item=item).count() < settings.MIN_SCREENSHOTS:
+        raise ValidationError(f"Add at least {settings.MIN_SCREENSHOTS} screenshots before publishing.")
+
+
+def validate_publication(item):
+    validate_upload_type(item.content_type)
+    if not Release.objects.filter(item=item).exists():
+        raise ValidationError("Upload a release before publishing.")
+    validate_screenshot_minimum(item)
 
 
 def record_revision(item, editor):
@@ -17,7 +69,10 @@ def record_revision(item, editor):
 
 @transaction.atomic
 def add_release(item, *, file, version, game_version="", changelog=""):
-    Item.objects.select_for_update().get(pk=item.pk)
+    item = Item.objects.select_for_update(of=("self",)).select_related("content_type").get(pk=item.pk)
+    validate_upload_type(item.content_type)
+    if item.status == Item.Status.PUBLISHED:
+        validate_screenshot_minimum(item)
     validate_version(version)
     if item.releases.filter(version=version).exists():
         raise ValidationError("This version already exists. Use a new version; releases cannot be replaced.")
@@ -35,7 +90,17 @@ def add_release(item, *, file, version, game_version="", changelog=""):
 
 @transaction.atomic
 def add_screenshot(item, *, image, caption=""):
-    Item.objects.select_for_update().get(pk=item.pk)
-    if item.screenshots.count() >= 8:
-        raise ValidationError("An item can have up to 8 screenshots. Remove one before adding another.")
+    item = Item.objects.select_for_update().get(pk=item.pk)
+    if item.screenshots.count() >= settings.MAX_SCREENSHOTS:
+        raise ValidationError(f"An item can have up to {settings.MAX_SCREENSHOTS} screenshots. Remove one before adding another.")
     return Screenshot.objects.create(item=item, image=clean_screenshot(image), caption=caption)
+
+
+@transaction.atomic
+def remove_screenshot(screenshot):
+    item = Item.objects.select_for_update().get(pk=screenshot.item_id)
+    if item.status == Item.Status.PUBLISHED and item.screenshots.count() <= settings.MIN_SCREENSHOTS:
+        raise ValidationError(f"Published creations need at least {settings.MIN_SCREENSHOTS} screenshots. Add a replacement first, or save the creation as a draft.")
+    storage, filename = screenshot.image.storage, screenshot.image.name
+    screenshot.delete()
+    transaction.on_commit(lambda: storage.delete(filename))

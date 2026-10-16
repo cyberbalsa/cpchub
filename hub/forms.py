@@ -1,11 +1,16 @@
 from django import forms
+from django.conf import settings
 from django.core.exceptions import ValidationError
 
-from .models import Item
-from .validators import validate_version
+from .models import ContentType, Item
+from .validators import clean_screenshot, validate_version
 
 
 class ItemForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["content_type"].queryset = ContentType.objects.filter(uploads_enabled=True)
+
     class Meta:
         model = Item
         fields = ["title", "content_type", "summary", "description", "tags", "status"]
@@ -33,7 +38,30 @@ class ScreenshotForm(forms.Form):
     caption = forms.CharField(max_length=180, required=False)
 
 
+class MultipleFileInput(forms.FileInput):
+    allow_multiple_selected = True
+
+
+class ScreenshotBatchField(forms.FileField):
+    widget = MultipleFileInput(attrs={"accept": "image/png,image/jpeg,image/webp"})
+
+    def clean(self, data, initial=None):
+        files = data if isinstance(data, (list, tuple)) else [data] if data else []
+        if not settings.MIN_SCREENSHOTS <= len(files) <= settings.MAX_SCREENSHOTS:
+            raise ValidationError(f"Choose {settings.MIN_SCREENSHOTS}–{settings.MAX_SCREENSHOTS} screenshots.")
+        # Validate every file before any release or screenshot reaches storage.
+        return [clean_screenshot(super(ScreenshotBatchField, self).clean(file, initial)) for file in files]
+
+
+class ScreenshotBatchForm(forms.Form):
+    screenshots = ScreenshotBatchField(help_text="Choose 2–8 screenshots. PNG, JPEG or WebP, up to 10 MB each.")
+
+
 class KeyForm(forms.Form):
     name = forms.CharField(max_length=80, widget=forms.TextInput(attrs={"placeholder": "e.g. My mod manager"}))
     scopes = forms.MultipleChoiceField(choices=[("read", "Read catalog & profile"), ("write", "Publish & edit my uploads")], initial=["read"], widget=forms.CheckboxSelectMultiple)
-    days = forms.IntegerField(min_value=1, max_value=90, initial=90, label="Expires in (days)")
+    days = forms.TypedChoiceField(
+        choices=[("", "Never"), ("7", "After 7 days"), ("30", "After 30 days"), ("90", "After 90 days")],
+        coerce=int, empty_value=None, required=False, initial="", label="Expiry",
+        help_text="Keys stay active until you revoke them unless you choose an expiry.",
+    )

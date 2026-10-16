@@ -41,4 +41,4 @@ class APIKeyScheme(OpenApiAuthenticationExtension):
 
     def get_security_definition(self, auto_schema):
         return {"type": "apiKey", "in": "header", "name": "Authorization",
-                "description": "ApiKey cpc_<prefix>_<secret>. Keys are scoped, expire, and can be revoked."}
+                "description": "ApiKey cpc_<prefix>_<secret>. Keys are scoped and revocable, with no expiry by default."}

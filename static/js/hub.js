@@ -9,12 +9,6 @@ document.addEventListener("click", async (event) => {
     button.textContent = "Select & copy the key";
   }
 });
-function updateClock() {
-  const clock = document.getElementById("clock");
-  if (clock) clock.textContent = new Intl.DateTimeFormat(undefined, {hour: "numeric", minute: "2-digit"}).format(new Date());
-}
-updateClock();
-setInterval(updateClock, 60000);
 document.addEventListener("htmx:responseError", () => {
   const results = document.getElementById("results");
   if (results) {

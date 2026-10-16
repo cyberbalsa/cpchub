@@ -14,10 +14,9 @@ from django.views.decorators.vary import vary_on_headers
 from oauth2_provider.models import Application, AccessToken, RefreshToken
 
 from .api import visible_items
-from .forms import ItemForm, KeyForm, ReleaseForm, ScreenshotForm
+from .forms import ItemForm, KeyForm, ReleaseForm, ScreenshotBatchForm, ScreenshotForm
 from .models import APIKey, Bookmark, ContentType, Item
-from .services import add_release, add_screenshot, record_revision
-from .validators import validate_package
+from .services import add_release, add_screenshot, create_with_release, record_revision, remove_screenshot, validate_publication
 
 
 @vary_on_headers("HX-Request")
@@ -41,7 +40,7 @@ def catalog(request):
     stats = public.aggregate(items=Count("pk"), downloads=Sum("downloads"), authors=Count("author", distinct=True))
     context = {"page_obj": page, "q": q, "category": category, "catalog_view": view, "sort": sort,
                "stats": stats, "has_demo": items.filter(is_demo=True).exists(),
-               "types_with_counts": ContentType.objects.annotate(total=Count("items", filter=Q(items__status="published"))).order_by("position", "name")}
+               "types_with_counts": ContentType.objects.filter(uploads_enabled=True).annotate(total=Count("items", filter=Q(items__status="published"))).order_by("position", "name")}
     return render(request, "hub/results.html" if request.htmx and not request.htmx.history_restore_request else "hub/catalog.html", context)
 
 
@@ -54,22 +53,19 @@ def detail(request, pk):
 def create_item(request):
     form = ItemForm(request.POST or None)
     release_form = ReleaseForm(request.POST or None, request.FILES or None)
-    if request.method == "POST" and form.is_valid() and release_form.is_valid():
+    screenshot_form = ScreenshotBatchForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and all([form.is_valid(), release_form.is_valid(), screenshot_form.is_valid()]):
         try:
-            validate_package(release_form.cleaned_data["file"], form.cleaned_data["content_type"])
-            with transaction.atomic():
-                item = form.save(commit=False)
-                item.author = request.user
-                item.save()
-                add_release(item, **release_form.cleaned_data)
-                record_revision(item, request.user)
-            messages.success(request, "Upload saved. You can add screenshots below.")
+            item = form.save(commit=False)
+            item.author = request.user
+            create_with_release(item, release_data=release_form.cleaned_data, screenshots=screenshot_form.cleaned_data["screenshots"])
+            messages.success(request, "Creation saved with your file and screenshots.")
             return redirect("item-edit", pk=item.pk)
         except ValidationError as exc:
             release_form.add_error(None, exc)
         except (BotoCoreError, ClientError):
             release_form.add_error(None, "File storage is temporarily unavailable. Try again shortly.")
-    return render(request, "hub/editor.html", {"form": form, "release_form": release_form, "creating": True})
+    return render(request, "hub/editor.html", {"form": form, "release_form": release_form, "screenshot_form": screenshot_form, "creating": True})
 
 
 @login_required
@@ -81,17 +77,20 @@ def edit_item(request, pk):
     if request.method == "POST":
         action = request.POST.get("action", "metadata")
         if action == "metadata":
-            form = ItemForm(request.POST, instance=item)
-            if form.is_valid():
-                if form.cleaned_data["status"] == "published" and not item.releases.exists():
-                    form.add_error("status", "Upload a release before publishing.")
-                else:
-                    with transaction.atomic():
-                        Item.objects.select_for_update().get(pk=item.pk)
+            with transaction.atomic():
+                item = Item.objects.select_for_update().get(pk=item.pk)
+                form = ItemForm(request.POST, instance=item)
+                if form.is_valid():
+                    try:
+                        if form.cleaned_data["status"] == Item.Status.PUBLISHED:
+                            validate_publication(item)
                         item = form.save()
                         record_revision(item, request.user)
-                    messages.success(request, "Changes saved to the edit history.")
-                    return redirect("item-edit", pk=pk)
+                    except ValidationError as exc:
+                        form.add_error("status", exc)
+                    else:
+                        messages.success(request, "Changes saved to the edit history.")
+                        return redirect("item-edit", pk=pk)
         elif action == "release":
             release_form = ReleaseForm(request.POST, request.FILES)
             if release_form.is_valid():
@@ -116,8 +115,10 @@ def edit_item(request, pk):
                     screenshot_form.add_error(None, "File storage is temporarily unavailable. Try again shortly.")
         elif action == "remove-screenshot":
             screenshot = get_object_or_404(item.screenshots, pk=request.POST.get("screenshot_id"))
-            screenshot.image.delete(save=False)
-            screenshot.delete()
+            try:
+                remove_screenshot(screenshot)
+            except ValidationError as exc:
+                messages.error(request, " ".join(exc.messages))
             return redirect("item-edit", pk=pk)
     return render(request, "hub/editor.html", {"item": item, "form": form, "release_form": release_form, "screenshot_form": screenshot_form})
 
@@ -142,7 +143,7 @@ def keys(request):
         with transaction.atomic():
             from django.contrib.auth import get_user_model
             get_user_model().objects.select_for_update().get(pk=request.user.pk)
-            if request.user.api_keys.filter(revoked_at=None, expires_at__gt=timezone.now()).count() >= 20:
+            if request.user.api_keys.active().count() >= 20:
                 form.add_error(None, "You have 20 active keys. Revoke one before creating another.")
             else:
                 _, raw = APIKey.issue(user=request.user, **form.cleaned_data)

@@ -15,11 +15,17 @@ from oauth2_provider.models import Application, AccessToken, RefreshToken
 from PIL import Image
 from rest_framework.test import APIClient
 
-from hub.models import APIKey, ContentType, Item, Release, Revision
+from hub.models import APIKey, ContentType, Item, Release, Revision, Screenshot
 
 
 def package(name="test.json", data=b'{"hello":"parking"}'):
     return SimpleUploadedFile(name, data, content_type="application/octet-stream")
+
+
+def screenshot(name="shot.png", color=(0, 128, 128)):
+    output = io.BytesIO()
+    Image.new("RGB", (30, 20), color).save(output, "PNG")
+    return SimpleUploadedFile(name, output.getvalue(), content_type="image/png")
 
 
 @override_settings(DEBUG=True, SECURE_SSL_REDIRECT=False, STORAGES={
@@ -33,6 +39,8 @@ class HubTests(TestCase):
         cls.other = get_user_model().objects.create_user("other", "other@example.com", "Test-Only-Password!2")
         cls.category = ContentType.objects.get(slug="blueprints")
         cls.item = Item.objects.create(author=cls.author, content_type=cls.category, title="Test lot", summary="Test summary", description="A test lot")
+        for index in range(2):
+            Screenshot.objects.create(item=cls.item, image=f"screenshots/fixture-{index}.webp")
 
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -62,9 +70,23 @@ class HubTests(TestCase):
         self.assertEqual(self.api.post("/api/v1/items/", {"title":"Bad"}).status_code,401)
         self.assertEqual(self.api.get("/api/v1/me/").status_code,401)
 
+    def test_header_totals_include_all_published_versions_and_exclude_private_files(self):
+        for version, size in [("1", 512), ("2", 1536)]:
+            Release.objects.create(item=self.item, version=version, file=f"releases/{version}.json", original_filename="test.json", sha256="a" * 64, size=size)
+        for title, status, demo in [("Draft", "draft", False), ("Demo", "published", True)]:
+            item = Item.objects.create(author=self.author, content_type=self.category, title=title, summary=title, description=title, status=status, is_demo=demo)
+            Release.objects.create(item=item, version="1", file="releases/hidden.json", original_filename="hidden.json", sha256="b" * 64, size=999999)
+        for url in ["/", "/?type=scenarios", "/accounts/login/"]:
+            response = self.client.get(url)
+            self.assertEqual(response.context["site_totals"], {"uploads": 1, "total_bytes": 2048})
+            self.assertContains(response, "1 upload</span>")
+            self.assertContains(response, "2.0\u00a0KB</span>")
+            self.assertContains(response, 'href="https://github.com/cyberbalsa/cpchub">Source code</a>')
+
     @override_settings(DEBUG=False)
     def test_production_catalog_and_detail_use_collected_artwork(self):
         from django.contrib.staticfiles.storage import staticfiles_storage
+        self.item.screenshots.all().delete()
         expected = staticfiles_storage.url("art/lot-0.svg")
         for url in ["/", "/?type=blueprints", self.item.get_absolute_url()]:
             with self.subTest(url=url):
@@ -118,7 +140,7 @@ class HubTests(TestCase):
         self.item.content_type=ContentType.objects.get(slug="scenarios")
         self.item.save()
         self.assertEqual(self.release("2",name="raw.cpcs",data=b"scenario").status_code,201)
-        future=ContentType.objects.create(name="Future format",slug="future",allowed_extensions=[".future",".zip"])
+        future=ContentType.objects.create(name="Future format",slug="future",allowed_extensions=[".future",".zip"],uploads_enabled=True)
         self.item.content_type=future
         self.item.save()
         self.assertEqual(self.release("3",name="file.future",data=b"raw-new-format").status_code,201)
@@ -155,6 +177,7 @@ class HubTests(TestCase):
 
     def test_screenshot_limit(self):
         self.login()
+        self.item.screenshots.all().delete()
         out=io.BytesIO()
         Image.new("RGB",(3,3)).save(out,"PNG")
         for index in range(9):
@@ -167,6 +190,8 @@ class HubTests(TestCase):
         self.assertEqual(result.status_code,201,result.data)
         raw=result.data["key"]
         key=APIKey.objects.get(pk=result.data["id"])
+        self.assertIsNone(key.expires_at)
+        self.assertIsNone(result.data["expires_at"])
         self.assertNotEqual(key.digest,raw)
         self.assertEqual(key.digest,hashlib.sha256(raw.encode()).hexdigest())
         self.assertNotIn(raw,str(self.api.get("/api/v1/keys/").data))
@@ -180,6 +205,38 @@ class HubTests(TestCase):
         key.revoked_at=None; key.expires_at=timezone.now()-timedelta(seconds=1); key.save()
         self.assertEqual(self.api.get("/api/v1/me/").status_code,401)
 
+    def test_optional_key_expiry_and_web_default(self):
+        self.login()
+        response = self.api.post("/api/v1/keys/", {"name": "No expiry", "days": None}, format="json")
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertIsNone(response.data["expires_at"])
+        response = self.api.post("/api/v1/keys/", {"name": "Temporary", "days": 7}, format="json")
+        self.assertEqual(response.status_code, 201, response.data)
+        expires = APIKey.objects.get(pk=response.data["id"]).expires_at
+        self.assertAlmostEqual((expires - timezone.now()).total_seconds(), 7 * 86400, delta=5)
+        for days in [0, -1, 91, "never"]:
+            self.assertEqual(self.api.post("/api/v1/keys/", {"name": "Invalid", "days": days}, format="json").status_code, 400)
+        response = self.client.post("/account/keys/", {"name": "Web default", "scopes": ["read"]})
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(APIKey.objects.get(name="Web default").expires_at)
+        self.assertContains(response, "<td>Never</td>")
+        self.client.post("/account/keys/", {"name": "Web expiry", "scopes": ["read"], "days": "30"})
+        self.assertIsNotNone(APIKey.objects.get(name="Web expiry").expires_at)
+
+    def test_non_expiring_keys_count_toward_active_key_limit(self):
+        self.login()
+        for index in range(20):
+            APIKey.issue(user=self.author, name=f"Key {index}", scopes=["read"])
+        self.assertEqual(self.api.post("/api/v1/keys/", {"name": "Over limit"}).status_code, 400)
+        response = self.client.post("/account/keys/", {"name": "Over limit", "scopes": ["read"]})
+        self.assertContains(response, "You have 20 active keys.")
+        self.assertEqual(self.author.api_keys.count(), 20)
+        self.author.api_keys.filter(name="Key 0").update(revoked_at=timezone.now())
+        self.assertEqual(self.api.post("/api/v1/keys/", {"name": "Replacement"}).status_code, 201)
+        self.author.api_keys.filter(name="Key 1").update(expires_at=timezone.now() - timedelta(seconds=1))
+        self.assertEqual(self.api.post("/api/v1/keys/", {"name": "Another replacement"}).status_code, 201)
+        self.assertEqual(self.author.api_keys.active().count(), 20)
+
     def test_oauth_key_scope_cannot_escalate_and_managers_are_isolated(self):
         app=Application.objects.create(name="Test Manager",user=self.author,client_type="public",authorization_grant_type="authorization-code",redirect_uris="http://127.0.0.1:8765/callback")
         token=AccessToken.objects.create(user=self.author,application=app,token="test-token",scope="read keys:write",expires=timezone.now()+timedelta(minutes=10))
@@ -189,6 +246,7 @@ class HubTests(TestCase):
         result=self.api.post("/api/v1/keys/",{"name":"Good","scopes":["read"]},format="json")
         self.assertEqual(result.status_code,201,result.data)
         own_key=APIKey.objects.get(pk=result.data["id"])
+        self.assertIsNone(own_key.expires_at)
         self.assertEqual(own_key.application_id,app.pk)
         other,_=APIKey.issue(user=self.author,name="Personal",scopes=["read"])
         self.assertEqual(self.api.delete(f"/api/v1/keys/{other.pk}/").status_code,404)
@@ -241,9 +299,10 @@ class HubTests(TestCase):
     def test_html_upload_edit_release_screenshot_and_bookmark(self):
         self.login()
         metadata={"title":"New creation","summary":"A new creation","description":"Some details","content_type":self.category.pk,"tags":"parking","status":"published"}
-        result=self.client.post("/upload/",{**metadata,"version":"1.0.0","file":package()})
+        result=self.client.post("/upload/",{**metadata,"version":"1.0.0","file":package(),"screenshots":[screenshot(),screenshot("second.png",(128,0,128))]})
         self.assertEqual(result.status_code,302)
         item=Item.objects.get(title="New creation")
+        self.assertEqual(item.screenshots.count(),2)
         target=f"/items/{item.pk}/edit/"
         self.assertEqual(self.client.post(target,{**metadata,"title":"Edited","action":"metadata"}).status_code,302)
         self.assertEqual(item.revisions.count(),2)
@@ -305,6 +364,9 @@ class HubTests(TestCase):
         self.assertIn({"oauth2":["keys:write"]}, paths["/api/v1/keys/"]["post"]["security"])
         self.assertNotIn({"PersonalAPIKey":[]},paths["/api/v1/keys/"]["post"]["security"])
         self.assertIn("multipart/form-data", paths["/api/v1/items/{id}/releases/"]["post"]["requestBody"]["content"])
+        key_days = schema["components"]["schemas"]["KeyCreateRequest"]["properties"]["days"]
+        self.assertNotIn("days", schema["components"]["schemas"]["KeyCreateRequest"]["required"])
+        self.assertIn("null", key_days["type"])
 
     def test_oauth_wrong_verifier_rejected_and_refresh_reuse_revokes(self):
         self.login()

@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="CPC Hub — community blueprints, scenarios and mods for Car Park Capital.">
+  <meta name="description" content="CPC Hub — community blueprints, blueprint packs and scenarios for Car Park Capital.">
   <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true}'>
   <title>{% block title %}CPC Hub — Car Park Capital community{% endblock %}</title>
   <link rel="icon" href="{% static 'art/favicon.svg' %}" type="image/svg+xml">
@@ -19,7 +19,7 @@
 <a class="skip-link" href="#main">Skip to content</a>
 <header class="desktop-heading">
   <a href="/" class="desktop-brand"><span class="parking-icon">P</span><span class="brand-lettering"><strong>CPC HUB</strong><small>CAR PARK CAPITAL · COMMUNITY EXCHANGE</small></span></a>
-  <div class="header-plaque"><span class="online-dot"></span> cpchub.net <span class="plaque-divider">/</span> <span>Community catalog</span></div>
+  <div class="header-plaque"><span class="online-dot" aria-hidden="true"></span><span>cpchub.net</span><span class="plaque-divider" aria-hidden="true">/</span><span>{{ site_totals.uploads }} upload{{ site_totals.uploads|pluralize }}</span><span class="plaque-divider" aria-hidden="true">/</span><span title="Total size of published release files, including previous versions">{{ site_totals.total_bytes|filesizeformat }}</span></div>
 </header>
 <nav class="game-toolbar" aria-label="Main navigation">
   <a class="tool-button {% if request.path == '/' and catalog_view == 'all' %}active{% endif %}" href="/">{% include 'hub/icon.html' with icon='catalog' %}<span>Explore</span></a>
@@ -36,10 +36,9 @@
   <div class="title-bar main-title"><div class="title-bar-text">{% include 'hub/icon.html' with icon='catalog' %} Community exchange</div><span class="title-bar-caption">CPC HUB</span><a href="{% url 'developers' %}" class="title-help" aria-label="Help and developer guide">?</a></div>
   {% if messages %}<div class="messages" role="status">{% for message in messages %}<p>{{ message }}</p>{% endfor %}</div>{% endif %}
   <main id="main">{% block content_wrapper %}{% block content %}{% endblock %}{% endblock %}</main>
-  <footer class="status-bar"><p class="status-bar-field"><span class="online-dot"></span> Community file exchange</p><p class="status-bar-field">Blueprints · Scenarios · Mods</p><p class="status-bar-field status-right">cpchub.net</p></footer>
+  <footer class="status-bar"><p class="status-bar-field"><span class="online-dot"></span> Community file exchange</p><p class="status-bar-field">Blueprints · Packs · Scenarios</p><p class="status-bar-field status-right">cpchub.net</p></footer>
 </div>
-<footer class="desktop-footer"><span>Car Park Capital community files · <a class="support-footer-link" href="{% url 'donate' %}">Support CPC Hub</a></span><span>Independent fan project · Not affiliated with the game developers.</span></footer>
-<div class="game-statusbar"><a class="hud-brand" href="/">{% include 'hub/icon.html' with icon='parking' %}<strong>CPC HUB</strong></a><span class="hud-message">{% if user.is_authenticated %}Signed in as {{ user.username }}{% else %}Sign in to save and upload files.{% endif %}</span><a class="hud-guide" href="{% url 'developers' %}">Mod manager setup</a><span class="taskbar-clock" id="clock">CPC HUB</span></div>
+<footer class="desktop-footer"><span>Car Park Capital community files · <a class="support-footer-link" href="{% url 'donate' %}">Support CPC Hub</a> · <a class="support-footer-link" href="https://github.com/cyberbalsa/cpchub">Source code</a></span><span>Independent fan project · Not affiliated with the game developers.</span></footer>
 {% block extra_body %}{% endblock %}
 </body>
 </html>

@@ -2,18 +2,18 @@
 
 A community catalog for **Car Park Capital**, built for **cpchub.net** with Python 3.14, Django 5.2 LTS, HTMX, Bootstrap 5's responsive grid, 98.css, PostgreSQL, and Docker. All browser assets are served locally.
 
-The interface takes its cues from RCT and Car Park Capital: beveled tool buttons, orange and teal window frames, pixel icons, a town viewport, and parchment-colored file panels. The game illustrations and interface icons are original SVGs; game assets are not included. Sign-in buttons use [Steam and Discord's official brand assets](static/vendor/brands/README.md).
+The interface takes its cues from RCT and Car Park Capital: beveled tool buttons, orange and teal window frames, pixel icons, a town viewport, and parchment-colored file panels. The homepage hero uses a screenshot supplied by the site owner. Other illustrations and interface icons are original SVGs; files from the game installation are not included. Sign-in buttons use [Steam and Discord's official brand assets](static/vendor/brands/README.md).
 
 ## Included
 
 - Searchable catalog with categories, sorting, pagination, saved creations, and an author’s uploads.
 - Steam and Discord sign-in through django-allauth. Profiles let users link additional accounts and unlink all but their last login. Password login, password resets, and local registration are disabled. Email is not required.
 - Author-only edits with metadata snapshots; immutable versioned releases with changelogs, game-version labels, sizes, SHA-256 checksums, and historical downloads.
-- Up to eight screenshots per item; PNG/JPEG/WebP inputs are resized and re-encoded to WebP, with metadata removed.
-- Configurable categories and file extensions. Initial types: blueprints, blueprint packs, scenarios, and other mods. Accepts native `.cpbp`/`.cpcs`, ZIPs, and JSON as appropriate. ZIPs are stored without extracting their contents. New types/extensions can be added in Django admin.
+- Two to eight screenshots per published item; PNG/JPEG/WebP inputs are resized and re-encoded to WebP, with metadata removed.
+- Configurable categories and file extensions. Enabled uploads: blueprints, blueprint packs, and scenarios. Other mod uploads are disabled. Accepts native `.cpbp`/`.cpcs`, ZIPs, and JSON as appropriate. ZIPs are stored without extracting their contents. New types/extensions can be added in Django admin; new types start with uploads disabled.
 - Drafts visible only to the author; file delivery checks the same permissions as the catalog.
 - Private Wasabi storage for uploaded releases and screenshots, with five-minute signed download URLs. CSS, JavaScript, fonts, and site artwork stay local.
-- Named, hashed API keys with read/write scopes, expiration (1–90 days), revocation, and a one-time secret display.
+- Named, hashed API keys with read/write scopes, no expiry by default, optional expiration (1–90 days), revocation, and a one-time secret display.
 - Mod-manager sign-in through OAuth authorization code + **S256 PKCE**, explicit consent, 15-minute access tokens, rotating refresh tokens, and optional per-manager API-key creation. Keys cannot create additional keys. OAuth clients cannot grant broader permissions or manage another client’s keys.
 - OpenAPI **3.1**, Swagger UI, ReDoc, request/response serializers, multipart upload schemas, authentication scopes, and a consistent API error envelope.
 - Django admin, health endpoint, pinned Python dependencies, Docker Compose, and a Caddy HTTPS configuration for cpchub.net.
@@ -142,7 +142,7 @@ Only configured providers appear in the sign-in UI. At least one provider is nee
 - `/api/v1/keys/` — create/list/revoke scoped keys.
 - `/api/schema/`, `/api/docs/`, `/api/redoc/` — schema and API documentation.
 
-Use `Authorization: ApiKey cpc_...` for API keys or `Authorization: Bearer ...` for OAuth. Session-based mutations require CSRF. The API creates drafts first: upload a release, then PATCH `{"status":"published"}`. Release ordering is creation time, so always compare immutable release IDs/checksums; version strings are labels, not necessarily SemVer.
+Use `Authorization: ApiKey cpc_...` for API keys or `Authorization: Bearer ...` for OAuth. Session-based mutations require CSRF. The API creates drafts first: upload a release and at least two screenshots, then PATCH `{"status":"published"}`. Release ordering is creation time, so always compare immutable release IDs/checksums; version strings are labels, not necessarily SemVer.
 
 Register a manager as a staff operator:
 

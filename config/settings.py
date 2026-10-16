@@ -111,6 +111,7 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
 MAX_SCREENSHOTS = 8
+MIN_SCREENSHOTS = 2
 # allauth's legacy OpenID tables use AutoField; HubConfig opts our tables into BigAutoField.
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 OAUTH2_PROVIDER_APPLICATION_MODEL = "oauth2_provider.Application"

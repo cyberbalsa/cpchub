@@ -85,9 +85,10 @@ paths:
           description: ''
     post:
       operationId: v1_items_create
-      description: Create item metadata, then POST an immutable release and screenshots.
-        Items start as drafts through the API; PATCH status to published after uploading
-        a release.
+      description: Create metadata for a blueprint, blueprint pack or scenario. Mod
+        uploads are disabled. API items start as drafts; upload a release and at least
+        two screenshots, then PATCH status to published. Each item can have up to
+        eight screenshots.
       tags:
       - v1
       requestBody:
@@ -184,8 +185,9 @@ paths:
           description: ''
     patch:
       operationId: v1_items_partial_update
-      description: Author-only metadata edit. Records a revision; files and previous
-        releases are immutable.
+      description: Author-only metadata edit. Publishing requires an enabled file
+        type, a release and at least two screenshots. Records a revision; files and
+        previous releases are immutable.
       parameters:
       - in: path
         name: id
@@ -267,8 +269,9 @@ paths:
   /api/v1/items/{id}/releases/:
     post:
       operationId: v1_items_releases_create
-      description: Author-only upload. Version strings are unique per item. Existing
-        releases cannot be overwritten.
+      description: Author-only upload for an enabled file type. Published items must
+        have at least two screenshots before adding a release. Version strings are
+        unique per item. Existing releases cannot be overwritten.
       parameters:
       - in: path
         name: id
@@ -440,6 +443,8 @@ paths:
   /api/v1/items/{id}/screenshots/{screenshot_id}/:
     delete:
       operationId: v1_items_screenshots_destroy
+      description: Remove an owned screenshot. Published creations must keep at least
+        two screenshots; add a replacement or save as a draft first.
       parameters:
       - in: path
         name: id
@@ -464,6 +469,12 @@ paths:
       responses:
         '204':
           description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
         '403':
           content:
             application/json:
@@ -588,7 +599,9 @@ paths:
       operationId: v1_keys_create
       description: Session or OAuth keys:write scope required. OAuth clients may mint
         only read/write scopes they hold, and manage only their own keys. API keys
-        cannot mint more keys. The secret is returned once; expires within 90 days.
+        cannot mint more keys. The secret is returned once. Keys do not expire by
+        default; omit days or send null. Set days to 1–90 for an expiring key. All
+        keys can be revoked.
       tags:
       - v1
       requestBody:
@@ -693,7 +706,7 @@ paths:
   /api/v1/types/:
     get:
       operationId: v1_types_list
-      description: Discover supported types and extensions, including future mod categories.
+      description: Discover enabled upload types and their accepted extensions.
       tags:
       - v1
       security:
@@ -744,7 +757,7 @@ paths:
   /api/v1/types/{slug}/:
     get:
       operationId: v1_types_retrieve
-      description: Discover supported types and extensions, including future mod categories.
+      description: Discover enabled upload types and their accepted extensions.
       parameters:
       - in: path
         name: slug
@@ -814,6 +827,9 @@ components:
         allowed_extensions:
           description: Lowercase extensions, e.g. [".zip", ".cpbp", ".json"]. ZIP
             contents are not executed or extracted.
+        uploads_enabled:
+          type: boolean
+          description: Allow new creations and releases for this type.
       required:
       - name
       - slug
@@ -846,7 +862,9 @@ components:
           format: date-time
           readOnly: true
         expires_at:
-          type: string
+          type:
+          - string
+          - 'null'
           format: date-time
         last_used_at:
           type:
@@ -863,7 +881,6 @@ components:
           description: Shown only once. Store in the operating system credential store.
       required:
       - created_at
-      - expires_at
       - id
       - key
       - name
@@ -886,6 +903,8 @@ components:
           maxLength: 20000
         content_type:
           type: string
+          description: 'An enabled type from /api/v1/types/: blueprints, blueprint-packs
+            or scenarios. Mod uploads are currently disabled.'
         author:
           type: string
           readOnly: true
@@ -950,6 +969,8 @@ components:
         content_type:
           type: string
           minLength: 1
+          description: 'An enabled type from /api/v1/types/: blueprints, blueprint-packs
+            or scenarios. Mod uploads are currently disabled.'
         tags:
           type: string
           description: Comma-separated tags
@@ -980,7 +1001,9 @@ components:
           format: date-time
           readOnly: true
         expires_at:
-          type: string
+          type:
+          - string
+          - 'null'
           format: date-time
         last_used_at:
           type:
@@ -994,7 +1017,6 @@ components:
           format: date-time
       required:
       - created_at
-      - expires_at
       - id
       - name
       - prefix
@@ -1012,10 +1034,13 @@ components:
           default:
           - read
         days:
-          type: integer
+          type:
+          - integer
+          - 'null'
           maximum: 90
           minimum: 1
-          default: 90
+          description: Omit or send null for no expiry (default), or choose 1–90 days.
+            Keys can always be revoked.
       required:
       - name
     PaginatedItemList:
@@ -1082,6 +1107,8 @@ components:
         content_type:
           type: string
           minLength: 1
+          description: 'An enabled type from /api/v1/types/: blueprints, blueprint-packs
+            or scenarios. Mod uploads are currently disabled.'
         tags:
           type: string
           description: Comma-separated tags
@@ -1278,8 +1305,8 @@ components:
       type: apiKey
       in: header
       name: Authorization
-      description: ApiKey cpc_<prefix>_<secret>. Keys are scoped, expire, and can
-        be revoked.
+      description: ApiKey cpc_<prefix>_<secret>. Keys are scoped and revocable, with
+        no expiry by default.
     cookieAuth:
       type: apiKey
       in: cookie

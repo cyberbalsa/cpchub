@@ -4,7 +4,8 @@ from .models import APIKey, ContentType, Item, Release, Revision, Screenshot
 
 @admin.register(ContentType)
 class ContentTypeAdmin(admin.ModelAdmin):
-    list_display = ["name", "slug", "allowed_extensions", "position"]
+    list_display = ["name", "slug", "allowed_extensions", "uploads_enabled", "position"]
+    list_filter = ["uploads_enabled"]
     prepopulated_fields = {"slug": ("name",)}
 
 

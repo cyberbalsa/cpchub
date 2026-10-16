@@ -15,15 +15,15 @@
   --recessed: inset 1px 1px #776e51, inset -1px -1px #fff0c9, inset 2px 2px #aa986e;
 }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; scroll-padding-top: 16px; scroll-padding-bottom: 55px; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; scroll-padding-bottom: 16px; }
 body {
-  margin: 0; padding: 0 24px 65px; color: var(--ink); font: 13px/1.5 Tahoma, Arial, sans-serif;
+  margin: 0; padding: 0 24px 20px; color: var(--ink); font: 13px/1.5 Tahoma, Arial, sans-serif;
   background-color: #46624a;
   background-image: repeating-linear-gradient(30deg, #344b3c24 0 1px, transparent 1px 48px), repeating-linear-gradient(150deg, #9fba7d12 0 1px, transparent 1px 48px), url('../art/terrain.svg');
   background-size: auto, auto, 80px 80px;
 }
 a { color: var(--navy); }
-a, button, input, select, textarea { scroll-margin-bottom: 48px; }
+a, button, input, select, textarea { scroll-margin-bottom: 16px; }
 a:hover { color: #9b4b1d; }
 button, input, select, textarea { font-family: Tahoma, Arial, sans-serif !important; font-size: 12px !important; }
 button, .win-button { cursor: pointer; min-height: 32px; }
@@ -47,7 +47,7 @@ img { max-width: 100%; }
 .skip-link { position: absolute; top: -80px; left: 20px; z-index: 1000; background: var(--paper); padding: 10px; }
 .skip-link:focus { top: 10px; }
 
-/* The sign, metal tool rack, and persistent HUD. */
+/* The sign and metal tool rack. */
 .desktop-heading { max-width: 1380px; margin: auto; min-height: 82px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .desktop-brand { color: #fff0c7; display: flex; gap: 13px; align-items: center; text-decoration: none; }
 .desktop-brand:hover { color: #fff0c7; }
@@ -76,12 +76,6 @@ img { max-width: 100%; }
 .toolbar-account a { color: #f7e9c2; display: block; }
 .account-name { font: bold 11px/1.6 var(--pixel); max-width: 160px; overflow-wrap: anywhere; }
 .account-secondary { font-size: 10px; margin-top: 4px; color: #d1d8c5 !important; }
-.game-statusbar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; min-height: 36px; display: flex; align-items: center; gap: 15px; padding: 3px 12px; background: #555f55; border-top: 1px solid #273b2e; box-shadow: inset 0 1px #aab29a, inset 0 2px #77816c; color: #ecdfb9; font: 11px var(--pixel); }
-.hud-brand { display: flex; align-items: center; gap: 7px; color: #ffedbf; text-decoration: none; padding-right: 15px; border-right: 1px solid #334635; }
-.hud-brand:hover { color: white; }
-.hud-message { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hud-guide { color: #ebdfb8; margin-left: auto; white-space: nowrap; }
-.taskbar-clock { padding: 6px 13px; background: #394e3e; border: 1px solid #2c3d31; box-shadow: inset 1px 1px #263b2e, 1px 1px #929d7c; min-width: 84px; text-align: center; white-space: nowrap; }
 
 /* Inset windows, parchment panels, and warm beveled controls. */
 .window { padding: 4px; background: var(--panel); box-shadow: var(--raised), 2px 2px #302f2640; border: 1px solid #4c4b38; font-family: Tahoma, Arial, sans-serif; font-size: 13px; }
@@ -143,7 +137,7 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
 .viewport-title .ui-icon { width: 18px; height: 18px; }
 .viewport-title>span:last-child { font: 8px Tahoma, sans-serif; letter-spacing: 1px; color: #d5ddba; }
 .map-viewport { height: 248px; position: relative; background: #7d9a56; overflow: hidden; border: 1px solid #344a33; box-shadow: inset 2px 2px #2e42294f; }
-.map-art { position: absolute; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: center; image-rendering: pixelated; }
+.map-art { position: absolute; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: center 30%; image-rendering: pixelated; }
 .welcome-panel { position: absolute; left: 18px; top: 18px; width: 300px; background: #dcc899; padding: 3px; border: 1px solid #4b5140; box-shadow: var(--raised), 4px 5px #2e4a3a55; }
 .welcome-title { background: #478578; color: #ffefc4; font: bold 11px var(--pixel); padding: 6px 8px; box-shadow: inset 1px 1px #87af91, inset -1px -1px #2f5e52; text-shadow: 1px 1px #3c604d; }
 .welcome-body { padding: 13px 13px 12px; }
@@ -313,7 +307,7 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
   .card-picture { height: 175px; }
 }
 @media (max-width: 1199px) {
-  body { padding: 0 16px 60px; }
+  body { padding: 0 16px 20px; }
   .sidebar { width: 194px; padding: 14px 9px; }
   .folder-link { gap: 6px; padding: 7px 5px; }
   .folder-link .ui-icon { width: 20px; height: 20px; }
@@ -327,13 +321,12 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
   .tool-button.upload-shortcut { flex-direction: column; padding: 5px 11px; }
   .toolbar-account { min-width: 125px; padding-left: 12px; }
   .file-label { display: none; }
-  .map-art { object-position: 62% center; }
+  .map-art { object-position: 62% 30%; }
 }
 @media (max-width: 850px) {
-  body { padding: 0 10px 60px; }
+  body { padding: 0 10px 20px; }
   .desktop-heading { min-height: 75px; }
-  .header-plaque>span:last-child, .plaque-divider { display: none; }
-  .header-plaque { font-size: 10px; padding: 6px 8px; }
+  .header-plaque { font-size: 10px; padding: 6px 8px; gap: 6px; white-space: nowrap; }
   .brand-lettering small { font-size: 8px; letter-spacing: .7px; }
   .game-toolbar { padding: 6px; gap: 4px; flex-wrap: wrap; }
   .game-toolbar::before, .game-toolbar::after { display: none; }
@@ -344,7 +337,7 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
   .sidebar { display: none; }
   .catalog-main { padding: 10px; }
   .map-viewport { height: 250px; }
-  .map-art { object-position: 58% center; }
+  .map-art { object-position: 58% 30%; }
   .welcome-panel { left: 14px; top: 17px; width: 285px; }
   .welcome-body h1 { font-size: 22px; }
   .card-picture { height: 190px; }
@@ -355,7 +348,7 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
   .status-bar-field:nth-child(3) { display: none; }
 }
 @media (max-width: 575px) {
-  body { padding: 0 6px 55px; }
+  body { padding: 0 6px 20px; }
   .desktop-heading { min-height: 76px; gap: 5px; }
   .desktop-brand { gap: 10px; }
   .brand-lettering strong { font-size: 22px; }
@@ -375,7 +368,7 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
   .explorer { padding: 3px; }
   .catalog-main { padding: 7px; }
   .map-viewport { height: 347px; }
-  .map-art { height: 185px; width: 700px; left: calc(50% - 350px); object-fit: cover; object-position: 70% center; }
+  .map-art { height: 185px; width: 700px; left: calc(50% - 350px); object-fit: cover; object-position: 70% 30%; }
   .welcome-panel { left: 9px; right: 9px; top: 137px; width: auto; }
   .welcome-body { padding: 12px 13px; }
   .welcome-body h1 { margin-top: 6px; }
@@ -406,11 +399,6 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
   .status-bar-field { padding: 4px 6px; }
   .status-bar-field:nth-child(2) { display: none; }
   .desktop-footer { flex-direction: column; gap: 3px; font-size: 9px; }
-  .game-statusbar { gap: 10px; padding: 3px 7px; font-size: 9px; }
-  .hud-brand { padding-right: 9px; gap: 4px; white-space: nowrap; }
-  .hud-brand .ui-icon { width: 19px; height: 19px; }
-  .hud-guide { display: none; }
-  .taskbar-clock { margin-left: auto; min-width: 68px; padding: 6px 8px; }
   .page-content { padding: 20px 13px; }
   .paper-panel { padding: 17px; }
   .form-window .window-body { padding: 16px; }

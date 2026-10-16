@@ -39,6 +39,7 @@ class WasabiDeliveryTests(TestCase):
         cls.release = Release.objects.create(item=cls.item, version="1", file="releases/item/test.cpbp",
             original_filename="Parking plan é.cpbp", size=4, sha256=hashlib.sha256(b"test").hexdigest())
         cls.shot = Screenshot.objects.create(item=cls.item, image="screenshots/item/test.webp")
+        Screenshot.objects.create(item=cls.item, image="screenshots/item/second.webp")
 
     def setUp(self):
         self.api = APIClient()
