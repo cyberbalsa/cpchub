@@ -70,6 +70,27 @@ class HubTests(TestCase):
         self.assertEqual(self.api.post("/api/v1/items/", {"title":"Bad"}).status_code,401)
         self.assertEqual(self.api.get("/api/v1/me/").status_code,401)
 
+    def test_community_overview_only_on_unfiltered_first_page(self):
+        self.login()
+        Item.objects.bulk_create([
+            Item(author=self.author, content_type=self.category, title=f"Lot {index}")
+            for index in range(12)
+        ])
+        for url, show in [("/", True), ("/?q=&type=&sort=updated", True), ("/?page=1", True),
+                          ("/?type=blueprints", False), ("/?q=parking", False),
+                          ("/?view=mine", False), ("/?view=saved", False), ("/?page=2", False)]:
+            for partial in [False, True]:
+                with self.subTest(url=url, partial=partial):
+                    response = self.client.get(url, **({"HTTP_HX_REQUEST": "true"} if partial else {}))
+                    self.assertEqual(response.status_code, 200)
+                    self.assertContains(response, 'id="community-overview"', count=1)
+                    self.assertContains(response, 'id="community-map"', count=1 if show else 0)
+                    self.assertContains(response, 'hx-swap-oob="outerHTML"', count=1 if partial else 0)
+        response = self.client.get("/?q=parking", HTTP_HX_REQUEST="true", HTTP_HX_HISTORY_RESTORE_REQUEST="true")
+        self.assertContains(response, "<!doctype")
+        self.assertNotContains(response, 'id="community-map"')
+        self.assertNotContains(response, 'hx-swap-oob="outerHTML"')
+
     def test_header_totals_include_all_published_versions_and_exclude_private_files(self):
         for version, size in [("1", 512), ("2", 1536)]:
             Release.objects.create(item=self.item, version=version, file=f"releases/{version}.json", original_filename="test.json", sha256="a" * 64, size=size)

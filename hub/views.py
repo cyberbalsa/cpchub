@@ -49,9 +49,10 @@ def catalog(request):
     stats = public.aggregate(items=Count("pk"), downloads=Sum("downloads"), authors=Count("author", distinct=True))
     context = {"page_obj": page, "q": q, "category": category, "catalog_view": view, "sort": sort,
                "stats": stats, "has_demo": items.filter(is_demo=True).exists(),
+               "show_overview": view == "all" and not q and not category and page.number == 1,
                "featured_items": public_items().filter(featured_at__isnull=False).order_by("-featured_at", "pk")[:6] if view == "all" and not q and not category and not request.GET.get("page") else [],
                "types_with_counts": ContentType.objects.filter(uploads_enabled=True).annotate(total=Count("items", filter=Q(items__status="published", items__is_hidden=False, items__deleted_at=None, items__author__moderation_state__shadow_banned_at__isnull=True))).order_by("position", "name")}
-    return render(request, "hub/results.html" if request.htmx and not request.htmx.history_restore_request else "hub/catalog.html", context)
+    return render(request, "hub/catalog_results.html" if request.htmx and not request.htmx.history_restore_request else "hub/catalog.html", context)
 
 
 @never_cache

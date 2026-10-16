@@ -7,15 +7,8 @@
     <div class="folder-group"><h3>Your toolbox</h3><a class="folder-link {% if catalog_view == 'saved' %}selected{% endif %}" href="/?view=saved">{% include 'hub/icon.html' with icon='saved' %}<span>Saved creations</span></a><a class="folder-link {% if catalog_view == 'mine' %}selected{% endif %}" href="/?view=mine">{% include 'hub/icon.html' with icon='folder' %}<span>My uploads</span></a><a class="folder-link" href="{% url 'keys' %}">{% include 'hub/icon.html' with icon='key' %}<span>API keys & managers</span></a></div>
   </aside>
   <section class="catalog-main" aria-label="Community catalog">
-    <div class="map-window">
-      <div class="viewport-title"><span>{% include 'hub/icon.html' with icon='scenarios' %} Community overview</span><span>ISOMETRIC VIEW</span></div>
-      <div class="map-viewport" id="community-map">
-        <img class="map-art" src="{% static 'art/community-hero.webp' %}" alt="Isometric city with towers, roads, railways, and trees" width="1781" height="1213" fetchpriority="high">
-        <div class="welcome-panel"><div class="welcome-title">Car Park Capital community</div><div class="welcome-body"><span class="eyebrow">COMMUNITY FILES</span><h1>Blueprints, packs<br> &amp; scenarios</h1><p>Download community files or upload your own.</p><div class="hero-actions"><a class="win-button primary-button" href="#browse">{% include 'hub/icon.html' with icon='blueprints' %} Browse creations</a></div></div></div>
-        <span class="map-label">COMMUNITY VIEW</span>
-      </div>
-    </div>
-    <div class="community-strip"><span>{% include 'hub/icon.html' with icon='folder' %}<strong>{{ stats.items|default:0 }}</strong> creations</span><span>{% include 'hub/icon.html' with icon='download' %}<strong>{{ stats.downloads|default:0 }}</strong> downloads</span><span>{% include 'hub/icon.html' with icon='user' %}<strong>{{ stats.authors|default:0 }}</strong> creators</span><span class="strip-note">Demo items excluded</span></div>
+    {% include 'hub/community_overview.html' %}
+    <div class="community-strip"><span>{% include 'hub/icon.html' with icon='folder' %}<strong>{{ stats.items|default:0 }}</strong> creations</span><span>{% include 'hub/icon.html' with icon='download' %}<strong>{{ stats.downloads|default:0 }}</strong> downloads</span><span>{% include 'hub/icon.html' with icon='user' %}<strong>{{ stats.authors|default:0 }}</strong> creators</span></div>
     {% if featured_items %}<section class="featured-section" aria-labelledby="featured-title"><div class="section-heading"><h2 id="featured-title">Highlighted creations</h2><span class="file-label">PICKED BY THE MODERATION TEAM</span></div><div class="row g-3 creation-grid">{% for item in featured_items %}<div class="col-12 col-md-6 col-xl-4">{% include 'hub/card.html' %}</div>{% endfor %}</div></section>{% endif %}
     <section id="browse" class="browse-section" aria-labelledby="browse-title">
       <div class="section-heading"><h2 id="browse-title">{% include 'hub/icon.html' with icon='catalog' %}{% if catalog_view == 'saved' %}Your saved creations{% elif catalog_view == 'mine' %}Your uploads{% else %}Available creations{% endif %}</h2><span class="file-label">CHOOSE A FILE FOR DETAILS</span></div>

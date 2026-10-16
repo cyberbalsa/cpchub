@@ -1,0 +1,13 @@
+{% load static %}
+<div id="community-overview"{% if oob %} hx-swap-oob="outerHTML"{% endif %}>
+  {% if show_overview %}
+  <div class="map-window">
+    <div class="viewport-title"><span>{% include 'hub/icon.html' with icon='scenarios' %} Community overview</span><span>ISOMETRIC VIEW</span></div>
+    <div class="map-viewport" id="community-map">
+      <img class="map-art" src="{% static 'art/community-hero.webp' %}" alt="Isometric city with towers, roads, railways, and trees" width="1781" height="1213" fetchpriority="high">
+      <div class="welcome-panel"><div class="welcome-title">Car Park Capital community</div><div class="welcome-body"><span class="eyebrow">COMMUNITY FILES</span><h1>Blueprints, packs<br> &amp; scenarios</h1><p>Download community files or upload your own.</p><div class="hero-actions"><a class="win-button primary-button" href="#browse">{% include 'hub/icon.html' with icon='blueprints' %} Browse creations</a></div></div></div>
+      <span class="map-label">COMMUNITY VIEW</span>
+    </div>
+  </div>
+  {% endif %}
+</div>

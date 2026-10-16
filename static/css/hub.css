@@ -145,7 +145,6 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
 .community-strip>span { display: flex; align-items: center; gap: 5px; }
 .community-strip .ui-icon { width: 16px; height: 16px; }
 .community-strip strong { color: #344e3c; margin-left: 3px; }
-.community-strip .strip-note { font: 9px Tahoma, sans-serif; margin-left: auto; color: #5f644b; }
 
 /* The creation picker. */
 .browse-section { margin-top: 16px; padding: 3px 9px 10px; background: #ceba8b; border: 1px solid #94835e; box-shadow: inset 1px 1px #f4e5bb, inset -1px -1px #ad986b; }
@@ -307,7 +306,6 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
   .folder-link { gap: 6px; padding: 7px 5px; }
   .folder-link .ui-icon { width: 20px; height: 20px; }
   .community-strip { gap: 17px; }
-  .community-strip .strip-note { display: none; }
   .catalog-filter { flex-wrap: wrap; }
   .search-field { flex-basis: 100%; }
   .catalog-filter select { flex: 1; }
