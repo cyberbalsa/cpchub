@@ -1019,6 +1019,12 @@ components:
         downloads:
           type: integer
           readOnly: true
+        collection_count:
+          type: integer
+          minimum: 0
+          readOnly: true
+          description: Number of people who currently have this creation saved in
+            their collection.
         created_at:
           type: string
           format: date-time
@@ -1039,6 +1045,7 @@ components:
           readOnly: true
       required:
       - author
+      - collection_count
       - content_type
       - created_at
       - deleted_at

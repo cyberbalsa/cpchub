@@ -155,6 +155,7 @@ def bookmark(request, pk):
     if not created:
         entry.delete()
     if request.htmx:
+        item._collection_count = item.bookmarks.count()
         return render(request, "hub/bookmark.html", {"item": item, "saved": created})
     return redirect(item)
 

@@ -1,1 +1,4 @@
-{% if user.is_authenticated %}<form id="bookmark-form" action="{% url 'bookmark' item.pk %}" method="post" hx-post="{% url 'bookmark' item.pk %}" hx-target="this" hx-swap="outerHTML">{% csrf_token %}<button type="submit">{% if saved %}★ Saved{% else %}☆ Save creation{% endif %}</button></form>{% else %}<a class="win-button" href="{% url 'account_login' %}?next={{ item.get_absolute_url|urlencode }}">☆ Save creation</a>{% endif %}
+<div id="bookmark-control" class="bookmark-control">
+  {% if user.is_authenticated %}<form id="bookmark-form" action="{% url 'bookmark' item.pk %}" method="post" hx-post="{% url 'bookmark' item.pk %}" hx-target="#bookmark-control" hx-swap="outerHTML">{% csrf_token %}<button type="submit">{% if saved %}★ Saved{% else %}☆ Save creation{% endif %}</button></form>{% else %}<a class="win-button" href="{% url 'account_login' %}?next={{ item.get_absolute_url|urlencode }}">☆ Save creation</a>{% endif %}
+  <span class="collection-count" role="status">Saved by {{ item.collection_count }} {{ item.collection_count|pluralize:'person,people' }}</span>
+</div>

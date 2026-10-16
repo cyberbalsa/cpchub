@@ -84,6 +84,12 @@ class Item(models.Model):
         return next(iter(self.releases.all()), None)
 
     @property
+    def collection_count(self):
+        if hasattr(self, "_collection_count"):
+            return self._collection_count
+        return self.bookmarks.count()
+
+    @property
     def delete_after(self):
         return self.deleted_at + timedelta(days=14) if self.deleted_at else None
 

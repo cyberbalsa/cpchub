@@ -59,6 +59,7 @@ class RevisionSerializer(serializers.ModelSerializer):
 
 class ItemSerializer(serializers.ModelSerializer):
     author = serializers.CharField(source="author.username", read_only=True)
+    collection_count = serializers.IntegerField(min_value=0, read_only=True, help_text="Number of people who currently have this creation saved in their collection.")
     content_type = serializers.SlugRelatedField(slug_field="slug", queryset=ContentType.objects.filter(uploads_enabled=True), help_text="An enabled type from /api/v1/types/: blueprints, blueprint-packs or scenarios. Mod uploads are currently disabled.")
     releases = ReleaseSerializer(many=True, read_only=True)
     screenshots = ScreenshotSerializer(many=True, read_only=True)
@@ -72,7 +73,7 @@ class ItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Item
-        fields = ["id", "title", "summary", "description", "content_type", "author", "tags", "status", "is_demo", "is_hidden", "hidden_reason", "deleted_at", "featured_at", "downloads", "created_at", "updated_at", "releases", "screenshots"]
+        fields = ["id", "title", "summary", "description", "content_type", "author", "tags", "status", "is_demo", "is_hidden", "hidden_reason", "deleted_at", "featured_at", "downloads", "collection_count", "created_at", "updated_at", "releases", "screenshots"]
         read_only_fields = ["id", "is_demo", "is_hidden", "hidden_reason", "deleted_at", "featured_at", "downloads", "created_at", "updated_at"]
 
 
