@@ -124,6 +124,15 @@ class Bookmark(models.Model):
         constraints = [models.UniqueConstraint(fields=["user", "item"], name="unique_bookmark")]
 
 
+class UserPreferences(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="hub_preferences")
+    ugc_warning_version = models.PositiveSmallIntegerField(default=0)
+    ugc_warning_acknowledged_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name_plural = "User preferences"
+
+
 class APIKeyQuerySet(models.QuerySet):
     def active(self):
         return self.filter(models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now()), revoked_at__isnull=True)

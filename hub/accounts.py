@@ -6,6 +6,7 @@ from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 
+from .download_warning import warning_acknowledged
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(never_cache, name="dispatch")
@@ -22,6 +23,7 @@ class ProfileView(ConnectionsView):
             for account in accounts
         ]
         context["can_disconnect"] = len(accounts) > 1
+        context["download_warning_acknowledged"] = warning_acknowledged(self.request)
         return context
 
     @transaction.atomic

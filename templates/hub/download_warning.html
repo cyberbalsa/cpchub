@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Before you download — CPC Hub{% endblock %}
+{% block content %}
+<div class="account-container">
+  <section class="window download-warning-window" aria-labelledby="download-warning-title">
+    <div class="title-bar"><div class="title-bar-text">Community download · Fan-made content</div></div>
+    <div class="window-body">
+      {% include 'hub/download_warning_content.html' %}
+    </div>
+  </section>
+</div>
+{% endblock %}

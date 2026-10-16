@@ -1,4 +1,47 @@
 "use strict";
+document.addEventListener("click", (event) => {
+  const dialog = document.getElementById("download-warning");
+  if (!dialog || typeof dialog.showModal !== "function") return;
+  if (event.target.closest("[data-close-download-warning]")) {
+    dialog.close();
+    return;
+  }
+  const link = event.target.closest("a[data-download-name]");
+  if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  const form = dialog.querySelector("[data-download-warning-form]");
+  form.action = link.href;
+  form.reset();
+  form.querySelector("[data-download-warning-error]").hidden = true;
+  dialog.querySelector("[data-warning-file]").textContent = link.dataset.downloadName;
+  dialog.showModal();
+});
+document.addEventListener("submit", async (event) => {
+  const form = event.target;
+  if (!form.matches("dialog [data-download-warning-form]")) return;
+  event.preventDefault();
+  const dialog = form.closest("dialog");
+  const button = form.querySelector('[type="submit"]');
+  const error = form.querySelector("[data-download-warning-error]");
+  button.disabled = true;
+  error.hidden = true;
+  try {
+    const response = await fetch(form.action, {
+      method: "POST", body: new FormData(form), credentials: "same-origin",
+      headers: {Accept: "application/json"},
+    });
+    if (!response.ok) throw new Error("Download confirmation failed");
+    const result = await response.json();
+    dialog.close();
+    if (result.remembered) dialog.remove();
+    window.location.assign(result.download_url);
+  } catch {
+    error.textContent = "The download could not start. Please try again.";
+    error.hidden = false;
+  } finally {
+    button.disabled = false;
+  }
+});
 document.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-copy]");
   if (!button) return;

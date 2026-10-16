@@ -10,6 +10,7 @@ from django.shortcuts import redirect, render
 from rest_framework.generics import get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
 from django.views.decorators.vary import vary_on_headers
 from oauth2_provider.models import Application, AccessToken, RefreshToken
 
@@ -44,9 +45,15 @@ def catalog(request):
     return render(request, "hub/results.html" if request.htmx and not request.htmx.history_restore_request else "hub/catalog.html", context)
 
 
+@never_cache
 def detail(request, pk):
+    from .download_warning import DownloadWarningForm, warning_acknowledged
+
     item = get_object_or_404(visible_items(request.user), pk=pk)
-    return render(request, "hub/detail.html", {"item": item, "saved": request.user.is_authenticated and Bookmark.objects.filter(user=request.user, item=item).exists()})
+    return render(request, "hub/detail.html", {
+        "item": item, "saved": request.user.is_authenticated and Bookmark.objects.filter(user=request.user, item=item).exists(),
+        "show_download_warning": not warning_acknowledged(request), "download_warning_form": DownloadWarningForm(),
+    })
 
 
 @login_required

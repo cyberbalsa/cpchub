@@ -433,3 +433,12 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
 .linked-account { gap: 15px; }
 .linked-account > div { min-width: 0; }
 .profile-help { margin: 18px 0 0; }
+
+/* Fan-content notice shown before website downloads. */
+.download-warning-window { width: min(560px, calc(100% - 28px)); max-height: calc(100vh - 32px); overflow: auto; color: var(--ink); }
+dialog.download-warning-window { margin: auto; }
+dialog.download-warning-window::backdrop { background: #15251bd9; }
+.download-warning-window .window-body { padding: 22px; }
+.download-warning-window h2 { margin-bottom: 16px; font-size: 22px; }
+.download-warning-file { padding: 10px 12px; background: var(--paper); box-shadow: var(--recessed); overflow-wrap: anywhere; font-weight: bold; }
+.download-warning-window .form-actions { flex-wrap: wrap; }

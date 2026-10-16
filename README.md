@@ -9,6 +9,7 @@ The interface takes its cues from RCT and Car Park Capital: beveled tool buttons
 - Searchable catalog with categories, sorting, pagination, saved creations, and an author’s uploads.
 - Steam and Discord sign-in through django-allauth. Profiles let users link additional accounts and unlink all but their last login. Password login, password resets, and local registration are disabled. Email is not required.
 - Author-only edits with metadata snapshots; immutable versioned releases with changelogs, game-version labels, sizes, SHA-256 checksums, and historical downloads.
+- Website downloads show a fan-content warning. “Don’t show this again” saves a signed one-year browser cookie and a profile preference when signed in. Users can restore the warning from their profile. A confirmation page works without JavaScript; API downloads keep their file/redirect response for mod managers.
 - Two to eight screenshots per published item; PNG/JPEG/WebP inputs are resized and re-encoded to WebP, with metadata removed.
 - Configurable categories and file extensions. Enabled uploads: blueprints, blueprint packs, and scenarios. Other mod uploads are disabled. Accepts native `.cpbp`/`.cpcs`, ZIPs, and JSON as appropriate. ZIPs are stored without extracting their contents. New types/extensions can be added in Django admin; new types start with uploads disabled.
 - Drafts visible only to the author; file delivery checks the same permissions as the catalog.

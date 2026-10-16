@@ -1,0 +1,17 @@
+<h2 id="download-warning-title">Before you download</h2>
+<p>CPC Hub is a fan-run site. Its uploads, screenshots, and descriptions are user-generated content (UGC) made by fans.</p>
+<p>This site and its content are not affiliated with or endorsed by Car Park Capital’s developers or publisher.</p>
+<p>Community files may contain errors or be incompatible with your game version. Back up your saves before installing them.</p>
+<p class="download-warning-file" data-warning-file>{{ release.original_filename }}</p>
+<form method="post" action="{{ download_warning_url }}" class="standard-form" data-download-warning-form>
+  {% csrf_token %}
+  {{ download_warning_form.non_field_errors }}
+  {{ download_warning_form.remember.errors }}
+  <p>{{ download_warning_form.remember }}<label for="{{ download_warning_form.remember.id_for_label }}">{{ download_warning_form.remember.label }}</label></p>
+  <p class="notice" data-download-warning-error role="alert" hidden></p>
+  <p class="muted small">{% if user.is_authenticated %}Tick the box to save this choice in your browser and on your profile.{% else %}Tick the box to save this choice in your browser. Sign in to carry it across devices.{% endif %}</p>
+  <div class="form-actions">
+    <button type="submit" class="primary-button">Continue to download</button>
+    {% if modal %}<button type="button" data-close-download-warning>Cancel</button>{% else %}<a class="win-button" href="{{ item.get_absolute_url }}">Cancel</a>{% endif %}
+  </div>
+</form>

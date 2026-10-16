@@ -6,6 +6,7 @@ from rest_framework.routers import DefaultRouter
 
 from hub import api, views
 from hub.accounts import ProfileView
+from hub.download_warning import download, reset_warning
 from hub.oauth import PKCEAuthorizationView
 from hub.support import donate
 
@@ -20,8 +21,10 @@ urlpatterns = [
     path("items/<uuid:pk>/", views.detail, name="item-detail"),
     path("items/<uuid:pk>/edit/", views.edit_item, name="item-edit"),
     path("items/<uuid:pk>/save/", views.bookmark, name="bookmark"),
+    path("items/<uuid:pk>/releases/<uuid:release_id>/download/", download, name="item-download"),
     path("account/keys/", views.keys, name="keys"),
     path("account/profile/", ProfileView.as_view(), name="profile"),
+    path("account/download-warning/reset/", reset_warning, name="download-warning-reset"),
     path("account/keys/<uuid:pk>/revoke/", views.revoke_key, name="key-revoke"),
     path("account/managers/<int:pk>/revoke/", views.revoke_manager, name="manager-revoke"),
     path("developers/", views.developers, name="developers"),

@@ -22,6 +22,15 @@
         {% empty %}<p>No accounts are linked yet.</p>{% endfor %}
         <p class="muted small profile-help">Keep at least one account linked so you can sign in.</p>
       </div>
+      <section class="paper-panel">
+        <h2>Download warning</h2>
+        {% if download_warning_acknowledged %}
+          <p>You’ve chosen to skip the fan-content warning before downloads.</p>
+          <form method="post" action="{% url 'download-warning-reset' %}">{% csrf_token %}<button type="submit">Show the warning again</button></form>
+        {% else %}
+          <p>The fan-content warning appears before downloads. Tick “Don’t show this again” on the warning to remember your choice.</p>
+        {% endif %}
+      </section>
     </section>
     <aside class="col-12 col-lg-5">
       <section class="window form-window">
