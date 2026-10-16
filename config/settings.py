@@ -18,7 +18,7 @@ KOFI_PAGE_URL = os.getenv("KOFI_PAGE_URL", "https://ko-fi.com/cpchub")
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost,cpchub.net").split(",")
 CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", PUBLIC_URL).split(",")
 INSTALLED_APPS = [
-    "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
+    "hub.apps.HubAdminConfig", "django.contrib.auth", "django.contrib.contenttypes",
     "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",
     "allauth", "allauth.account", "allauth.socialaccount",
     "allauth.socialaccount.providers.discord", "allauth.socialaccount.providers.openid", "allauth.socialaccount.providers.steam",
@@ -50,16 +50,18 @@ AUTHENTICATION_BACKENDS = ["django.contrib.auth.backends.ModelBackend", "allauth
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
-ACCOUNT_LOGIN_METHODS = {"username", "email"}
-ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
+ACCOUNT_LOGIN_METHODS = {"username"}
+ACCOUNT_SIGNUP_FIELDS = ["username*"]
 ACCOUNT_EMAIL_VERIFICATION = "none"
+SOCIALACCOUNT_ONLY = True
+SOCIALACCOUNT_QUERY_EMAIL = False
 SOCIALACCOUNT_EMAIL_AUTHENTICATION = False
 SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = False
 SOCIALACCOUNT_LOGIN_ON_GET = False
 SOCIALACCOUNT_STORE_TOKENS = False
 SOCIALACCOUNT_PROVIDERS = {}
 if os.getenv("DISCORD_CLIENT_ID") and os.getenv("DISCORD_CLIENT_SECRET"):
-    SOCIALACCOUNT_PROVIDERS["discord"] = {"APPS": [{"client_id": os.environ["DISCORD_CLIENT_ID"], "secret": os.environ["DISCORD_CLIENT_SECRET"]}], "SCOPE": ["identify", "email"]}
+    SOCIALACCOUNT_PROVIDERS["discord"] = {"APPS": [{"client_id": os.environ["DISCORD_CLIENT_ID"], "secret": os.environ["DISCORD_CLIENT_SECRET"]}], "SCOPE": ["identify"]}
 if os.getenv("STEAM_API_KEY"):
     SOCIALACCOUNT_PROVIDERS["steam"] = {"APPS": [{"client_id": os.environ["STEAM_API_KEY"], "secret": os.environ["STEAM_API_KEY"]}]}
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend")

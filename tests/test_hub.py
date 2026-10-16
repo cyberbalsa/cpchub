@@ -51,7 +51,7 @@ class HubTests(TestCase):
         return self.api.post(self.url+"releases/", {"version": version, "file": package(name,data)}, format="multipart")
 
     def test_catalog_and_account_pages_render(self):
-        for url in ["/", "/?type=blueprints", "/?q=parking", "/developers/", "/accounts/login/", "/accounts/signup/", "/accounts/password/reset/", "/api/docs/", self.item.get_absolute_url()]:
+        for url in ["/", "/?type=blueprints", "/?q=parking", "/developers/", "/accounts/login/", "/api/docs/", self.item.get_absolute_url()]:
             with self.subTest(url=url):
                 self.assertEqual(self.client.get(url).status_code, 200)
         result = self.client.get("/", HTTP_HX_REQUEST="true")
@@ -265,32 +265,16 @@ class HubTests(TestCase):
         self.assertEqual(self.api.patch(f'/api/v1/items/{response.data["id"]}/',{"status":"published"}).status_code,400)
 
     @override_settings(DEBUG=False)
-    def test_production_login_uploads_and_keys_without_email_verification(self):
+    def test_production_uploads_and_keys_without_email_verification(self):
         from allauth.account.models import EmailAddress
         EmailAddress.objects.create(user=self.author,email=self.author.email,verified=False,primary=True)
-        response=self.client.post("/accounts/login/",{"login":self.author.username,"password":"Test-Only-Password!1"})
-        self.assertRedirects(response,"/",fetch_redirect_response=False)
-        self.assertEqual(int(self.client.session["_auth_user_id"]),self.author.pk)
+        self.client.force_login(self.author)
         for url in ["/upload/",f"/items/{self.item.pk}/edit/","/account/keys/"]:
             with self.subTest(url=url): self.assertEqual(self.client.get(url).status_code,200)
         self.api.force_login(self.author)
         self.assertEqual(self.api.post("/api/v1/keys/",{"name":"Unverified"}).status_code,201)
         self.assertEqual(self.release().status_code,201)
         self.assertEqual(self.api.patch(self.url,{"title":"Updated without verification"}).status_code,200)
-
-    @override_settings(DEBUG=False, EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
-    def test_production_signup_logs_in_without_verification_email(self):
-        from allauth.account.models import EmailAddress
-        from django.core import mail
-        response=self.client.post("/accounts/signup/",{
-            "username":"newcreator","email":"newcreator@example.com",
-            "password1":"A-New-Account-Password!7","password2":"A-New-Account-Password!7",
-        })
-        self.assertRedirects(response,"/",fetch_redirect_response=False)
-        user=get_user_model().objects.get(username="newcreator")
-        self.assertEqual(int(self.client.session["_auth_user_id"]),user.pk)
-        self.assertFalse(EmailAddress.objects.get(user=user).verified)
-        self.assertEqual(len(mail.outbox),0)
 
     def test_manager_disconnect_revokes_all_its_credentials(self):
         self.login()

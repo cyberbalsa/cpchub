@@ -1,3 +1,22 @@
-{% extends 'base.html' %}{% load socialaccount %}
+{% extends 'base.html' %}
+{% load socialaccount %}
 {% block title %}Sign in — CPC Hub{% endblock %}
-{% block content %}<div class="account-container"><section class="window account-window"><div class="title-bar"><div class="title-bar-text">CPC Hub · Account login</div></div><div class="window-body standard-form"><span class="parking-icon account-icon">P</span><h1>Sign in to CPC Hub</h1><p>Save files to your collection, upload creations, or connect a mod manager.</p><form method="post" action="{% url 'account_login' %}">{% csrf_token %}{{ form.as_p }}{% if redirect_field_value %}<input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">{% endif %}<button type="submit" class="primary-button">Sign in</button></form><div class="account-divider">or sign in with</div><div class="social-buttons">{% if steam_enabled %}<form method="post" action="{% provider_login_url 'steam' %}">{% csrf_token %}<button type="submit">◉ Steam</button></form>{% else %}<button disabled title="Steam sign-in is not configured yet">◉ Steam</button>{% endif %}{% if discord_enabled %}<form method="post" action="{% provider_login_url 'discord' %}">{% csrf_token %}<button type="submit">▣ Discord</button></form>{% else %}<button disabled title="Discord sign-in is not configured yet">▣ Discord</button>{% endif %}</div>{% if not steam_enabled and not discord_enabled %}<p class="muted small">Steam and Discord sign-in are not set up yet. You can use a CPC Hub account.</p>{% endif %}<p class="account-signup">Need an account? <a href="{% url 'account_signup' %}{% if redirect_field_value %}?next={{ redirect_field_value|urlencode }}{% endif %}">Create an account →</a></p></div></section></div>{% endblock %}
+{% block content %}
+<div class="account-container"><section class="window account-window">
+  <div class="title-bar"><div class="title-bar-text">CPC Hub · Sign in</div></div>
+  <div class="window-body standard-form">
+    <span class="parking-icon account-icon">P</span>
+    <h1>Sign in to CPC Hub</h1>
+    <p>Use Steam or Discord to upload creations, save files, and connect a mod manager.</p>
+    <div class="social-buttons social-signin-buttons">
+      {% if steam_enabled %}<form method="post" action="{% provider_login_url 'steam' %}">{% csrf_token %}<button type="submit">Continue with Steam</button></form>{% endif %}
+      {% if discord_enabled %}<form method="post" action="{% provider_login_url 'discord' %}">{% csrf_token %}<button type="submit">Continue with Discord</button></form>{% endif %}
+    </div>
+    {% if steam_enabled or discord_enabled %}
+      <p class="muted small">Your first sign-in creates a CPC Hub account. You can link another login from your profile.</p>
+    {% else %}
+      <p class="muted small">Sign-in is being set up. Please check back soon.</p>
+    {% endif %}
+  </div>
+</section></div>
+{% endblock %}

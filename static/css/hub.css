@@ -423,3 +423,13 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
   html { scroll-behavior: auto; }
   *, *:before, *:after { transition: none !important; }
 }
+
+/* Social sign-in and linked accounts. */
+.social-signin-buttons { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 20px 0; }
+.social-signin-buttons form, .social-signin-buttons button { width: 100%; }
+.social-signin-buttons button { min-height: 42px; }
+.profile-panel { margin-top: 0; }
+.linked-account-name { display: block; margin-top: 5px; color: #625f46; overflow-wrap: anywhere; }
+.linked-account { gap: 15px; }
+.linked-account > div { min-width: 0; }
+.profile-help { margin: 18px 0 0; }

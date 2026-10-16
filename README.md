@@ -7,7 +7,7 @@ The interface takes its cues from RCT and Car Park Capital: beveled tool buttons
 ## Included
 
 - Searchable catalog with categories, sorting, pagination, saved creations, and an author’s uploads.
-- Regular accounts, password reset, and Steam/Discord login and account linking through django-allauth. Email verification is disabled; accounts can sign in, publish, and create API keys immediately.
+- Steam and Discord sign-in through django-allauth. Profiles let users link additional accounts and unlink all but their last login. Password login, password resets, and local registration are disabled. Email is not required.
 - Author-only edits with metadata snapshots; immutable versioned releases with changelogs, game-version labels, sizes, SHA-256 checksums, and historical downloads.
 - Up to eight screenshots per item; PNG/JPEG/WebP inputs are resized and re-encoded to WebP, with metadata removed.
 - Configurable categories and file extensions. Initial types: blueprints, blueprint packs, scenarios, and other mods. Accepts native `.cpbp`/`.cpcs`, ZIPs, and JSON as appropriate. ZIPs are stored without extracting their contents. New types/extensions can be added in Django admin.
@@ -27,10 +27,9 @@ cp .env.example .env
 # Fill SECRET_KEY and POSTGRES_PASSWORD with independent random values.
 # A generator: python -c 'import secrets; print(secrets.token_hex(32))'
 docker compose up --build -d
-docker compose exec web python manage.py createsuperuser
 ```
 
-Open **http://127.0.0.1:8000/**. The database and uploads use named persistent volumes. Migrations run in a one-shot service before the web service starts. No admin account or demo data is created automatically.
+Open **http://127.0.0.1:8000/**. The database and uploads use named persistent volumes. Migrations run in a one-shot service before the web service starts. No admin account or demo data is created automatically. Configure a social provider before signing in. To grant an existing social account administrator access, follow the [account access instructions](docs/deployment.md#backups-and-account-access).
 
 Optional illustrative catalog:
 
@@ -46,7 +45,6 @@ With Podman and `podman-compose` installed, prepare `.env` as above, then run:
 
 ```bash
 podman-compose -f compose.yaml up --build -d
-podman-compose -f compose.yaml exec web python manage.py createsuperuser
 ```
 
 The site runs at **http://127.0.0.1:8000/**. To rebuild the web service after source changes:
@@ -108,10 +106,10 @@ The current host uses Cloudflare Tunnel and rootless Podman under the dedicated 
 For a host using direct HTTPS with Caddy instead:
 
 1. Point `cpchub.net` and `www.cpchub.net` DNS at your server, allow inbound 80/443, and install Docker + Compose.
-2. Set production values in `.env`: `DEBUG=0`, `PUBLIC_URL=https://cpchub.net`, `ALLOWED_HOSTS=cpchub.net,www.cpchub.net,127.0.0.1`, `CSRF_TRUSTED_ORIGINS=https://cpchub.net`, strong secrets, SMTP for password resets, and social-provider credentials.
+2. Set production values in `.env`: `DEBUG=0`, `PUBLIC_URL=https://cpchub.net`, `ALLOWED_HOSTS=cpchub.net,www.cpchub.net,127.0.0.1`, `CSRF_TRUSTED_ORIGINS=https://cpchub.net`, strong secrets, and social-provider credentials.
 3. Run `docker compose -f compose.yaml -f compose.production.yaml up --build -d`.
-4. Create an admin using the same Compose files with `exec web python manage.py createsuperuser`.
-5. Confirm `/health/`, registration/login, password-reset email delivery, provider callbacks, and an upload/download. Caddy obtains certificates and redirects `www` to the apex domain. Only Caddy is externally exposed; the database has no published port.
+4. Sign in with Steam or Discord, then grant that account staff and superuser permissions from the Django shell. Administrator sign-in also uses the social providers.
+5. Confirm `/health/`, social sign-in, profile linking, provider callbacks, and an upload/download. Caddy obtains certificates and redirects `www` to the apex domain. Only Caddy is externally exposed; the database has no published port.
 
 Set `TRUST_PROXY=1` only behind a proxy that replaces forwarded protocol headers (the included production config does this). Apply database migrations once per deployment before serving the new application version; back up the database and upload storage before upgrades. Run `python manage.py cleartokens` regularly to prune expired OAuth records.
 
@@ -125,11 +123,11 @@ The app’s built-in rate limits use a process-local cache. Configure edge rate 
 https://cpchub.net/accounts/discord/login/callback/
 ```
 
-For local development, register `http://127.0.0.1:8000/accounts/discord/login/callback/` separately. Requested scopes are `identify email`.
+For local development, register `http://127.0.0.1:8000/accounts/discord/login/callback/` separately. The requested scope is `identify`; Discord email access is not requested.
 
-**Steam:** obtain a [Steam Web API key](https://steamcommunity.com/dev/apikey) for `cpchub.net`, set `STEAM_API_KEY`, and restart. allauth's Steam provider uses OpenID 2.0; the API key is supplied as both provider client ID and secret as required by its documentation. Steam does not supply email: users enter one during signup, with no verification step. Local and social identities are connected explicitly from `/accounts/3rdparty/`; matching email addresses do not silently link accounts.
+**Steam:** obtain a [Steam Web API key](https://steamcommunity.com/dev/apikey) for `cpchub.net`, set `STEAM_API_KEY`, and restart. allauth's Steam provider uses OpenID 2.0; the API key is supplied as both provider client ID and secret as required by its documentation. Steam does not supply email, and CPC Hub does not require one. Users link additional identities from `/account/profile/` while signed in. Matching email addresses do not silently link accounts. Linking an identity already owned by another CPC Hub user is rejected.
 
-Unconfigured providers are disabled in the sign-in UI. Complete live provider callback testing after real credentials are installed; local tests do not contact Steam or Discord.
+Only configured providers appear in the sign-in UI. At least one provider is needed to sign in. Password authentication is disabled on both the public site and Django admin. The first person to register is not automatically an administrator. Complete live provider callback testing after real credentials are installed; local tests do not contact Steam or Discord.
 
 ## API and mod managers
 

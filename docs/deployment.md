@@ -78,10 +78,22 @@ git rev-parse HEAD | ssh cpchub 'sudo -n -H -u cpchub tee /home/cpchub/config/re
 
 The backup timer runs daily at 04:00 host time, with up to 20 minutes of jitter. Dumps stay on the host; copy them to separate backup storage for protection against loss of the server. They are not UGC and do not belong in the Wasabi upload bucket.
 
-Create an extra administrator with:
+Users sign in with Steam or Discord and link additional accounts from `/account/profile/`. Password login, password resets, and local signup are disabled, including password sign-in to Django admin. Steam signup works without an email address. At least one provider must be configured in `app.env`; see the [provider setup instructions](../README.md#social-login-setup).
+
+To grant administrator access, have the person sign in first, then open a Django shell:
 
 ```bash
-cpc podman exec -it cpchub-app python manage.py createsuperuser
+cpc podman exec -it cpchub-app python manage.py shell
 ```
 
-The initial deployment preserves the existing catalog and `admin` account. Account email verification remains disabled. Steam/Discord sign-in and password-reset email require their provider settings in `app.env`; see the [setup instructions](../README.md#social-login-setup).
+Select the exact username from their profile:
+
+```python
+from django.contrib.auth import get_user_model
+user = get_user_model().objects.get(username="THEIR_USERNAME")
+assert user.socialaccount_set.exists()
+user.is_staff = user.is_superuser = True
+user.save(update_fields=["is_staff", "is_superuser"])
+```
+
+They can then open `/admin/` using the same social login. New users receive no administrator permissions automatically.

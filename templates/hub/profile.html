@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% load socialaccount %}
+{% block title %}Your profile — CPC Hub{% endblock %}
+{% block content %}
+<div class="page-content">
+  <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="{% url 'catalog' %}">Community exchange</a><span aria-hidden="true">/</span><span>Your profile</span></nav>
+  <div class="detail-heading">
+    <div><span class="eyebrow dark-eyebrow">YOUR PROFILE</span><h1>{{ user.username }}</h1><p>Joined {{ user.date_joined|date:'F Y' }}{% if user.is_staff %} · Administrator{% endif %}</p></div>
+    <div class="detail-actions"><a class="win-button" href="{% url 'catalog' %}?view=mine">My uploads</a><a class="win-button" href="{% url 'keys' %}">API keys &amp; managers</a>{% if user.is_staff %}<a class="win-button" href="{% url 'admin:index' %}">Administration</a>{% endif %}</div>
+  </div>
+  <div class="row g-4">
+    <section class="col-12 col-lg-7" aria-labelledby="linked-accounts-title">
+      <div class="paper-panel profile-panel">
+        <h2 id="linked-accounts-title">Linked accounts</h2>
+        <p>Each linked account can sign you in to this CPC Hub profile.</p>
+        {% if form.errors %}<div class="notice" role="alert">{{ form.non_field_errors }}{{ form.account.errors }}</div>{% endif %}
+        {% for account in linked_accounts %}
+          <div class="manager-row linked-account">
+            <div><strong>{{ account.provider }}</strong><span class="linked-account-name">{{ account.name }}</span></div>
+            <form method="post" action="{% url 'profile' %}">{% csrf_token %}<input type="hidden" name="account" value="{{ account.id }}"><button type="submit" {% if not can_disconnect %}disabled title="Link another account before removing this one"{% endif %}>Unlink</button></form>
+          </div>
+        {% empty %}<p>No accounts are linked yet.</p>{% endfor %}
+        <p class="muted small profile-help">Keep at least one account linked so you can sign in.</p>
+      </div>
+    </section>
+    <aside class="col-12 col-lg-5">
+      <section class="window form-window">
+        <div class="title-bar"><div class="title-bar-text">Link another account</div></div>
+        <div class="window-body">
+          <p>Connect Steam or Discord to use either account for the same uploads and API keys.</p>
+          {% url 'profile' as profile_url %}
+          <div class="social-buttons social-signin-buttons">
+            {% if steam_enabled %}<form method="post" action="{% provider_login_url 'steam' process='connect' next=profile_url %}">{% csrf_token %}<button type="submit">Link Steam</button></form>{% endif %}
+            {% if discord_enabled %}<form method="post" action="{% provider_login_url 'discord' process='connect' next=profile_url %}">{% csrf_token %}<button type="submit">Link Discord</button></form>{% endif %}
+          </div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+{% endblock %}

@@ -5,6 +5,7 @@ from oauth2_provider import views as oauth_views
 from rest_framework.routers import DefaultRouter
 
 from hub import api, views
+from hub.accounts import ProfileView
 from hub.oauth import PKCEAuthorizationView
 from hub.support import donate
 
@@ -20,11 +21,17 @@ urlpatterns = [
     path("items/<uuid:pk>/edit/", views.edit_item, name="item-edit"),
     path("items/<uuid:pk>/save/", views.bookmark, name="bookmark"),
     path("account/keys/", views.keys, name="keys"),
+    path("account/profile/", ProfileView.as_view(), name="profile"),
     path("account/keys/<uuid:pk>/revoke/", views.revoke_key, name="key-revoke"),
     path("account/managers/<int:pk>/revoke/", views.revoke_manager, name="manager-revoke"),
     path("developers/", views.developers, name="developers"),
     path("donate/", donate, name="donate"),
-    path("accounts/", include("allauth.urls")),
+    path("accounts/3rdparty/", ProfileView.as_view()),
+    path("accounts/", include("allauth.account.urls")),
+    path("accounts/3rdparty/", include("allauth.socialaccount.urls")),
+    # Steam needs OpenID's models, but generic OpenID login is not offered.
+    path("accounts/", include("allauth.socialaccount.providers.steam.urls")),
+    path("accounts/", include("allauth.socialaccount.providers.discord.urls")),
     # Expose authorization/token/revocation only. Client registration is staff-managed.
     path("o/authorize/", PKCEAuthorizationView.as_view(), name="authorize"),
     path("o/token/", oauth_views.TokenView.as_view(), name="token"),
