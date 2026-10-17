@@ -19,11 +19,15 @@ The guest writes result bytes before its ready marker. The launcher kills the VM
 
 Native files also return a fixed 120-byte statistics packet. It contains only a version marker and bounded integers; names, descriptions, scripts, and arbitrary metadata never cross this boundary. The app validates the packet's type, dimensions, counts, and relationships before saving it on the release. Screenshots still return sanitized WebP bytes.
 
+Failed checks return a fixed 10-byte packet with a known numeric reason. The upload page and API `error` field show text from the application's own message table: metadata limits, malformed data, unsupported image formats, image bounds, and timeouts have separate messages. Exception text and uploaded metadata are never displayed. Unknown or malformed failure packets become a generic check failure. Older validators that return an empty failure remain compatible.
+
 Queue files are temporary and private; they are never served. Approved UGC goes to Wasabi. Acknowledged jobs are removed from the host queue, and abandoned files expire after 24 hours. Missing results fail after 15 minutes. Validator failures never trigger parsing in the web process. Queue backpressure permits at most 32 pending files per submitting account and 64 across the site; screenshot slots include pending checks.
 
 ## What the checks establish
 
 Blueprint checks cover observed format versions 2 and 3, bounded CBOR metadata, required fields, dimensions, and the expected tile-data length. Scenario checks cover a complete zlib stream, its uncompressed-size trailer, bounded expansion, room metadata, dimensions, and expected map-data lengths. The implementation was checked against all 27 blueprint and four scenario files in the supplied game installation. Proprietary game files are not included in this repository.
+
+Metadata may contain up to **10,000,000 values** within the existing 16 MiB byte limit and 32-level nesting limit. Names, keys, numbers, lists, and maps each count toward that total. The earlier one-million-value cap rejected the valid `Tron.cpcs` scenario; its unchanged file passes with the higher cap. VM memory, CPU and wall-clock limits still apply.
 
 These are structural checks, not a guarantee that every file will load correctly in every game version. New game formats may need validator updates. Isolation limits the impact of a parser exploit; no VM boundary can guarantee that escape is impossible. Keep the host, guest kernel, image libraries, Firecracker, and jailer patched. The setup follows the [Firecracker production guidance](https://github.com/firecracker-microvm/firecracker/blob/main/docs/prod-host-setup.md) and [jailer configuration](https://github.com/firecracker-microvm/firecracker/blob/main/docs/jailer.md).
 
@@ -66,6 +70,6 @@ The catalog and `/api/v1/items/` accept inclusive `min_` and `max_` filters for 
 
 After upgrading an existing installation, run `python manage.py backfill_file_stats` in the app container. It queues up to 32 native releases without stats; rerun after those jobs finish for larger catalogs. `--release UUID` selects a release and `--force` recomputes existing stats. Files are read from storage and decoded in fresh VMs. Only derived database fields change: original files, publication state, download counts, release dates, and review history stay intact. No new Wasabi objects are created. Failures leave existing stats and publication state intact.
 
-For a rolling upgrade, deploy the app before updating the guest artifacts and root launcher. The app accepts the previous empty native result for compatibility; backfill fills any missing stats afterward. Stop the worker while replacing its artifacts, then start it again. Do not run the new guest with the old launcher or collector.
+For a rolling upgrade, deploy the app and result collector before updating the root launcher and guest artifacts. The app accepts previous empty native results for compatibility; backfill fills any missing stats afterward. Stop the worker while replacing the launcher and artifacts, then start it again. Do not run the new guest with the old launcher or collector: older versions cannot read the failure packets.
 
 Tests for storage/authentication use an explicit synchronous test override. Production has no environment switch to bypass the queue. The asynchronous tests cover private drafts, failure handling, publication intent, input tampering, quotas, and permissions. Guest tests use synthetic files, plus separate integration probes against a real jailed Firecracker process.

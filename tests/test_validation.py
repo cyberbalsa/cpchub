@@ -19,6 +19,7 @@ from rest_framework.test import APIClient
 
 from hub.models import ContentType, Item, ModerationLog, Release, Screenshot, UploadJob, UploadSettings
 from hub.upload_jobs import RESULT_MAGIC, collect_job, incoming_path
+from sandbox.protocol import FAILURE_PACKET, decode_failure, encode_failure, failure_message
 
 spec = importlib.util.spec_from_file_location('validation_guest', Path(__file__).resolve().parents[1] / 'sandbox/guest.py')
 guest = importlib.util.module_from_spec(spec)
@@ -74,6 +75,25 @@ class GuestValidationTests(SimpleTestCase):
             guest.evaluate(2, io.BytesIO(scenario()), len(scenario()))
         with self.assertRaises(ValueError):
             guest.metadata(b'\xa2\x61a\x01\x61a\x02')
+
+    def test_large_metadata_passes_and_node_and_depth_failures_are_distinct(self):
+        count = 1_000_001
+        data = b'\xa1\x61x\x9a' + struct.pack('>I', count) + b'\x00' * count
+        self.assertEqual(len(guest.metadata(data)['x']), count)
+        with patch.object(guest, 'MAX_METADATA_NODES', 5):
+            self.assertEqual(guest.metadata(cbor({'x': [0, 1]})), {'x': [0, 1]})
+            with self.assertRaisesRegex(guest.InvalidFile, '^metadata_values_limit$'):
+                guest.metadata(cbor({'x': [0, 1, 2]}))
+        with self.assertRaisesRegex(guest.InvalidFile, '^metadata_depth_limit$'):
+            guest.metadata(b'\x81' * 40 + b'\x00')
+
+    def test_failure_packets_accept_only_known_codes_and_fixed_length(self):
+        packet = encode_failure('metadata_values_limit')
+        self.assertEqual(decode_failure(packet), 'metadata_values_limit')
+        self.assertIn('10,000,000', failure_message(decode_failure(packet)))
+        for data in [packet[:-1], packet + b'x', FAILURE_PACKET.pack(b'CPCFAIL1', 65535), b'<script>bad']:
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                decode_failure(data)
 
     def test_images_are_decoded_resized_and_stripped_of_metadata(self):
         info = PngImagePlugin.PngInfo()
@@ -134,8 +154,7 @@ class UploadValidationTests(TestCase):
         self.assertEqual(response.status_code, 302)
         return Item.objects.get()
 
-    def result(self, job, code=0, digest=None):
-        payload = b''
+    def result(self, job, code=0, digest=None, payload=b''):
         if code == 0:
             payload = guest.clean_image(io.BytesIO(picture()), len(picture())) if job.kind == 'screenshot' else guest.evaluate(1, io.BytesIO(blueprint()), len(blueprint()))
         data = RESULT_MAGIC + bytes([code]) + len(payload).to_bytes(4, 'big') + (digest or bytes.fromhex(job.sha256)) + payload
@@ -176,6 +195,45 @@ class UploadValidationTests(TestCase):
         self.assertFalse(item.releases.exists())
         self.assertContains(self.client.get(reverse('item-edit', args=[item.pk])), 'did not pass validation')
         self.assertEqual(item.upload_jobs.get(kind='release').status, 'failed')
+
+    def test_specific_failures_reach_author_page_and_api_without_public_exposure(self):
+        item = self.create()
+        job = item.upload_jobs.get(kind='release')
+        self.result(job, code=1, payload=encode_failure('metadata_values_limit'))
+        message = failure_message('metadata_values_limit')
+        job.refresh_from_db()
+        self.assertEqual(job.error, message)
+        self.assertFalse(item.releases.exists())
+        self.assertContains(self.client.get(reverse('upload-checks', args=[item.pk])), message)
+        self.api.force_login(self.author)
+        url = f'/api/v1/items/{item.pk}/upload-jobs/'
+        self.assertEqual(next(row for row in self.api.get(url).data if str(row['id']) == str(job.pk))['error'], message)
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get(reverse('upload-checks', args=[item.pk])).status_code, 404)
+
+    def test_unknown_failure_results_do_not_reach_the_page(self):
+        for payload in [FAILURE_PACKET.pack(b'CPCFAIL1', 255), b'<script>alert(1)</script>']:
+            item = self.create()
+            job = item.upload_jobs.get(kind='release')
+            self.result(job, code=1, payload=payload)
+            job.refresh_from_db()
+            self.assertEqual(job.error, failure_message('check_unavailable'))
+            self.assertFalse(item.releases.exists())
+            item.delete()
+
+    def test_timeout_reason_is_shown_for_launcher_and_missing_result_timeouts(self):
+        for from_launcher in [False, True]:
+            item = self.create()
+            job = item.upload_jobs.get(kind='release')
+            if from_launcher:
+                self.result(job, code=2, payload=encode_failure('check_timeout'))
+            else:
+                UploadJob.objects.filter(pk=job.pk).update(created_at=timezone.now() - timedelta(minutes=16))
+                collect_job(job.pk)
+            job.refresh_from_db()
+            self.assertEqual(job.error, failure_message('check_timeout'))
+            self.assertFalse(item.releases.exists())
+            item.delete()
 
     def test_api_returns_jobs_allows_publish_intent_and_restricts_job_visibility(self):
         item = Item.objects.create(author=self.author, content_type=self.category, title='API lot', status='draft')

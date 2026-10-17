@@ -124,15 +124,18 @@ def run(job):
             if len(header) != 13 or header[:8] != MAGIC or header[8] not in (0, 1):
                 raise ValueError('No guest result')
             size = int.from_bytes(header[9:], 'big')
-            if size > MAX_RESULT or (kind != 3 and size not in (0, 120)) or (header[8] and size):
+            if size > MAX_RESULT or (header[8] == 0 and kind != 3 and size not in (0, 120)) or (header[8] == 1 and size not in (0, 10)):
                 raise ValueError('Invalid guest result size')
             payload = output.read(size)
             if len(payload) != size:
                 raise ValueError('Truncated guest result')
+            if header[8] == 1 and payload and (payload[:8] != b'CPCFAIL1' or not 1 <= int.from_bytes(payload[8:], 'little') <= 255):
+                raise ValueError('Invalid guest failure code')
             status = header[8]
     except Exception as exc:
         print(f"Validator failure: {type(exc).__name__}: {str(exc)[:300]}", file=sys.stderr)
-        status, payload = 2, b''
+        # Code 22 is check_timeout in the fixed failure protocol.
+        status, payload = 2, b'CPCFAIL1\x16\x00' if isinstance(exc, TimeoutError) else b''
     finally:
         if cgroup.exists():
             try:

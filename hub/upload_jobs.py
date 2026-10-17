@@ -12,7 +12,7 @@ from django.core.files import File
 from django.core.files.base import ContentFile
 from django.db import connection, transaction
 from django.utils import timezone
-from sandbox.protocol import PACKET, decode_stats
+from sandbox.protocol import FAILURE_PACKET, PACKET, decode_failure, decode_stats, failure_message
 
 from .activity import record_activity
 from .models import AccountActivity, Item, Release, Screenshot, UploadJob
@@ -192,8 +192,12 @@ def _read_result(job):
             if size > MAX_RESULT or header[13:45].hex() != job.sha256:
                 raise ValueError('Mismatched validator response')
             payload = result.read(size + 1)
-            if len(payload) != size or (job.kind != 'screenshot' and size not in (0, PACKET.size)) or (header[8] and size):
+            if (len(payload) != size
+                    or (header[8] == 0 and job.kind != 'screenshot' and size not in (0, PACKET.size))
+                    or (header[8] != 0 and size not in (0, FAILURE_PACKET.size))):
                 raise ValueError('Invalid validator output')
+            if header[8] != 0 and payload:
+                decode_failure(payload)
             if header[8] == 0 and job.kind == 'screenshot' and (len(payload) < 12 or payload[:4] != b'RIFF' or payload[8:12] != b'WEBP'):
                 raise ValueError('Missing sanitized screenshot')
             return header[8], payload
@@ -218,6 +222,12 @@ def collect_job(job_id):
         if result is None and job.created_at > timezone.now() - timedelta(minutes=15):
             return False
         code, payload = result if result is not None else (2, b'')
+        reason = ('image_unreadable' if job.kind == 'screenshot' else 'invalid_file') if code == 1 else 'check_unavailable'
+        if code != 0 and payload:
+            reason = decode_failure(payload)
+        elif result is None:
+            reason = 'check_timeout'
+        error = failure_message(reason)
         stats = {}
         if code == 0 and job.kind != 'screenshot' and payload:
             try:
@@ -226,10 +236,12 @@ def collect_job(job_id):
                 code = 2
         if item.deleted_at:
             code = 2
+            error = 'This creation was deleted before its file check finished.'
         if code == 0 and job.kind == 'release' and item.releases.filter(version=job.metadata.get('version')).exists():
             # A staff edit may have claimed the version since submission.
             # Reject before writing to storage, rather than retrying a DB conflict.
             code = 2
+            error = 'A release with this version already exists. Use a new version.'
         if code == 0:
             from .reviews import queue_for_review
             if job.kind == 'stats':
@@ -251,6 +263,7 @@ def collect_job(job_id):
                         code = 2
                     if code != 0 or written != job.size or digest.hexdigest() != job.sha256:
                         code = 2
+                        error = 'The uploaded file changed or is no longer available. Upload it again.'
                     else:
                         temporary.seek(0)
                         job.release = Release.objects.create(item=item, file=File(temporary, name=job.original_filename),
@@ -261,7 +274,7 @@ def collect_job(job_id):
                 queue_for_review(item)
                 Item.objects.filter(pk=item.pk).update(updated_at=timezone.now())
         job.status = 'passed' if code == 0 else 'failed'
-        job.error = '' if code == 0 else ('This file did not pass validation. Export it again from the game and retry.' if code == 1 and job.kind != 'screenshot' else 'This screenshot could not be read safely. Use a still PNG, JPEG or WebP: 320×180 minimum, 8,192 pixels per side maximum, up to 20 megapixels and 10 MB. Avoid extreme aspect ratios.' if code == 1 else 'The file check could not finish. Upload the file again to retry.')
+        job.error = '' if code == 0 else error
         job.completed_at = timezone.now()
         job.save(update_fields=['status', 'error', 'completed_at', 'release', 'screenshot'])
         if job.kind == 'stats':
