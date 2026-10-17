@@ -1,0 +1,29 @@
+{% load static %}
+<div data-screenshot-gallery>
+  <div class="detail-image">
+    {% with shot=item.screenshots.first %}{% if shot %}
+    <a data-screenshot-preview href="/api/v1/items/{{ item.pk }}/screenshots/{{ shot.pk }}/image/" aria-label="Enlarge screenshot" aria-haspopup="dialog" aria-controls="screenshot-viewer">
+      <img loading="eager" fetchpriority="high" decoding="async" width="960" height="540" data-image src="/api/v1/items/{{ item.pk }}/screenshots/{{ shot.pk }}/image/" alt="{{ shot.caption|default:item.title }}">
+    </a>
+    {% else %}<img loading="eager" fetchpriority="high" decoding="async" width="960" height="540" data-image src="{% static item.artwork_path %}" alt="Illustrative parking layout">{% endif %}{% endwith %}
+  </div>
+  {% if item.screenshots.exists %}
+  <div class="screenshot-gallery" aria-label="Screenshots">
+    {% for shot in item.screenshots.all %}
+    <a data-screenshot href="/api/v1/items/{{ item.pk }}/screenshots/{{ shot.pk }}/image/" data-caption="{{ shot.caption }}" aria-label="Enlarge screenshot {{ forloop.counter }}" aria-haspopup="dialog" aria-controls="screenshot-viewer" {% if forloop.first %}aria-current="true"{% endif %}>
+      <div class="screenshot-picture"><img loading="lazy" decoding="async" width="150" height="85" data-image src="/api/v1/items/{{ item.pk }}/screenshots/{{ shot.pk }}/image/" alt="{% if shot.caption %}{{ shot.caption }}{% else %}Screenshot {{ forloop.counter }}{% endif %}"></div>
+      <span>{{ shot.caption }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  <dialog id="screenshot-viewer" class="window screenshot-viewer" aria-labelledby="screenshot-viewer-title">
+    <div class="title-bar"><div class="title-bar-text" id="screenshot-viewer-title">Screenshots</div><div class="title-bar-controls"><button type="button" aria-label="Close" data-close-screenshots autofocus></button></div></div>
+    <div class="screenshot-viewer-stage" data-screenshot-stage tabindex="0" aria-label="Screenshot. Scroll to explore when zoomed in."></div>
+    <div class="screenshot-viewer-footer">
+      <div class="screenshot-viewer-caption" aria-live="polite" aria-atomic="true"><span data-screenshot-position></span><span data-screenshot-caption></span></div>
+      <p data-screenshot-status role="status" hidden></p>
+      <div class="screenshot-viewer-actions"><button type="button" data-screenshot-previous aria-label="Previous screenshot">← Previous</button><button type="button" data-screenshot-zoom aria-pressed="false">Zoom in</button><button type="button" data-screenshot-next aria-label="Next screenshot">Next →</button></div>
+    </div>
+  </dialog>
+  {% endif %}
+</div>
