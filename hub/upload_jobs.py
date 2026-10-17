@@ -198,6 +198,10 @@ def collect_job(job_id):
         code, payload = result if result is not None else (2, b'')
         if item.deleted_at:
             code = 2
+        if code == 0 and job.kind == 'release' and item.releases.filter(version=job.metadata.get('version')).exists():
+            # A staff edit may have claimed the version since submission.
+            # Reject before writing to storage, rather than retrying a DB conflict.
+            code = 2
         if code == 0:
             from .reviews import queue_for_review
             if job.kind == 'release':

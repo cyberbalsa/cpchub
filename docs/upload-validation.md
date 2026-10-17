@@ -29,6 +29,8 @@ These are structural checks, not a guarantee that every file will load correctly
 
 The host needs Linux x86-64, usable `/dev/kvm`, cgroup v2, systemd, sudo, iproute2, curl, and e2fsprogs. Image builds also need Podman. On SELinux hosts, install `policycoreutils-python-utils` so the queue label persists across relabels.
 
+The included Nginx origin allows 100 MiB per request, enough for the default game-file limit plus eight maximum-size screenshots. Raising the game-file limit may require uploading screenshots in separate requests. The request must also fit the Cloudflare plan's upload limit.
+
 Build from the `sandbox/` directory, which contains no application configuration or credentials:
 
 ```sh

@@ -254,6 +254,24 @@ class UploadValidationTests(TestCase):
         self.assertEqual(Item.objects.count(), 1)
         self.assertEqual(UploadJob.objects.count(), 31)
 
+    def test_version_conflicts_are_rejected_before_storing_another_file(self):
+        from hub.moderation import ReleaseMetadataForm
+        item = self.create()
+        existing = Release.objects.create(item=item, version='old', file=SimpleUploadedFile('old.cpbp', blueprint()),
+                                          original_filename='old.cpbp', size=len(blueprint()), sha256='a' * 64)
+        form = ReleaseMetadataForm({'version': '1', 'game_version': '', 'changelog': ''}, instance=existing)
+        self.assertFalse(form.is_valid())
+        self.assertIn('being checked', form.errors['version'][0])
+        existing.version = '1'
+        existing.save(update_fields=['version'])
+        files_before = set((self.root / 'media').rglob('*.*'))
+        job = item.upload_jobs.get(kind='release')
+        self.result(job)
+        job.refresh_from_db()
+        self.assertEqual(job.status, 'failed')
+        self.assertEqual(item.releases.count(), 1)
+        self.assertEqual(set((self.root / 'media').rglob('*.*')), files_before)
+
     def test_game_file_limit_defaults_to_fifteen_mb_and_is_admin_adjustable(self):
         response = self.client.post('/upload/', {**self.data, 'file': SimpleUploadedFile('huge.cpbp', bytes(15 * 1024 * 1024 + 1)), 'screenshots': [SimpleUploadedFile('lot.png', picture())]})
         self.assertContains(response, 'up to 15 MB')

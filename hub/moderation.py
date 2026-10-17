@@ -14,7 +14,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from .access import ROLES, assigned_role, can_manage_content, can_moderate, is_admin, item_query
-from .models import AccountActivity, FileDeletion, Item, ItemReview, ModerationLog, Release, Screenshot, TagSettings, UploadSettings, UserModeration
+from .models import AccountActivity, FileDeletion, Item, ItemReview, ModerationLog, Release, Screenshot, TagSettings, UploadJob, UploadSettings, UserModeration
 from .moderation_services import delete_item, delete_user, log_action, moderate_item, revoke_credentials, shadow_ban_user, update_user
 from .services import record_revision
 from .validators import validate_version
@@ -158,6 +158,8 @@ class ReleaseMetadataForm(forms.ModelForm):
         version = self.cleaned_data["version"]
         if Release.objects.filter(item_id=self.instance.item_id, version=version).exclude(pk=self.instance.pk).exists():
             raise ValidationError("This version already exists. Choose a different version.")
+        if UploadJob.objects.filter(item_id=self.instance.item_id, kind='release', status='pending', metadata__version=version).exists():
+            raise ValidationError("This version is being checked. Choose a different version.")
         return version
 
     class Meta:
