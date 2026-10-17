@@ -9,6 +9,7 @@ from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from hub.models import ContentType, Item, Release, Screenshot, UploadEvent
+from hub.upload_limits import UploadLimitExceeded
 from tests.test_hub import package, screenshot
 
 
@@ -38,6 +39,44 @@ class UploadRulesTests(TestCase):
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data["status"], "draft")
         return Item.objects.get(pk=response.data["id"]), f'/api/v1/items/{response.data["id"]}/'
+
+    def test_creation_json_errors_and_retry(self):
+        def submit(**changes):
+            return self.client.post("/upload/", {
+                **self.metadata, "version": "1", "game_version": "0.8",
+                "changelog": "First release", "file": package(),
+                "screenshots": [screenshot()], **changes,
+            }, HTTP_ACCEPT="application/json")
+
+        response = submit(title="")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Title: This field is required.", response.json()["errors"])
+        response = submit(screenshots=[])
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Screenshots: Choose 1–8 screenshots.", response.json()["errors"])
+        for error, status in [(BotoCoreError(), 400), (UploadLimitExceeded(60), 429)]:
+            with self.subTest(error=error), patch("hub.views.create_with_release", side_effect=error):
+                response = submit()
+                self.assertEqual(response.status_code, status)
+                self.assertTrue(response.json()["errors"])
+                self.assertFalse(Item.objects.exists())
+                if status == 429:
+                    self.assertEqual(response["Retry-After"], "60")
+
+        response = submit()
+        self.assertEqual(response.status_code, 200)
+        item = Item.objects.get()
+        self.assertEqual(response.json(), {"redirect_url": f"/items/{item.pk}/edit/"})
+        self.assertEqual(item.releases.get().changelog, "First release")
+
+    def test_creation_html_error_keeps_entered_details(self):
+        response = self.web_upload([], tags="parking, city", game_version="0.8", changelog="My release notes")
+        self.assertContains(response, 'data-creation-upload')
+        for field in ("title", "summary", "description", "status", "content_type"):
+            self.assertEqual(str(response.context["form"][field].value()), str(self.metadata[field]))
+        self.assertEqual(response.context["form"]["tags"].value(), "parking, city")
+        self.assertEqual(response.context["release_form"]["game_version"].value(), "0.8")
+        self.assertEqual(response.context["release_form"]["changelog"].value(), "My release notes")
 
     def test_web_upload_requires_one_to_eight_valid_screenshots(self):
         for count in [0, 9]:

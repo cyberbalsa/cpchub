@@ -8,6 +8,7 @@ from django.db import connection, transaction
 from django.db.models import Count, Q, Sum
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from rest_framework.generics import get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -97,6 +98,7 @@ def detail(request, pk):
 @login_required
 def create_item(request):
     retry_after = None
+    wants_json = request.headers.get("Accept") == "application/json"
     form = ItemForm(request.POST or None)
     release_form = ReleaseForm(request.POST or None, request.FILES or None)
     screenshot_form = ScreenshotBatchForm(request.POST or None, request.FILES or None)
@@ -106,6 +108,8 @@ def create_item(request):
             item.author = request.user
             create_with_release(item, release_data=release_form.cleaned_data, screenshots=screenshot_form.cleaned_data["screenshots"], request=request)
             messages.success(request, "Creation saved. Your files are queued for checks and will stay private until they pass.")
+            if wants_json:
+                return JsonResponse({"redirect_url": reverse("item-edit", kwargs={"pk": item.pk})})
             return redirect("item-edit", pk=item.pk)
         except UploadLimitExceeded as exc:
             release_form.add_error(None, str(exc))
@@ -114,7 +118,15 @@ def create_item(request):
             release_form.add_error(None, exc)
         except (BotoCoreError, ClientError):
             release_form.add_error(None, "File storage is temporarily unavailable. Try again shortly.")
-    response = render(request, "hub/editor.html", {"form": form, "release_form": release_form, "screenshot_form": screenshot_form, "creating": True}, status=429 if retry_after else 200)
+    if wants_json and request.method == "POST":
+        errors = []
+        for bound_form in (form, release_form, screenshot_form):
+            for field, field_errors in bound_form.errors.items():
+                label = "Upload" if field == "__all__" else bound_form[field].label
+                errors.extend(f"{label}: {error}" for error in field_errors)
+        response = JsonResponse({"errors": errors}, status=429 if retry_after else 400)
+    else:
+        response = render(request, "hub/editor.html", {"form": form, "release_form": release_form, "screenshot_form": screenshot_form, "creating": True}, status=429 if retry_after else 200)
     if retry_after:
         response["Retry-After"] = str(retry_after)
     return response
