@@ -10,6 +10,9 @@ ContainerName=cpchub-app
 Network=cpchub.network
 NetworkAlias=web
 EnvironmentFile=%h/config/app.env
+UserNS=keep-id:uid=10001,gid=10001
+Volume=/var/lib/cpchub-validation/incoming:/var/lib/cpchub-validation/incoming:rw
+Volume=/var/lib/cpchub-validation/results:/var/lib/cpchub-validation/results:ro
 ReadOnly=true
 Tmpfs=/tmp:rw,noexec,nosuid,size=256m,mode=1777
 NoNewPrivileges=true

@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Tag settings — CPC Hub{% endblock %}
+{% block content %}
+<div class="page-content">
+  {% include 'hub/moderation/nav.html' %}
+  <h1>Tag settings</h1>
+  <p>{{ public_tag_count }} tag{{ public_tag_count|pluralize }} currently meet{{ public_tag_count|pluralize:"s," }} the public threshold.</p>
+  <form method="post" class="standard-form">{% csrf_token %}{{ form.as_p }}<button type="submit">Save settings</button></form>
+  <p>Each creation counts once. Drafts, hidden or deleted creations, shadow-banned authors, and demo files do not count.</p>
+  <p>Authors can still add and reuse tags below this threshold. They appear in editing suggestions, but stay off public listings and search until enough creations use them.</p>
+</div>
+{% endblock %}

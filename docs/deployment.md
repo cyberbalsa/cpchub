@@ -47,7 +47,7 @@ Cloudflare Cache Rules must bypass caching for `/api/` routes and `/items/.../re
 
 The backup script excludes `hub_downloadip` data so backups do not prolong IP retention. Nginx and Gunicorn omit client addresses from new download access-log entries. Login and upload activity retention remains separate. Restoring a backup restores account markers and totals but starts with empty IP markers.
 
-Successful creation files and new releases share 16 slots per rolling hour per account. Screenshots and metadata edits do not consume slots. All three staff roles are exempt. PostgreSQL account locks prevent parallel uploads from exceeding the limit; validation or storage failures roll back their slots. Deleting a release or creation does not reset the allowance. Rejections return HTTP 429 and a `Retry-After` header in seconds. Expired quota events are removed by the cleanup job.
+Creation files and new releases accepted into the validation queue share 16 slots per rolling hour per account. Screenshots and metadata edits do not consume slots. All three staff roles are exempt. PostgreSQL account locks prevent parallel uploads from exceeding the limit. Rejected submissions use no slot; queued files keep their slot even if checks later fail. Deleting a release or creation does not reset the allowance. Quota rejections return HTTP 429 and a `Retry-After` header in seconds. Expired quota events are removed by the cleanup job.
 
 ## Service commands
 
@@ -121,3 +121,7 @@ user.save(update_fields=["is_staff", "is_superuser"])
 They can then open `/moderation/` and `/admin/` using the same social login. Use the moderation panel’s User management page for subsequent role assignments. New users receive no staff permissions automatically.
 
 The cleanup timer runs `python manage.py cleanup_deleted_files` every five minutes. It deletes expired download IP records and upload quota events, permanently removes creations whose 14-day self-deletion period has ended, then retries pending file deletions. Check pending counts in the moderation panel and service logs with `cpc journalctl --user -u cpchub-cleanup.service`. Hiding or shadow banning blocks new signed URLs; already issued Wasabi URLs retain their original expiry, up to five minutes on this deployment.
+
+## Isolated upload worker
+
+Install the dedicated Firecracker worker before starting an app revision with queued validation. Follow [upload validation](upload-validation.md), including the separate service users, queue permissions, SELinux labels, and `cpchub-uploads.container`. The app accepts submissions only into the private queue and never falls back to local parsing.

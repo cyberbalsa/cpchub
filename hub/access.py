@@ -1,7 +1,8 @@
-from django.db.models import Count, OuterRef, Q, Subquery, Value
+from django.db.models import Count, OuterRef, Prefetch, Q, Subquery, Value
 from django.db.models.functions import Coalesce
 
 from .models import Bookmark, Item
+from .tags import public_tags
 
 
 ROLES = ("Admin", "Moderator", "Reviewer")
@@ -45,7 +46,7 @@ def can_remove_screenshot(user, item):
 def item_query():
     # Keep the total independent of saved-collection filters and release joins.
     saves = Bookmark.objects.filter(item_id=OuterRef("pk")).order_by().values("item_id").annotate(total=Count("pk")).values("total")
-    return Item.objects.annotate(_collection_count=Coalesce(Subquery(saves), Value(0))).select_related("author", "content_type").prefetch_related("releases", "screenshots")
+    return Item.objects.annotate(_collection_count=Coalesce(Subquery(saves), Value(0))).select_related("author", "content_type").prefetch_related("releases", "screenshots", Prefetch("tag_index", queryset=public_tags(), to_attr="_public_tags"))
 
 
 def public_items():

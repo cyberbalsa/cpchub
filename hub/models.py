@@ -5,7 +5,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.urls import reverse
 from django.utils import timezone
 
@@ -34,6 +34,30 @@ class ContentType(models.Model):
         return self.name
 
 
+class Tag(models.Model):
+    name = models.CharField(max_length=600, unique=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class TagSettings(models.Model):
+    minimum_items = models.PositiveIntegerField(default=11)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(pk=1, minimum_items__gte=1), name="single_valid_tag_settings")]
+
+
+class UploadSettings(models.Model):
+    max_file_mb = models.PositiveIntegerField(default=15)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(pk=1, max_file_mb__gte=1, max_file_mb__lte=100), name="single_valid_upload_settings")]
+
+
 class Item(models.Model):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft (private)"
@@ -46,7 +70,9 @@ class Item(models.Model):
     summary = models.CharField(max_length=180)
     description = models.TextField(max_length=20000)
     tags = models.CharField(max_length=200, blank=True, help_text="Comma-separated tags")
+    tag_index = models.ManyToManyField(Tag, related_name="items", editable=False)
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.PUBLISHED)
+    publish_after_validation = models.BooleanField(default=False, editable=False)
     is_demo = models.BooleanField(default=False, editable=False)
     artwork = models.PositiveSmallIntegerField(default=0, editable=False)
     downloads = models.PositiveIntegerField(default=0, editable=False)
@@ -71,6 +97,20 @@ class Item(models.Model):
     def __str__(self):
         return self.title
 
+    def save(self, *args, **kwargs):
+        from .tags import tag_names
+
+        update_tags = kwargs.get("update_fields") is None or "tags" in kwargs["update_fields"]
+        if not update_tags:
+            return super().save(*args, **kwargs)
+        names = tag_names(self.tags)
+        # Saving the row first serializes concurrent changes to its tag index.
+        with transaction.atomic(using=kwargs.get("using") or self._state.db):
+            result = super().save(*args, **kwargs)
+            self.tag_index.set([Tag.objects.using(self._state.db).get_or_create(name=name)[0] for name in sorted(names)])
+        self.__dict__.pop("_public_tags", None)
+        return result
+
     def get_absolute_url(self):
         return reverse("item-detail", args=[self.pk])
 
@@ -80,7 +120,14 @@ class Item(models.Model):
 
     @property
     def tag_list(self):
-        return [tag.strip() for tag in self.tags.split(",") if tag.strip()][:10]
+        from .tags import tag_names
+        return tag_names(self.tags)
+
+    @property
+    def public_tag_list(self):
+        from .tags import public_tags
+        tags = self._public_tags if hasattr(self, "_public_tags") else public_tags().filter(items=self)
+        return [tag.name for tag in tags]
 
     @property
     def latest_release(self):
@@ -103,6 +150,35 @@ class Item(models.Model):
     @property
     def needs_review(self):
         return self.reviewed_revision < self.content_revision
+
+
+class UploadJob(models.Model):
+    class Kind(models.TextChoices):
+        RELEASE = "release", "Game file"
+        SCREENSHOT = "screenshot", "Screenshot"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Checking"
+        PASSED = "passed", "Passed"
+        FAILED = "failed", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="upload_jobs")
+    submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    kind = models.CharField(max_length=12, choices=Kind.choices)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING, db_index=True)
+    original_filename = models.CharField(max_length=255)
+    size = models.PositiveBigIntegerField()
+    sha256 = models.CharField(max_length=64)
+    metadata = models.JSONField(default=dict)
+    error = models.CharField(max_length=300, blank=True)
+    release = models.ForeignKey("Release", null=True, on_delete=models.SET_NULL)
+    screenshot = models.ForeignKey("Screenshot", null=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True)
+
+    class Meta:
+        ordering = ["-created_at"]
 
 
 class ItemReview(models.Model):

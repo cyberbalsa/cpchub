@@ -13,6 +13,7 @@ from hub.support import donate
 router = DefaultRouter()
 router.register("items", api.ItemViewSet, basename="api-item")
 router.register("types", api.ContentTypeViewSet, basename="api-type")
+router.register("tags", api.TagViewSet, basename="api-tag")
 router.register("keys", api.KeyViewSet, basename="api-key")
 
 urlpatterns = [
@@ -21,6 +22,7 @@ urlpatterns = [
     path("upload/", views.create_item, name="item-create"),
     path("items/<uuid:pk>/", views.detail, name="item-detail"),
     path("items/<uuid:pk>/edit/", views.edit_item, name="item-edit"),
+    path("items/<uuid:pk>/checks/", views.upload_checks, name="upload-checks"),
     path("items/<uuid:pk>/save/", views.bookmark, name="bookmark"),
     path("items/<uuid:pk>/delete/", self_service.delete_own_item, name="item-self-delete"),
     path("items/<uuid:pk>/restore/", self_service.restore_own_item, name="item-self-restore"),
@@ -34,6 +36,8 @@ urlpatterns = [
     path("developers/", views.developers, name="developers"),
     path("donate/", donate, name="donate"),
     path("moderation/", moderation.dashboard, name="moderation"),
+    path("moderation/tags/", moderation.tag_settings, name="moderation-tag-settings"),
+    path("moderation/uploads/", moderation.upload_settings, name="moderation-upload-settings"),
     path("moderation/reviews/", moderation.review_queue, name="moderation-review-queue"),
     path("moderation/activity/", moderation.account_activity, name="moderation-account-activity"),
     path("moderation/items/<uuid:pk>/", moderation.item_tools, name="moderation-item"),

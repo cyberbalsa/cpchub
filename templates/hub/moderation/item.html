@@ -2,7 +2,7 @@
 {% block title %}Review {{ item.title }} · CPC Hub{% endblock %}
 {% block content %}
 <div class="page-content">
-  {% include 'hub/moderation/nav.html' %}
+  {% include 'hub/moderation/nav.html' %}{% include 'hub/upload_checks.html' %}
   <div class="detail-heading"><div><h1>{{ item.title }}</h1><p>by {% include 'hub/user_link.html' with member=item.author only %} · {{ item.content_type.name }}</p></div><div class="detail-actions"><a class="win-button" href="{{ item.get_absolute_url }}">View creation</a>{% if can_manage %}<a class="win-button" href="{% url 'item-edit' item.pk %}">Edit &amp; add files</a>{% endif %}</div></div>
   {% include 'hub/deleted_notice.html' %}
   {% include 'hub/moderation/review.html' %}

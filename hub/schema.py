@@ -6,7 +6,7 @@ from drf_spectacular.openapi import AutoSchema
 class HubAutoSchema(AutoSchema):
     def get_auth(self):
         auth = super().get_auth()
-        if self.method in {"GET", "HEAD"} and (self.view.__class__.__name__ == "ContentTypeViewSet" or self.view.__class__.__name__ == "ItemViewSet" and self.view.action in {"list", "retrieve", "download", "screenshot_image"}):
+        if self.method in {"GET", "HEAD"} and (self.view.__class__.__name__ == "ContentTypeViewSet" or self.view.__class__.__name__ == "TagViewSet" and self.view.action == "list" or self.view.__class__.__name__ == "ItemViewSet" and self.view.action in {"list", "retrieve", "download", "screenshot_image"}):
             auth.append({})
         return auth
 

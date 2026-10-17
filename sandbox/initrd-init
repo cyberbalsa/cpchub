@@ -1,0 +1,12 @@
+#!/bin/sh
+/bin/busybox --install -s /bin
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+mount -t proc proc /proc
+mount -t sysfs sys /sys
+mount -t devtmpfs dev /dev
+modprobe virtio_mmio
+modprobe virtio_blk
+modprobe ext4
+mkdir -p /newroot
+mount -o ro /dev/vda /newroot || poweroff -f
+exec switch_root /newroot /sbin/cpchub-init

@@ -1,10 +1,11 @@
+import hashlib
 import json
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-from hub.models import ContentType, Item
-from hub.services import add_release, record_revision
+from hub.models import ContentType, Item, Release
+from hub.services import record_revision
 
 
 ENTRIES = [
@@ -18,7 +19,7 @@ ENTRIES = [
 DEMO_DESCRIPTION = (
     "This demo page shows the file details, version history, and download controls.\n\n"
     "The download contains sample JSON metadata only; it cannot be loaded in Car Park Capital. "
-    "To share a game file, upload a .cpbp blueprint, .cpcs scenario, or ZIP pack."
+    "To share a game file, upload a .cpbp blueprint or .cpcs scenario."
 )
 
 
@@ -45,7 +46,10 @@ class Command(BaseCommand):
                 description=DEMO_DESCRIPTION,
                 tags=tags, is_demo=True, artwork=n, status=Item.Status.DRAFT)
             data = json.dumps({"demo": True, "title": title, "notice": "Sample metadata only. Not a game export."}, indent=2).encode()
-            add_release(item, file=ContentFile(data, name="catalog-example.json"), version="1.0.0", changelog="Sample JSON metadata for the demo catalog.")
+            # Development fixtures retain clearly labeled sample downloads; public uploads require native files.
+            Release.objects.create(item=item, file=ContentFile(data, name="catalog-example.json"), version="1.0.0",
+                original_filename="catalog-example.json", size=len(data), sha256=hashlib.sha256(data).hexdigest(),
+                changelog="Sample JSON metadata for the demo catalog.")
             # Trusted development fixtures use the bundled illustrations; real uploads use screenshots.
             item.status = Item.Status.PUBLISHED
             item.save(update_fields=["status"])

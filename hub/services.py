@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 def create_with_release(item, *, release_data, screenshots, request=None):
     """Save a web upload only after all its files have passed validation."""
+    if settings.ASYNC_UPLOAD_VALIDATION:
+        from .upload_jobs import queue_creation
+        return queue_creation(item, release_data=release_data, screenshots=screenshots, request=request)
     validate_upload_type(item.content_type)
     validate_package(release_data["file"], item.content_type)
     if not settings.MIN_SCREENSHOTS <= len(screenshots) <= settings.MAX_SCREENSHOTS:
@@ -59,6 +62,8 @@ def validate_screenshot_minimum(item):
 
 
 def validate_publication(item):
+    if item.upload_jobs.filter(status="pending").exists():
+        raise ValidationError("Files are still being checked. Publish after the checks finish.")
     validate_upload_type(item.content_type)
     if not Release.objects.filter(item=item).exists():
         raise ValidationError("Upload a release before publishing.")
@@ -76,6 +81,9 @@ def record_revision(item, editor):
 
 
 def add_release(item, *, file, version, game_version="", changelog="", request=None):
+    if settings.ASYNC_UPLOAD_VALIDATION:
+        from .upload_jobs import queue_release
+        return queue_release(item, file=file, version=version, game_version=game_version, changelog=changelog, request=request)
     with upload_slot(request.user if request else item.author):
         return _save_release(item, file=file, version=version, game_version=game_version, changelog=changelog, request=request)
 
@@ -105,6 +113,9 @@ def _save_release(item, *, file, version, game_version="", changelog="", request
 
 @transaction.atomic
 def add_screenshot(item, *, image, caption="", request=None):
+    if settings.ASYNC_UPLOAD_VALIDATION:
+        from .upload_jobs import queue_screenshot
+        return queue_screenshot(item, image=image, caption=caption, request=request)
     item = Item.objects.select_for_update().get(pk=item.pk)
     if item.screenshots.count() >= settings.MAX_SCREENSHOTS:
         raise ValidationError(f"An item can have up to {settings.MAX_SCREENSHOTS} screenshots. Remove one before adding another.")

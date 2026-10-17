@@ -1,0 +1,7 @@
+#!/bin/sh
+mount -t proc proc /proc
+mount -t sysfs sys /sys
+mount -t devtmpfs dev /dev
+mount -t tmpfs -o size=32m,noexec,nosuid,nodev tmpfs /tmp
+/usr/bin/python3 -I /opt/guest.py
+poweroff -f

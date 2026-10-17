@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="CPC Hub — community blueprints, blueprint packs and scenarios for Car Park Capital.">
+  <meta name="description" content="CPC Hub — community blueprints and scenarios for Car Park Capital.">
   <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true}'>
   <title>{% block title %}CPC Hub — Car Park Capital community{% endblock %}</title>
   <link rel="icon" href="{% static 'art/favicon.svg' %}" type="image/svg+xml">
@@ -14,6 +14,7 @@
   <script src="{% static 'js/images.js' %}"></script>
   {% htmx_script %}
   <script src="{% static 'js/hub.js' %}" defer></script>
+  <script src="{% static 'js/tags.js' %}" defer></script>
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -38,7 +39,7 @@
   <div class="title-bar main-title"><div class="title-bar-text">{% include 'hub/icon.html' with icon='catalog' %} Community exchange</div><span class="title-bar-caption">CPC HUB</span><a href="{% url 'developers' %}" class="title-help" aria-label="Help and developer guide">?</a></div>
   {% if messages %}<div class="messages" role="status">{% for message in messages %}<p>{{ message }}</p>{% endfor %}</div>{% endif %}
   <main id="main">{% block content_wrapper %}{% block content %}{% endblock %}{% endblock %}</main>
-  <footer class="status-bar"><p class="status-bar-field"><span class="online-dot"></span> Community file exchange</p><p class="status-bar-field">Blueprints · Packs · Scenarios</p><p class="status-bar-field status-right">cpchub.net</p></footer>
+  <footer class="status-bar"><p class="status-bar-field"><span class="online-dot"></span> Community file exchange</p><p class="status-bar-field">Blueprints · Scenarios</p><p class="status-bar-field status-right">cpchub.net</p></footer>
 </div>
 <footer class="desktop-footer"><span>Car Park Capital community files · <a class="support-footer-link" href="{% url 'donate' %}">Support CPC Hub</a> · <a class="support-footer-link" href="https://github.com/cyberbalsa/cpchub">Source code</a> · Put together by <a class="support-footer-link" href="https://balsa.info">Balsa</a></span><span>Fan-made site and content · Not affiliated with the game developers.</span></footer>
 {% block extra_body %}{% endblock %}

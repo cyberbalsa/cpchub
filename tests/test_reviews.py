@@ -16,7 +16,7 @@ from hub.services import record_revision
 from tests.test_hub import package, screenshot
 
 
-@override_settings(DEBUG=True, SECURE_SSL_REDIRECT=False, STORAGES={
+@override_settings(ASYNC_UPLOAD_VALIDATION=False, DEBUG=True, SECURE_SSL_REDIRECT=False, STORAGES={
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 })
@@ -182,7 +182,7 @@ class ReviewTests(TestCase):
         self.client.force_login(self.author)
         self.api.force_login(self.author)
         self.assertEqual(self.client.post(self.editor, self.metadata()).status_code, 302)
-        self.assertEqual(self.api.post(self.api_url + "releases/", {"version": "2", "file": package(data=b"bad json")}, format="multipart").status_code, 400)
+        self.assertEqual(self.api.post(self.api_url + "releases/", {"version": "2", "file": package(data=b"")}, format="multipart").status_code, 400)
         self.assertEqual(self.api.post(self.api_url + "screenshots/", {"image": package()}, format="multipart").status_code, 400)
         self.client.post(reverse("bookmark", args=[self.item.pk]))
         moderate_item(self.reviewer, self.item, action="highlight")

@@ -1,0 +1,28 @@
+[Unit]
+Description=CPC Hub isolated upload validator
+Requires=cpchub-validator-netns.service
+After=local-fs.target cpchub-validator-netns.service
+
+[Service]
+Type=simple
+User=cpchub-validator
+Group=cpchub-validator
+ExecStart=/usr/bin/python3 -I /opt/cpchub-validator/worker.py
+Restart=always
+RestartSec=3
+UMask=0027
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/cpchub-validation /var/lib/cpchub-validator /sys/fs/cgroup
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_CHROOT CAP_MKNOD CAP_SETUID CAP_SETGID CAP_CHOWN CAP_DAC_OVERRIDE CAP_SYS_RESOURCE CAP_KILL CAP_AUDIT_WRITE
+MemoryMax=192M
+TasksMax=64
+TimeoutStopSec=45
+
+[Install]
+WantedBy=multi-user.target

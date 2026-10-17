@@ -24,7 +24,8 @@ paths:
         name: q
         schema:
           type: string
-        description: Search titles, descriptions and tags
+        description: Search titles, descriptions and public tags (all own tags with
+          mine=true)
       - in: query
         name: sort
         schema:
@@ -33,6 +34,12 @@ paths:
           - newest
           - popular
           - updated
+      - in: query
+        name: tag
+        schema:
+          type: string
+        description: Exact tag name, ignoring case and extra whitespace. Public tags
+          only, unless mine=true.
       - in: query
         name: type
         schema:
@@ -85,10 +92,10 @@ paths:
           description: ''
     post:
       operationId: v1_items_create
-      description: Create metadata for a blueprint, blueprint pack or scenario. Mod
-        uploads are disabled. API items start as drafts; upload a release and at least
-        one screenshot, then PATCH status to published. Each item can have up to eight
-        screenshots.
+      description: Create metadata for a blueprint or scenario. Pack and mod uploads
+        are disabled. API items start as drafts; upload a raw .cpbp or .cpcs release
+        and at least one screenshot, then PATCH status to published. Each item can
+        have up to eight screenshots.
       tags:
       - v1
       requestBody:
@@ -173,8 +180,10 @@ paths:
       operationId: v1_items_partial_update
       description: Authors can edit their own metadata. Admin and Moderator browser
         sessions may edit any creation; API keys and OAuth tokens remain limited to
-        their owner. Publishing requires an enabled file type, a release and at least
-        one screenshot. Records a revision; files and previous releases are immutable.
+        their owner. Publishing requires an enabled file type, a validated release
+        and at least one validated screenshot. Setting status to published while file
+        checks are pending records the intent; the response remains draft until all
+        checks pass. Records a revision; files and previous releases are immutable.
       parameters:
       - in: path
         name: id
@@ -294,11 +303,12 @@ paths:
       description: Upload to an owned creation, or use an Admin or Moderator browser
         session to add a release to any creation. The file type must be enabled. Published
         items must have at least one screenshot before adding a release. Version strings
-        are unique per item. Existing releases cannot be overwritten. Successful creation
-        files and new releases share a rolling limit of 16 uploads per hour per account
-        across sessions, API keys and OAuth tokens. Admins, Moderators and Reviewers
-        are exempt; screenshots do not use slots. A 429 response includes Retry-After
-        in seconds.
+        are unique per item. Existing releases cannot be overwritten. Returns 202
+        with a validation job. The creation stays draft until isolated checks finish.
+        Poll upload-jobs/ for the result. Submitted creation files and new releases
+        share a rolling limit of 16 uploads per hour per account across sessions,
+        API keys and OAuth tokens. Admins, Moderators and Reviewers are exempt; screenshots
+        do not use slots. A 429 response includes Retry-After in seconds.
       parameters:
       - in: path
         name: id
@@ -324,11 +334,11 @@ paths:
         - write
       - cookieAuth: []
       responses:
-        '201':
+        '202':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Release'
+                $ref: '#/components/schemas/UploadJob'
           description: ''
         '400':
           content:
@@ -509,11 +519,11 @@ paths:
         - write
       - cookieAuth: []
       responses:
-        '201':
+        '202':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Screenshot'
+                $ref: '#/components/schemas/UploadJob'
           description: ''
         '400':
           content:
@@ -641,6 +651,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+          description: ''
+  /api/v1/items/{id}/upload-jobs/:
+    get:
+      operationId: v1_items_upload_jobs_list
+      description: File-check status for the author or a staff browser session. Upload
+        endpoints return 202 with a job ID. Files remain private and the creation
+        stays draft until checks finish. A passed job supplies its release or screenshot
+        ID; a failed job supplies a safe error message.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this item.
+        required: true
+      tags:
+      - v1
+      security:
+      - PersonalAPIKey: []
+      - oauth2:
+        - read
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UploadJob'
           description: ''
   /api/v1/keys/:
     get:
@@ -803,6 +844,97 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
           description: ''
+  /api/v1/tags/:
+    get:
+      operationId: v1_tags_list
+      description: Public tags with counts of visible, published creations. Tags need
+        11 creations by default; Admins can change this threshold. Drafts, hidden,
+        deleted, shadow-banned and demo creations do not count.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Find tag names containing this text.
+      tags:
+      - v1
+      security:
+      - PersonalAPIKey: []
+      - oauth2:
+        - read
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTagList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+  /api/v1/tags/suggest/:
+    get:
+      operationId: v1_tags_suggest_list
+      description: Existing tag suggestions for signed-in editors, including uncommon
+        tags on public creations and tags on their own private creations. Other users'
+        private tags are excluded. Returns up to 20 names; accepts the q substring
+        filter.
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+      tags:
+      - v1
+      security:
+      - PersonalAPIKey: []
+      - oauth2:
+        - read
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TagSuggestion'
+          description: ''
   /api/v1/types/:
     get:
       operationId: v1_types_list
@@ -930,7 +1062,13 @@ components:
         uploads_enabled:
           type: boolean
           description: Allow new creations and releases for this type.
+        max_upload_bytes:
+          type: integer
+          readOnly: true
+          description: Current maximum size of each game file. Defaults to 15 MiB;
+            Admin-adjustable.
       required:
+      - max_upload_bytes
       - name
       - slug
     Error:
@@ -1003,17 +1141,23 @@ components:
           maxLength: 20000
         content_type:
           type: string
-          description: 'An enabled type from /api/v1/types/: blueprints, blueprint-packs
-            or scenarios. Mod uploads are currently disabled.'
+          description: 'An enabled type from /api/v1/types/: blueprints or scenarios.
+            Pack and mod uploads are disabled.'
         author:
           type: string
           readOnly: true
         tags:
           type: string
-          description: Comma-separated tags
+          description: Comma-separated tags. Public responses include only tags meeting
+            the configurable publication threshold (11 visible creations by default).
+            Authors and staff browser sessions can read all assigned tags. Use /api/v1/tags/suggest/
+            for editing suggestions.
           maxLength: 200
         status:
-          $ref: '#/components/schemas/StatusEnum'
+          $ref: '#/components/schemas/ItemStatusEnum'
+        publish_after_validation:
+          type: boolean
+          readOnly: true
         is_demo:
           type: boolean
           readOnly: true
@@ -1080,6 +1224,7 @@ components:
       - id
       - is_demo
       - is_hidden
+      - publish_after_validation
       - releases
       - screenshots
       - summary
@@ -1103,19 +1248,30 @@ components:
         content_type:
           type: string
           minLength: 1
-          description: 'An enabled type from /api/v1/types/: blueprints, blueprint-packs
-            or scenarios. Mod uploads are currently disabled.'
+          description: 'An enabled type from /api/v1/types/: blueprints or scenarios.
+            Pack and mod uploads are disabled.'
         tags:
           type: string
-          description: Comma-separated tags
+          description: Comma-separated tags. Public responses include only tags meeting
+            the configurable publication threshold (11 visible creations by default).
+            Authors and staff browser sessions can read all assigned tags. Use /api/v1/tags/suggest/
+            for editing suggestions.
           maxLength: 200
         status:
-          $ref: '#/components/schemas/StatusEnum'
+          $ref: '#/components/schemas/ItemStatusEnum'
       required:
       - content_type
       - description
       - summary
       - title
+    ItemStatusEnum:
+      enum:
+      - draft
+      - published
+      type: string
+      description: |-
+        * `draft` - Draft (private)
+        * `published` - Published
     Key:
       type: object
       properties:
@@ -1177,6 +1333,14 @@ components:
             Keys can always be revoked.
       required:
       - name
+    KindEnum:
+      enum:
+      - release
+      - screenshot
+      type: string
+      description: |-
+        * `release` - Game file
+        * `screenshot` - Screenshot
     PaginatedItemList:
       type: object
       required:
@@ -1223,6 +1387,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Key'
+    PaginatedTagList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
     PatchedItemRequest:
       type: object
       properties:
@@ -1241,14 +1428,17 @@ components:
         content_type:
           type: string
           minLength: 1
-          description: 'An enabled type from /api/v1/types/: blueprints, blueprint-packs
-            or scenarios. Mod uploads are currently disabled.'
+          description: 'An enabled type from /api/v1/types/: blueprints or scenarios.
+            Pack and mod uploads are disabled.'
         tags:
           type: string
-          description: Comma-separated tags
+          description: Comma-separated tags. Public responses include only tags meeting
+            the configurable publication threshold (11 visible creations by default).
+            Authors and staff browser sessions can read all assigned tags. Use /api/v1/tags/suggest/
+            for editing suggestions.
           maxLength: 200
         status:
-          $ref: '#/components/schemas/StatusEnum'
+          $ref: '#/components/schemas/ItemStatusEnum'
     Profile:
       type: object
       properties:
@@ -1348,8 +1538,8 @@ components:
         file:
           type: string
           format: binary
-          description: Native game file, ZIP pack, or JSON. Allowed extensions depend
-            on the content type.
+          description: Raw .cpbp blueprint or .cpcs scenario, up to 15 MB by default
+            (Admin-adjustable). ZIP packs and JSON uploads are disabled.
         version:
           type: string
           minLength: 1
@@ -1421,21 +1611,100 @@ components:
         image:
           type: string
           format: binary
-          description: PNG, JPEG or WebP; max 10 MB, 20 megapixels. Re-encoded to
-            strip metadata.
+          description: Still PNG, JPEG or WebP; 320×180 minimum, 8192 pixels per side
+            maximum, max 10 MB and 20 megapixels; aspect ratio 1:6 to 6:1. Checked
+            and re-encoded to WebP inside an isolated VM. Returns a validation job.
         caption:
           type: string
           maxLength: 180
       required:
       - image
-    StatusEnum:
+    Tag:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 600
+        item_count:
+          type: integer
+          minimum: 0
+          readOnly: true
+          description: Number of visible, published, non-demo creations using this
+            tag.
+      required:
+      - item_count
+      - name
+    TagSuggestion:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 600
+      required:
+      - name
+    UploadJob:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/KindEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/UploadJobStatusEnum'
+          readOnly: true
+        original_filename:
+          type: string
+          readOnly: true
+        error:
+          type: string
+          readOnly: true
+        release:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          readOnly: true
+        screenshot:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        completed_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          readOnly: true
+      required:
+      - completed_at
+      - created_at
+      - error
+      - id
+      - kind
+      - original_filename
+      - release
+      - screenshot
+      - status
+    UploadJobStatusEnum:
       enum:
-      - draft
-      - published
+      - pending
+      - passed
+      - failed
       type: string
       description: |-
-        * `draft` - Draft (private)
-        * `published` - Published
+        * `pending` - Checking
+        * `passed` - Passed
+        * `failed` - Failed
   securitySchemes:
     PersonalAPIKey:
       type: apiKey

@@ -21,6 +21,7 @@ from .models import APIKey, AccountActivity, Bookmark, ContentType, Item
 from .activity import record_activity
 from .upload_limits import UploadLimitExceeded
 from .services import add_release, add_screenshot, create_with_release, record_revision, remove_screenshot, validate_publication
+from .tags import filter_tags, normalize_tag
 
 
 @never_cache
@@ -28,31 +29,27 @@ from .services import add_release, add_screenshot, create_with_release, record_r
 def catalog(request):
     items = visible_items(request.user)
     q = request.GET.get("q", "").strip()[:200]
+    tag = normalize_tag(request.GET.get("tag", "")[:200])
     category = request.GET.get("type", "")
     view = request.GET.get("view", "all")
     sort = request.GET.get("sort", "updated")
-    if q:
-        items = items.filter(Q(title__icontains=q) | Q(summary__icontains=q) | Q(tags__icontains=q))
-    if category:
-        items = items.filter(content_type__slug=category)
     if view in {"saved", "mine"}:
         if not request.user.is_authenticated:
             return redirect(f"/accounts/login/?next={request.path}?view={view}")
         if view == "mine":
             items = item_query().filter(author=request.user)
-            if q:
-                items = items.filter(Q(title__icontains=q) | Q(summary__icontains=q) | Q(tags__icontains=q))
-            if category:
-                items = items.filter(content_type__slug=category)
         else:
             items = items.filter(bookmarks__user=request.user)
+    items = filter_tags(items, query=q, tag=tag, private=view == "mine")
+    if category:
+        items = items.filter(content_type__slug=category)
     items = items.order_by({"popular": "-downloads", "newest": "-created_at"}.get(sort, "-updated_at"), "id")
     page = Paginator(items, 12).get_page(request.GET.get("page"))
     public = public_items().filter(is_demo=False)
     stats = public.aggregate(items=Count("pk"), downloads=Sum("downloads"), authors=Count("author", distinct=True))
-    context = {"page_obj": page, "q": q, "category": category, "catalog_view": view, "sort": sort,
+    context = {"page_obj": page, "q": q, "tag": tag, "category": category, "catalog_view": view, "sort": sort,
                "stats": stats, "has_demo": items.filter(is_demo=True).exists(),
-               "featured_items": public_items().filter(featured_at__isnull=False).order_by("-featured_at", "pk")[:6] if view == "all" and not q and not category and not request.GET.get("page") else [],
+               "featured_items": public_items().filter(featured_at__isnull=False).order_by("-featured_at", "pk")[:6] if view == "all" and not q and not tag and not category and not request.GET.get("page") else [],
                "types_with_counts": ContentType.objects.filter(uploads_enabled=True).annotate(total=Count("items", filter=Q(items__status="published", items__is_hidden=False, items__deleted_at=None, items__author__moderation_state__shadow_banned_at__isnull=True))).order_by("position", "name")}
     return render(request, "hub/results.html" if request.htmx and not request.htmx.history_restore_request else "hub/catalog.html", context)
 
@@ -97,7 +94,7 @@ def create_item(request):
             item = form.save(commit=False)
             item.author = request.user
             create_with_release(item, release_data=release_form.cleaned_data, screenshots=screenshot_form.cleaned_data["screenshots"], request=request)
-            messages.success(request, "Creation saved with your file and screenshots.")
+            messages.success(request, "Creation saved. Your files are queued for checks and will stay private until they pass.")
             return redirect("item-edit", pk=item.pk)
         except UploadLimitExceeded as exc:
             release_form.add_error(None, str(exc))
@@ -110,6 +107,15 @@ def create_item(request):
     if retry_after:
         response["Retry-After"] = str(retry_after)
     return response
+
+
+@login_required
+@never_cache
+def upload_checks(request, pk):
+    item = get_object_or_404(accessible_items(request.user), pk=pk)
+    if item.author_id != request.user.pk and not can_moderate(request.user):
+        raise Http404
+    return render(request, "hub/upload_checks.html", {"item": item, "pending_checks": item.upload_jobs.filter(status="pending").exists()})
 
 
 @login_required
@@ -130,7 +136,11 @@ def edit_item(request, pk):
                 form = ItemForm(request.POST, instance=item)
                 if form.is_valid():
                     try:
-                        if form.cleaned_data["status"] == Item.Status.PUBLISHED:
+                        item.publish_after_validation = False
+                        if form.cleaned_data["status"] == Item.Status.PUBLISHED and item.upload_jobs.filter(status="pending").exists():
+                            item.status = Item.Status.DRAFT
+                            item.publish_after_validation = True
+                        elif form.cleaned_data["status"] == Item.Status.PUBLISHED:
                             validate_publication(item)
                         item = form.save()
                         record_revision(item, request.user)
@@ -146,7 +156,7 @@ def edit_item(request, pk):
             if release_form.is_valid():
                 try:
                     add_release(item, **release_form.cleaned_data, request=request)
-                    messages.success(request, "New release published. Previous versions are still available.")
+                    messages.success(request, "New release queued for checks. This creation will stay in draft until they finish.")
                     return redirect("item-edit", pk=pk)
                 except UploadLimitExceeded as exc:
                     release_form.add_error(None, str(exc))
@@ -160,7 +170,7 @@ def edit_item(request, pk):
             if screenshot_form.is_valid():
                 try:
                     add_screenshot(item, **screenshot_form.cleaned_data, request=request)
-                    messages.success(request, "Screenshot added.")
+                    messages.success(request, "Screenshot queued for checks.")
                     return redirect("item-edit", pk=pk)
                 except ValidationError as exc:
                     screenshot_form.add_error(None, exc)
@@ -176,7 +186,7 @@ def edit_item(request, pk):
                 messages.error(request, " ".join(exc.messages))
             return redirect("item-edit", pk=pk)
     response = render(request, "hub/editor.html", {"item": item, "form": form, "release_form": release_form, "screenshot_form": screenshot_form,
-                                             "can_remove_screenshots": can_remove_screenshot(request.user, item)}, status=429 if retry_after else 200)
+                                             "pending_checks": item.upload_jobs.filter(status="pending").exists(), "can_remove_screenshots": can_remove_screenshot(request.user, item)}, status=429 if retry_after else 200)
     if retry_after:
         response["Retry-After"] = str(retry_after)
     return response

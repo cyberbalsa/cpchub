@@ -12,7 +12,7 @@ from hub.models import ContentType, Item, Release, Screenshot, UploadEvent
 from tests.test_hub import package, screenshot
 
 
-@override_settings(DEBUG=True, SECURE_SSL_REDIRECT=False, STORAGES={
+@override_settings(ASYNC_UPLOAD_VALIDATION=False, DEBUG=True, SECURE_SSL_REDIRECT=False, STORAGES={
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 })
@@ -109,9 +109,9 @@ class UploadRulesTests(TestCase):
     def test_disabled_mod_types_rejected_by_web_api_and_release_uploads(self):
         mods = ContentType.objects.get(slug="mods")
         self.assertFalse(mods.uploads_enabled)
-        self.assertSetEqual(set(ContentType.objects.filter(uploads_enabled=True).values_list("slug", flat=True)), {"blueprints", "blueprint-packs", "scenarios"})
+        self.assertSetEqual(set(ContentType.objects.filter(uploads_enabled=True).values_list("slug", flat=True)), {"blueprints", "scenarios"})
         discovered = self.api.get("/api/v1/types/").json()
-        self.assertSetEqual({value["slug"] for value in discovered}, {"blueprints", "blueprint-packs", "scenarios"})
+        self.assertSetEqual({value["slug"] for value in discovered}, {"blueprints", "scenarios"})
         self.assertNotContains(self.client.get("/upload/"), ">Other mods</option>")
         self.assertEqual(self.api.post("/api/v1/items/", {**self.metadata, "content_type": "mods"}, format="json").status_code, 400)
         self.assertEqual(self.web_upload([screenshot(), screenshot()], content_type=mods.pk).status_code, 200)

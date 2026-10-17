@@ -31,7 +31,8 @@ class CollectionCountTests(TestCase):
         self.save_for_collectors()
         self.save_for_collectors()
         self.assertEqual(self.item.collection_count, 2)
-        with self.assertNumQueries(3):
+        # Releases, screenshots, and public tags are each fetched once for the whole page.
+        with self.assertNumQueries(4):
             counts = {item.pk: item.collection_count for item in item_query()}
         self.assertEqual(counts, {self.item.pk: 2, self.empty_item.pk: 0})
         self.collectors[0].delete()

@@ -5,10 +5,16 @@ from django.db import transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
-from .models import FileDeletion, Release, Screenshot
+from .models import FileDeletion, Release, Screenshot, UploadJob
 
 
 logger = logging.getLogger(__name__)
+
+
+@receiver(post_delete, sender=UploadJob)
+def discard_validation_files(sender, instance, **kwargs):
+    from .upload_jobs import discard_job_files
+    transaction.on_commit(lambda: discard_job_files(instance.pk))
 
 
 def clean_deleted_file(pk):

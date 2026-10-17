@@ -11,8 +11,10 @@ The interface takes its cues from RCT and Car Park Capital: beveled tool buttons
 - Author edits with metadata snapshots; versioned files with changelogs, game-version labels, sizes, SHA-256 checksums, and historical downloads. Admins and Moderators can edit other creators’ metadata and add releases or screenshots. Uploaded file bytes are immutable; staff can correct release labels and notes.
 - Website downloads show a fan-content warning. “Don’t show this again” saves a signed one-year browser cookie and a profile preference when signed in. Users can restore the warning from their profile. A confirmation page works without JavaScript; API downloads keep their file/redirect response for mod managers.
 - One to eight screenshots per published item; PNG/JPEG/WebP inputs are resized and re-encoded to WebP, with metadata removed.
-- Configurable categories and file extensions. Enabled uploads: blueprints, blueprint packs, and scenarios. Other mod uploads are disabled. Accepts native `.cpbp`/`.cpcs`, ZIPs, and JSON as appropriate. ZIPs are stored without extracting their contents. New types/extensions can be added in Django admin; new types start with uploads disabled.
-- Uploads limited to 16 creation files or new releases per rolling hour per account, shared across browser sessions, API keys, and OAuth tokens. Admins, Moderators, and Reviewers are exempt. Screenshots do not use slots; failed uploads do not consume the allowance.
+- Exact tag filtering (`?tag=parking`) and existing-tag suggestions on upload/edit forms. Tags appear publicly at 11 visible, published creations by default; Admins can change this under Moderation → Tag settings. Drafts, hidden/deleted items, shadow-banned authors, and demos do not count. Editing suggestions include uncommon public tags and your own private tags.
+- Isolated upload checks in disposable Firecracker VMs, with a dedicated worker user and a private job queue. Creations stay draft until checks pass. Game files default to 15 MiB each (Admin-adjustable); screenshots have separate size and dimension limits. See [upload validation](docs/upload-validation.md) for host setup.
+- Configurable categories and file extensions. Enabled uploads: raw `.cpbp` blueprints and `.cpcs` scenarios only. Blueprint packs, ZIPs, JSON, and other mod uploads are disabled. Existing files remain downloadable. New types/extensions can be added in Django admin; new types start with uploads disabled.
+- Uploads limited to 16 creation files or new releases per rolling hour per account, shared across browser sessions, API keys, and OAuth tokens. Admins, Moderators, and Reviewers are exempt. Screenshots do not use slots. Files accepted into the validation queue use a slot even if their checks later fail.
 - Drafts visible to the author and staff; file delivery checks the same permissions as the catalog.
 - Three staff roles, required hide reasons, front-page highlights, shadow bans, user management, and a private moderation log. Authors can unpublish or self-delete creations, with 14 days to restore them.
 - Private Wasabi storage for uploaded releases and screenshots, with five-minute signed download URLs. CSS, JavaScript, fonts, and site artwork stay local.
@@ -24,6 +26,7 @@ The interface takes its cues from RCT and Car Park Capital: beveled tool buttons
 ## Run with Docker
 
 Docker Compose 2.24.4+ is required for the production override's `!reset` syntax.
+Install the [host validation worker](docs/upload-validation.md#installation) before starting the app. Uploads stay private if the worker is unavailable. The Docker container UID needs access to the private queue as described there.
 
 ```bash
 cp .env.example .env
@@ -44,19 +47,19 @@ Demo listings are labeled, have an inactive author, and contain sample JSON, **n
 
 ## Run with Podman
 
-With Podman and `podman-compose` installed, prepare `.env` as above, then run:
+With Podman and `podman-compose` installed, prepare `.env` as above and install the [host validation worker](docs/upload-validation.md#installation) for your host account, then run:
 
 ```bash
-podman-compose -f compose.yaml up --build -d
+podman-compose -f compose.yaml -f compose.podman.yaml up --build -d
 ```
 
 The site runs at **http://127.0.0.1:8000/**. To rebuild the web service after source changes:
 
 ```bash
-podman-compose -f compose.yaml up --build --force-recreate --no-deps -d web
+podman-compose -f compose.yaml -f compose.podman.yaml up --build --force-recreate --no-deps -d web uploads cleanup
 ```
 
-This replaces the web container and keeps the database and upload volumes.
+This replaces the application containers and keeps the database and upload volumes.
 
 ## Wasabi upload storage
 
@@ -116,7 +119,7 @@ For a host using direct HTTPS with Caddy instead:
 
 Set `TRUST_PROXY=1` only behind a proxy that replaces forwarded protocol and IP headers, and set `TRUSTED_PROXY_CIDRS` to its private subnet plus loopback for container health checks. See [visitor IP and activity setup](docs/deployment.md#visitor-ips-and-account-activity). Apply database migrations once per deployment before serving the new application version; back up the database and upload storage before upgrades. Run `python manage.py cleartokens` regularly to prune expired OAuth records.
 
-The app’s built-in rate limits use a process-local cache. Configure edge rate limits for login, OAuth and uploads before public launch. Native game files remain opaque; ZIP validation checks archive metadata, paths, and declared sizes. Game compatibility and malware scanning require separate checks. Back up the database and upload storage. Keep the Wasabi bucket private and do not serve local media directly from Caddy.
+The app’s built-in rate limits use a process-local cache. Configure edge rate limits for login, OAuth and uploads before public launch. Native game files receive structural checks inside Firecracker; screenshots are decoded and sanitized there. These checks do not guarantee game compatibility or replace malware scanning. See `docs/upload-validation.md`. Back up the database and upload storage. Keep the Wasabi bucket private and do not serve local media directly from Caddy.
 
 ## Social login setup
 

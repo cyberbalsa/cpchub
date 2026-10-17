@@ -28,7 +28,7 @@ TEST_STORAGES = {
 }
 
 
-@override_settings(DEBUG=True, SECURE_SSL_REDIRECT=False, STORAGES=TEST_STORAGES)
+@override_settings(ASYNC_UPLOAD_VALIDATION=False, DEBUG=True, SECURE_SSL_REDIRECT=False, STORAGES=TEST_STORAGES)
 class WasabiDeliveryTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -139,14 +139,14 @@ class WasabiDeliveryTests(TestCase):
         failure = ClientError({"Error": {"Code": "AccessDenied", "Message": "Private diagnostic"}}, "PutObject")
         with patch.object(self.storage, "save", side_effect=failure):
             response = self.api.post(f"/api/v1/items/{self.item.pk}/releases/", {
-                "version": "2", "file": SimpleUploadedFile("file.json", b"{}"),
+                "version": "2", "file": SimpleUploadedFile("file.cpbp", b"native blueprint"),
             }, format="multipart")
         self.assertEqual(response.status_code, 503)
         self.assertNotIn(b"Private diagnostic", response.content)
         self.assertFalse(self.item.releases.filter(version="2").exists())
 
 
-@override_settings(DEBUG=True, SECURE_SSL_REDIRECT=False)
+@override_settings(ASYNC_UPLOAD_VALIDATION=False, DEBUG=True, SECURE_SSL_REDIRECT=False)
 class UploadMigrationTests(TestCase):
     def test_dry_run_copy_restart_and_conflicting_remote_file(self):
         user = get_user_model().objects.create_user("migrating-author")

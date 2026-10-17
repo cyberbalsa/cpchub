@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block title %}Upload settings — CPC Hub{% endblock %}
+{% block content %}<div class="page-content"><h1>Upload settings</h1>{% include 'hub/moderation/nav.html' %}
+<form method="post" class="standard-form">{% csrf_token %}{{ form.as_p }}<button>Save settings</button></form>
+<p>Changes apply to new submissions. Files already queued or published keep their current limits.</p>
+</div>{% endblock %}

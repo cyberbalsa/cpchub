@@ -18,7 +18,7 @@ from rest_framework.test import APIClient
 from hub.models import APIKey, ContentType, Item, Release, Revision, Screenshot
 
 
-def package(name="test.json", data=b'{"hello":"parking"}'):
+def package(name="test.cpbp", data=b'{"hello":"parking"}'):
     return SimpleUploadedFile(name, data, content_type="application/octet-stream")
 
 
@@ -28,7 +28,7 @@ def screenshot(name="shot.png", color=(0, 128, 128)):
     return SimpleUploadedFile(name, output.getvalue(), content_type="image/png")
 
 
-@override_settings(DEBUG=True, SECURE_SSL_REDIRECT=False, STORAGES={
+@override_settings(ASYNC_UPLOAD_VALIDATION=False, DEBUG=True, SECURE_SSL_REDIRECT=False, STORAGES={
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 })
@@ -55,7 +55,7 @@ class HubTests(TestCase):
         self.api.force_login(user or self.author)
         self.client.force_login(user or self.author)
 
-    def release(self, version="1.0.0", name="test.json", data=b'{"hello":"parking"}'):
+    def release(self, version="1.0.0", name="test.cpbp", data=b'{"hello":"parking"}'):
         return self.api.post(self.url+"releases/", {"version": version, "file": package(name,data)}, format="multipart")
 
     def test_catalog_and_account_pages_render(self):
@@ -105,7 +105,7 @@ class HubTests(TestCase):
             self.assertContains(response, "2.0\u00a0KB</span>")
             self.assertContains(response, 'href="https://github.com/cyberbalsa/cpchub">Source code</a>')
 
-    @override_settings(DEBUG=False)
+    @override_settings(ASYNC_UPLOAD_VALIDATION=False, DEBUG=False)
     def test_production_catalog_and_detail_use_collected_artwork(self):
         from django.contrib.staticfiles.storage import staticfiles_storage
         self.item.screenshots.all().delete()
@@ -178,7 +178,7 @@ class HubTests(TestCase):
         with zipfile.ZipFile(archive,"w") as zipped:
             zipped.writestr("pack/first.cpbp",b"native-file")
             zipped.writestr("pack/readme.txt","Mod pack")
-        self.assertEqual(self.release(name="pack.zip",data=archive.getvalue()).status_code,201)
+        self.assertEqual(self.release(name="pack.zip",data=archive.getvalue()).status_code,400)
 
     def test_screenshots_are_reencoded_and_author_owned(self):
         self.login()
@@ -345,7 +345,7 @@ class HubTests(TestCase):
         self.assertEqual(response.data["status"],"draft")
         self.assertEqual(self.api.patch(f'/api/v1/items/{response.data["id"]}/',{"status":"published"}).status_code,400)
 
-    @override_settings(DEBUG=False)
+    @override_settings(ASYNC_UPLOAD_VALIDATION=False, DEBUG=False)
     def test_production_uploads_and_keys_without_email_verification(self):
         from allauth.account.models import EmailAddress
         EmailAddress.objects.create(user=self.author,email=self.author.email,verified=False,primary=True)
@@ -411,8 +411,8 @@ class HubTests(TestCase):
         self.api.credentials(HTTP_AUTHORIZATION="Bearer "+rotated.json()["access_token"])
         self.assertEqual(self.api.get("/api/v1/me/").status_code,401)
 
-    def test_raw_scenario_is_allowed_in_blueprint_pack(self):
+    def test_blueprint_packs_reject_new_releases(self):
         self.login()
         self.item.content_type=ContentType.objects.get(slug="blueprint-packs")
         self.item.save()
-        self.assertEqual(self.release(name="pack.cpcs",data=b"scenario-container").status_code,201)
+        self.assertEqual(self.release(name="pack.cpcs",data=b"scenario-container").status_code,400)

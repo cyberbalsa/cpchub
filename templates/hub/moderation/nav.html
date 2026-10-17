@@ -1,6 +1,6 @@
 <nav class="moderation-nav" aria-label="Moderation navigation">
   <a class="win-button" href="{% url 'moderation-review-queue' %}">Review queue</a>
   <a class="win-button" href="{% url 'moderation' %}">Creations &amp; activity</a>
-  {% if can_manage_content %}<a class="win-button" href="{% url 'moderation-users' %}">User management</a>{% endif %}{% if is_site_admin %}<a class="win-button" href="{% url 'moderation-account-activity' %}">Login &amp; upload history</a><a class="win-button" href="{% url 'admin:index' %}">Site settings</a>{% endif %}
+  {% if can_manage_content %}<a class="win-button" href="{% url 'moderation-users' %}">User management</a>{% endif %}{% if is_site_admin %}<a class="win-button" href="{% url 'moderation-upload-settings' %}">Upload settings</a><a class="win-button" href="{% url 'moderation-tag-settings' %}">Tag settings</a><a class="win-button" href="{% url 'moderation-account-activity' %}">Login &amp; upload history</a><a class="win-button" href="{% url 'admin:index' %}">Site settings</a>{% endif %}
   <span class="badge">{{ site_role }}</span>
 </nav>

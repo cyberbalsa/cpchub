@@ -1,7 +1,8 @@
 from rest_framework import serializers
 
-from .models import APIKey, ContentType, Item, Release, Revision, Screenshot
+from .models import APIKey, ContentType, Item, Release, Revision, Screenshot, Tag, UploadJob
 from .validators import validate_version
+from .tags import clean_tags
 
 
 class ErrorSerializer(serializers.Serializer):
@@ -10,9 +11,29 @@ class ErrorSerializer(serializers.Serializer):
 
 
 class ContentTypeSerializer(serializers.ModelSerializer):
+    max_upload_bytes = serializers.SerializerMethodField(help_text="Current maximum size of each game file. Defaults to 15 MiB; Admin-adjustable.")
+
+    def get_max_upload_bytes(self, obj) -> int:
+        from .upload_settings import max_game_file_bytes
+        return max_game_file_bytes()
+
     class Meta:
         model = ContentType
-        fields = ["slug", "name", "description", "allowed_extensions", "uploads_enabled"]
+        fields = ["slug", "name", "description", "allowed_extensions", "uploads_enabled", "max_upload_bytes"]
+
+
+class TagSerializer(serializers.ModelSerializer):
+    item_count = serializers.IntegerField(read_only=True, min_value=0, help_text="Number of visible, published, non-demo creations using this tag.")
+
+    class Meta:
+        model = Tag
+        fields = ["name", "item_count"]
+
+
+class TagSuggestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = ["name"]
 
 
 class ReleaseSerializer(serializers.ModelSerializer):
@@ -29,7 +50,7 @@ class ReleaseSerializer(serializers.ModelSerializer):
 
 
 class ReleaseUploadSerializer(serializers.Serializer):
-    file = serializers.FileField(help_text="Native game file, ZIP pack, or JSON. Allowed extensions depend on the content type.")
+    file = serializers.FileField(help_text="Raw .cpbp blueprint or .cpcs scenario, up to 15 MB by default (Admin-adjustable). ZIP packs and JSON uploads are disabled.")
     version = serializers.CharField(max_length=40, validators=[validate_version])
     game_version = serializers.CharField(max_length=40, required=False, allow_blank=True)
     changelog = serializers.CharField(max_length=10000, required=False, allow_blank=True)
@@ -47,7 +68,7 @@ class ScreenshotSerializer(serializers.ModelSerializer):
 
 
 class ScreenshotUploadSerializer(serializers.Serializer):
-    image = serializers.FileField(help_text="PNG, JPEG or WebP; max 10 MB, 20 megapixels. Re-encoded to strip metadata.")
+    image = serializers.FileField(help_text="Still PNG, JPEG or WebP; 320×180 minimum, 8192 pixels per side maximum, max 10 MB and 20 megapixels; aspect ratio 1:6 to 6:1. Checked and re-encoded to WebP inside an isolated VM. Returns a validation job.")
     caption = serializers.CharField(max_length=180, required=False, allow_blank=True)
 
 
@@ -57,13 +78,37 @@ class RevisionSerializer(serializers.ModelSerializer):
         fields = ["id", "snapshot", "created_at"]
 
 
+class UploadJobSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UploadJob
+        fields = ["id", "kind", "status", "original_filename", "error", "release", "screenshot", "created_at", "completed_at"]
+        read_only_fields = fields
+
+
 class ItemSerializer(serializers.ModelSerializer):
     downloads = serializers.IntegerField(min_value=0, max_value=2147483647, read_only=True, help_text="Download links issued across all releases, deduplicated by account and by IP for 14 days. IPv6 uses /32 subnets. Downloading another release does not recount the creation. Historical totals are retained.")
     author = serializers.CharField(source="author.username", read_only=True)
     collection_count = serializers.IntegerField(min_value=0, read_only=True, help_text="Number of people who currently have this creation saved in their collection.")
-    content_type = serializers.SlugRelatedField(slug_field="slug", queryset=ContentType.objects.filter(uploads_enabled=True), help_text="An enabled type from /api/v1/types/: blueprints, blueprint-packs or scenarios. Mod uploads are currently disabled.")
+    content_type = serializers.SlugRelatedField(slug_field="slug", queryset=ContentType.objects.filter(uploads_enabled=True), help_text="An enabled type from /api/v1/types/: blueprints or scenarios. Pack and mod uploads are disabled.")
+    tags = serializers.CharField(max_length=200, allow_blank=True, required=False, help_text="Comma-separated tags. Public responses include only tags meeting the configurable publication threshold (11 visible creations by default). Authors and staff browser sessions can read all assigned tags. Use /api/v1/tags/suggest/ for editing suggestions.")
     releases = ReleaseSerializer(many=True, read_only=True)
     screenshots = ScreenshotSerializer(many=True, read_only=True)
+
+    def validate_tags(self, value):
+        from django.core.exceptions import ValidationError
+        try:
+            return clean_tags(value)
+        except ValidationError as exc:
+            raise serializers.ValidationError(exc.messages)
+
+    def to_representation(self, instance):
+        from .access import can_moderate
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        private = request and (request.user.pk == instance.author_id or request.auth is None and can_moderate(request.user))
+        if not private:
+            data["tags"] = ", ".join(instance.public_tag_list)
+        return data
 
     def validate_content_type(self, value):
         if self.instance and self.instance.content_type_id != value.pk and self.instance.releases.exists():
@@ -74,8 +119,8 @@ class ItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Item
-        fields = ["id", "title", "summary", "description", "content_type", "author", "tags", "status", "is_demo", "is_hidden", "hidden_reason", "deleted_at", "featured_at", "downloads", "collection_count", "created_at", "updated_at", "releases", "screenshots"]
-        read_only_fields = ["id", "is_demo", "is_hidden", "hidden_reason", "deleted_at", "featured_at", "downloads", "created_at", "updated_at"]
+        fields = ["id", "title", "summary", "description", "content_type", "author", "tags", "status", "publish_after_validation", "is_demo", "is_hidden", "hidden_reason", "deleted_at", "featured_at", "downloads", "collection_count", "created_at", "updated_at", "releases", "screenshots"]
+        read_only_fields = ["id", "publish_after_validation", "is_demo", "is_hidden", "hidden_reason", "deleted_at", "featured_at", "downloads", "created_at", "updated_at"]
 
 
 class KeyCreateSerializer(serializers.Serializer):

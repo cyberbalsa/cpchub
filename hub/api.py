@@ -12,16 +12,37 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import APIKey, AccountActivity, ContentType, Item, Release
+from .models import APIKey, AccountActivity, ContentType, Item, Release, UploadJob
 from .activity import record_activity
 from .permissions import CatalogPermission, KeyPermission, token_scopes
 from .serializers import (ContentTypeSerializer, ErrorSerializer, IssuedKeySerializer, ItemSerializer,
                           KeyCreateSerializer, KeySerializer, ProfileSerializer, ReleaseSerializer,
-                          ReleaseUploadSerializer, RevisionSerializer, ScreenshotSerializer, ScreenshotUploadSerializer)
+                          ReleaseUploadSerializer, RevisionSerializer, ScreenshotSerializer, ScreenshotUploadSerializer, TagSerializer, TagSuggestionSerializer, UploadJobSerializer)
 from .services import add_release, add_screenshot, record_revision, remove_screenshot, validate_publication
 from .file_delivery import file_response
 from .download_counts import count_download
 from .access import accessible_items, can_edit_item, can_moderate, item_query, visible_items
+from .tags import filter_tags, normalize_tag, public_tags, suggested_tags
+
+
+@extend_schema_view(list=extend_schema(description="Public tags with counts of visible, published creations. Tags need 11 creations by default; Admins can change this threshold. Drafts, hidden, deleted, shadow-banned and demo creations do not count.", parameters=[OpenApiParameter("q", str, description="Find tag names containing this text.")]))
+class TagViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    serializer_class = TagSerializer
+
+    def get_queryset(self):
+        tags = public_tags().order_by("-item_count", "name")
+        return tags.filter(name__icontains=normalize_tag(self.request.query_params.get("q", "")[:200]))
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+    @extend_schema(description="Existing tag suggestions for signed-in editors, including uncommon tags on public creations and tags on their own private creations. Other users' private tags are excluded. Returns up to 20 names; accepts the q substring filter.", parameters=[OpenApiParameter("q", str)], responses={200: TagSuggestionSerializer(many=True)})
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated, CatalogPermission], pagination_class=None)
+    def suggest(self, request):
+        tags = suggested_tags(request.user).filter(name__icontains=normalize_tag(request.query_params.get("q", "")[:200]))[:20]
+        return Response(TagSuggestionSerializer(tags, many=True).data)
 
 
 class ContentTypeViewSet(viewsets.ReadOnlyModelViewSet):
@@ -34,9 +55,9 @@ class ContentTypeViewSet(viewsets.ReadOnlyModelViewSet):
 
 @extend_schema_view(
     retrieve=extend_schema(description="Read a visible creation. Hidden creations return 403 with the public moderation reason. Shadow-banned and self-deleted creations return 404 to other users; their creator and staff browser sessions retain access. Drafts remain private to the creator and staff.", responses={200: ItemSerializer, 403: ErrorSerializer, 404: ErrorSerializer}),
-    list=extend_schema(parameters=[OpenApiParameter("q", str, description="Search titles, descriptions and tags"), OpenApiParameter("type", str, description="Content type slug"), OpenApiParameter("sort", str, enum=["newest", "popular", "updated"]), OpenApiParameter("mine", bool, description="Only your uploads")]),
-    create=extend_schema(description="Create metadata for a blueprint, blueprint pack or scenario. Mod uploads are disabled. API items start as drafts; upload a release and at least one screenshot, then PATCH status to published. Each item can have up to eight screenshots.", responses={201: ItemSerializer, 400: ErrorSerializer, 403: ErrorSerializer}),
-    partial_update=extend_schema(description="Authors can edit their own metadata. Admin and Moderator browser sessions may edit any creation; API keys and OAuth tokens remain limited to their owner. Publishing requires an enabled file type, a release and at least one screenshot. Records a revision; files and previous releases are immutable.", responses={200: ItemSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 404: ErrorSerializer}),
+    list=extend_schema(parameters=[OpenApiParameter("q", str, description="Search titles, descriptions and public tags (all own tags with mine=true)"), OpenApiParameter("tag", str, description="Exact tag name, ignoring case and extra whitespace. Public tags only, unless mine=true."), OpenApiParameter("type", str, description="Content type slug"), OpenApiParameter("sort", str, enum=["newest", "popular", "updated"]), OpenApiParameter("mine", bool, description="Only your uploads")]),
+    create=extend_schema(description="Create metadata for a blueprint or scenario. Pack and mod uploads are disabled. API items start as drafts; upload a raw .cpbp or .cpcs release and at least one screenshot, then PATCH status to published. Each item can have up to eight screenshots.", responses={201: ItemSerializer, 400: ErrorSerializer, 403: ErrorSerializer}),
+    partial_update=extend_schema(description="Authors can edit their own metadata. Admin and Moderator browser sessions may edit any creation; API keys and OAuth tokens remain limited to their owner. Publishing requires an enabled file type, a validated release and at least one validated screenshot. Setting status to published while file checks are pending records the intent; the response remains draft until all checks pass. Records a revision; files and previous releases are immutable.", responses={200: ItemSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 404: ErrorSerializer}),
 )
 class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin,
                   mixins.UpdateModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet):
@@ -58,8 +79,7 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             params = self.request.query_params
             if params.get("mine") == "true":
                 qs = item_query().filter(author=self.request.user) if self.request.user.is_authenticated else qs.none()
-            if params.get("q"):
-                qs = qs.filter(Q(title__icontains=params["q"]) | Q(description__icontains=params["q"]) | Q(tags__icontains=params["q"]))
+            qs = filter_tags(qs, query=params.get("q", "").strip()[:200], tag=params.get("tag", "")[:200], private=params.get("mine") == "true")
             if params.get("type"):
                 qs = qs.filter(content_type__slug=params["type"])
             qs = qs.order_by({"newest": "-created_at", "popular": "-downloads"}.get(params.get("sort"), "-updated_at"), "id")
@@ -107,18 +127,26 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         previous_status = item.status
         for field, value in serializer.validated_data.items():
             setattr(item, field, value)
+        if "content_type" in serializer.validated_data and item.upload_jobs.filter(status="pending").exists():
+            raise ValidationError({"content_type": "Wait for the current file checks before changing the type."})
+        if "status" in serializer.validated_data:
+            item.publish_after_validation = False
+            if item.status == Item.Status.PUBLISHED and item.upload_jobs.filter(status="pending").exists():
+                item.status = Item.Status.DRAFT
+                item.publish_after_validation = True
+                serializer.validated_data["status"] = Item.Status.DRAFT
         if item.status == Item.Status.PUBLISHED and {"status", "content_type"}.intersection(serializer.validated_data):
             try:
                 validate_publication(item)
             except DjangoValidationError as exc:
                 raise ValidationError({"status": exc.messages})
         serializer.instance = item
-        item = serializer.save()
+        item = serializer.save(publish_after_validation=item.publish_after_validation)
         record_revision(item, self.request.user)
         if previous_status != Item.Status.PUBLISHED and item.status == Item.Status.PUBLISHED:
             record_activity(self.request, AccountActivity.Action.PUBLISH, item=item)
 
-    @extend_schema(request=ReleaseUploadSerializer, responses={201: ReleaseSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 429: ErrorSerializer, 503: ErrorSerializer}, parameters=[OpenApiParameter("Retry-After", OpenApiTypes.INT, OpenApiParameter.HEADER, response=[429], description="Seconds until an upload slot becomes available.")], description="Upload to an owned creation, or use an Admin or Moderator browser session to add a release to any creation. The file type must be enabled. Published items must have at least one screenshot before adding a release. Version strings are unique per item. Existing releases cannot be overwritten. Successful creation files and new releases share a rolling limit of 16 uploads per hour per account across sessions, API keys and OAuth tokens. Admins, Moderators and Reviewers are exempt; screenshots do not use slots. A 429 response includes Retry-After in seconds.")
+    @extend_schema(request=ReleaseUploadSerializer, responses={202: UploadJobSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 429: ErrorSerializer, 503: ErrorSerializer}, parameters=[OpenApiParameter("Retry-After", OpenApiTypes.INT, OpenApiParameter.HEADER, response=[429], description="Seconds until an upload slot becomes available.")], description="Upload to an owned creation, or use an Admin or Moderator browser session to add a release to any creation. The file type must be enabled. Published items must have at least one screenshot before adding a release. Version strings are unique per item. Existing releases cannot be overwritten. Returns 202 with a validation job. The creation stays draft until isolated checks finish. Poll upload-jobs/ for the result. Submitted creation files and new releases share a rolling limit of 16 uploads per hour per account across sessions, API keys and OAuth tokens. Admins, Moderators and Reviewers are exempt; screenshots do not use slots. A 429 response includes Retry-After in seconds.")
     @action(detail=True, methods=["post"], url_path="releases", parser_classes=[MultiPartParser, FormParser])
     def release_upload(self, request, pk=None):
         item = self.get_object()
@@ -128,6 +156,8 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             release = add_release(item, **serializer.validated_data, request=request)
         except DjangoValidationError as exc:
             raise ValidationError({"file": exc.messages})
+        if isinstance(release, UploadJob):
+            return Response(UploadJobSerializer(release).data, status=202)
         return Response(ReleaseSerializer(release, context={"request": request}).data, status=201)
 
     @extend_schema(
@@ -147,7 +177,7 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
         response["X-Content-SHA256"] = release.sha256
         return response
 
-    @extend_schema(request=ScreenshotUploadSerializer, responses={201: ScreenshotSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 503: ErrorSerializer})
+    @extend_schema(request=ScreenshotUploadSerializer, responses={202: UploadJobSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 503: ErrorSerializer})
     @action(detail=True, methods=["post"], url_path="screenshots", parser_classes=[MultiPartParser, FormParser])
     def screenshot_upload(self, request, pk=None):
         item = self.get_object()
@@ -157,7 +187,17 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             screenshot = add_screenshot(item, **serializer.validated_data, request=request)
         except DjangoValidationError as exc:
             raise ValidationError({"image": exc.messages})
+        if isinstance(screenshot, UploadJob):
+            return Response(UploadJobSerializer(screenshot).data, status=202)
         return Response(ScreenshotSerializer(screenshot, context={"request": request}).data, status=201)
+
+    @extend_schema(description="File-check status for the author or a staff browser session. Upload endpoints return 202 with a job ID. Files remain private and the creation stays draft until checks finish. A passed job supplies its release or screenshot ID; a failed job supplies a safe error message.", responses=UploadJobSerializer(many=True))
+    @action(detail=True, methods=["get"], url_path="upload-jobs", pagination_class=None)
+    def upload_jobs(self, request, pk=None):
+        item = self.get_object()
+        if item.author_id != request.user.pk and not (request.auth is None and can_moderate(request.user)):
+            raise PermissionDenied("Only the author and staff can view file checks.")
+        return Response(UploadJobSerializer(item.upload_jobs.all()[:50], many=True).data)
 
     @extend_schema(
         responses={(200, "image/webp"): OpenApiTypes.BINARY, 302: None, 403: ErrorSerializer, 404: ErrorSerializer, 503: ErrorSerializer},

@@ -45,12 +45,12 @@ Observed in the local Car Park Capital installation's `assets/` directory:
 - `blueprints/**` contains `.cpbp` files, including `small_parking_garages/bubble_garage.cpbp`.
 - `scenarios/` contains `.cpcs` files, including `Florida.cpcs`, `City.cpcs`, and `Egypt.cpcs`.
 - A scenario sample begins with zlib-compressed binary data; a bounded exploratory decode showed structured binary content, not plain JSON.
-- Blueprint samples have a different binary header. The exact format is not assumed or reverse-engineered for server validation.
+- Blueprint samples have a different binary header. The isolated validator checks observed versions 2 and 3, bounded CBOR metadata, dimensions, and tile-data length.
 - `default_level.lvl` exists, but is not enabled by default because its suitability as a shared user export has not been established. An operator can add it to a relevant category later.
 
-The files are stored unchanged, with original download names, byte counts and SHA-256. This supports ZIP packs, raw scenarios and future mods without introducing guessed parsers. Category definitions in the database decide accepted extensions; `/api/v1/types/` is the discoverable contract. Blueprint packs accept both native file formats as well as ZIP/JSON. Only blueprints, blueprint packs, and scenarios currently accept uploads. The other-mod category and new categories have uploads disabled until an administrator enables them.
+Approved game files are stored unchanged, with original download names, byte counts and SHA-256. `/api/v1/types/` lists enabled upload types and limits. Currently only raw `.cpbp` blueprints and `.cpcs` scenarios accept uploads. Blueprint packs, ZIP/JSON uploads, other mods, and new categories are disabled. Adding another upload format requires validator support as well as a category change. Existing downloads are retained.
 
-ZIP metadata is checked for traversal, absolute paths, symlinks, encryption, excessive entry counts, excessive declared expanded size and compression ratios. Archives are never extracted or executed. Native binary validation, antivirus scanning and game compatibility checking are not implemented. The mod manager must inspect archive paths again before installation, avoid writing outside its chosen game-content directory, and verify downloads against the returned checksum. Screenshots are decoded, pixel-limited, resized and re-encoded to remove metadata and active payloads.
+Native structure validation runs in disposable Firecracker VMs. Antivirus scanning and game compatibility checking are not implemented. See [upload validation](upload-validation.md). For retained legacy ZIP downloads, mod managers must inspect archive paths before installation, avoid writing outside their chosen game-content directory, and verify downloads against the returned checksum. Screenshots are decoded, pixel-limited, resized and re-encoded inside the guest; submitted images are never decoded by the web process.
 
 ## Author edits and versioning
 

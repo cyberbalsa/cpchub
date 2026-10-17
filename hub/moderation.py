@@ -14,7 +14,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from .access import ROLES, assigned_role, can_manage_content, can_moderate, is_admin, item_query
-from .models import AccountActivity, FileDeletion, Item, ItemReview, ModerationLog, Release, Screenshot, UserModeration
+from .models import AccountActivity, FileDeletion, Item, ItemReview, ModerationLog, Release, Screenshot, TagSettings, UploadSettings, UserModeration
 from .moderation_services import delete_item, delete_user, log_action, moderate_item, revoke_credentials, shadow_ban_user, update_user
 from .services import record_revision
 from .validators import validate_version
@@ -32,6 +32,50 @@ def staff_required(*, admin_only=False):
             return view(request, *args, **kwargs)
         return checked
     return decorate
+
+
+class UploadSettingsForm(forms.Form):
+    max_file_mb = forms.IntegerField(min_value=1, max_value=100, label="Maximum game file size (MB)", help_text="Applies to each new blueprint or scenario file. Default: 15 MB. Screenshots keep their separate 10 MB limit. The validator supports up to 100 MB.")
+
+
+@staff_required(admin_only=True)
+@require_http_methods(["GET", "POST"])
+def upload_settings(request):
+    from .upload_settings import max_game_file_bytes
+    form = UploadSettingsForm(request.POST if request.method == "POST" else None, initial={"max_file_mb": max_game_file_bytes() // 1024 // 1024})
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            settings, _ = UploadSettings.objects.select_for_update().get_or_create(pk=1)
+            previous = settings.max_file_mb
+            settings.max_file_mb = form.cleaned_data["max_file_mb"]
+            settings.save(update_fields=["max_file_mb"])
+            if previous != settings.max_file_mb:
+                log_action(request.user, "change upload limit", reason=f"Game file limit changed from {previous} MB to {settings.max_file_mb} MB.")
+        messages.success(request, "Upload settings saved.")
+        return redirect("moderation-upload-settings")
+    return render(request, "hub/moderation/upload_settings.html", {"form": form})
+
+
+class TagSettingsForm(forms.Form):
+    minimum_items = forms.IntegerField(min_value=1, max_value=10000, label="Minimum public creations", help_text="A tag appears publicly once this many visible, published creations use it. Default: 11 (more than 10).")
+
+
+@staff_required(admin_only=True)
+@require_http_methods(["GET", "POST"])
+def tag_settings(request):
+    from .tags import minimum_tag_items, public_tags
+    form = TagSettingsForm(request.POST if request.method == "POST" else None, initial={"minimum_items": minimum_tag_items()})
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            settings, _ = TagSettings.objects.select_for_update().get_or_create(pk=1)
+            previous = settings.minimum_items
+            settings.minimum_items = form.cleaned_data["minimum_items"]
+            settings.save(update_fields=["minimum_items"])
+            if previous != settings.minimum_items:
+                log_action(request.user, "change tag threshold", reason=f"Minimum public creations changed from {previous} to {settings.minimum_items}.")
+        messages.success(request, "Tag settings saved.")
+        return redirect("moderation-tag-settings")
+    return render(request, "hub/moderation/tag_settings.html", {"form": form, "public_tag_count": public_tags().count()})
 
 
 class ModerationForm(forms.Form):
@@ -200,7 +244,7 @@ def item_tools(request, pk):
             messages.success(request, "Moderation changes saved.")
             return redirect("moderation-item", pk=pk)
     return render(request, "hub/moderation/item.html", {
-        "item": item, "form": form, "review_form": review_form,
+        "item": item, "form": form, "review_form": review_form, "pending_checks": item.upload_jobs.filter(status="pending").exists(),
         "page_obj": Paginator(item.reviews.select_related("reviewer"), 20).get_page(request.GET.get("page")),
         "can_manage": can_manage_content(request.user),
         "can_highlight": not (item.is_hidden or item.deleted_at or item.status != Item.Status.PUBLISHED or UserModeration.objects.filter(user=item.author, shadow_banned_at__isnull=False).exists()),

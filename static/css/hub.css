@@ -139,7 +139,9 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
 .browse-section .section-heading .ui-icon { width: 20px; height: 20px; }
 .file-label { font: 8px Tahoma, sans-serif; letter-spacing: .6px; color: #d4dfb9; }
 .dark-eyebrow { color: #62704c; }
-.catalog-filter { display: flex; align-items: stretch; gap: 7px; }
+.catalog-filter { display: flex; align-items: stretch; flex-wrap: wrap; gap: 7px; }
+.tag-filter { flex: 0 1 160px; min-width: 120px; }
+.tag-filter input { width: 100%; height: 35px; background-color: #ecdfbd; }
 .search-field { display: flex; align-items: center; flex: 1; min-width: 0; background: #fcf2d9; border: 1px solid #8c7d58; box-shadow: var(--recessed); padding-left: 8px; }
 .search-field .ui-icon { width: 17px; height: 17px; }
 .search-field input { width: 100%; box-shadow: none !important; border: 0 !important; background: transparent !important; min-height: 33px; height: 33px !important; padding: 6px 8px !important; min-width: 0; }

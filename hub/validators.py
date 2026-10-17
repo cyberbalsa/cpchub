@@ -18,11 +18,13 @@ def validate_version(value):
 
 
 def validate_package(upload, content_type):
+    from .upload_settings import max_game_file_bytes
     suffix = PurePosixPath(upload.name).suffix.lower()
     if suffix not in content_type.allowed_extensions:
         raise ValidationError("Supported files for this type: " + ", ".join(content_type.allowed_extensions))
-    if upload.size == 0 or upload.size > settings.MAX_UPLOAD_BYTES:
-        raise ValidationError(f"Upload a non-empty file up to {settings.MAX_UPLOAD_BYTES // 1024 // 1024} MB.")
+    limit = max_game_file_bytes()
+    if upload.size == 0 or upload.size > limit:
+        raise ValidationError(f"Upload a non-empty file up to {limit // 1024 // 1024} MB.")
     try:
         if suffix == ".json":
             if upload.size > 10 * 1024 * 1024:
@@ -49,8 +51,10 @@ def validate_package(upload, content_type):
 
 
 def clean_screenshot(upload):
-    if upload.size > 10 * 1024 * 1024:
+    if not upload.size or upload.size > 10 * 1024 * 1024:
         raise ValidationError("Screenshots must be under 10 MB.")
+    if settings.ASYNC_UPLOAD_VALIDATION:
+        return upload  # Decode and re-encode only inside the validation microVM.
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)

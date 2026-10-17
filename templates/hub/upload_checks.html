@@ -1,0 +1,6 @@
+<section id="upload-checks" {% if pending_checks %}hx-get="{% url 'upload-checks' item.pk %}" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %} aria-live="polite">
+{% if item.upload_jobs.exists %}<div class="paper-panel"><h2>File checks</h2>
+{% if pending_checks %}<p>Your files are being checked. This creation is private until the checks finish.{% if item.publish_after_validation %} It will publish automatically if they all pass.{% endif %}</p>{% elif item.status == 'published' %}<p>Checks finished. <a href="{{ item.get_absolute_url }}">View your published creation.</a></p>{% else %}<p>Checks finished. This creation is still a draft.</p>{% endif %}
+<ul>{% for job in item.upload_jobs.all|slice:':12' %}<li><strong>{{ job.original_filename }}</strong> — {{ job.get_status_display }}{% if job.error %}<p>{{ job.error }}</p>{% endif %}</li>{% endfor %}</ul>
+</div>{% endif %}
+</section>

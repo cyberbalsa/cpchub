@@ -43,8 +43,9 @@ def restore_own_item(request, pk):
 def unpublish_own_item(request, pk):
     item = get_object_or_404(Item.objects.select_for_update(), pk=pk, author=request.user)
     item.status = Item.Status.DRAFT
+    item.publish_after_validation = False
     item.featured_at = item.featured_by = None
-    item.save(update_fields=["status", "featured_at", "featured_by"])
+    item.save(update_fields=["status", "publish_after_validation", "featured_at", "featured_by"])
     record_revision(item, request.user)
     messages.success(request, "Creation unpublished. Only you and staff can view it.")
     return redirect("item-edit", pk=pk)

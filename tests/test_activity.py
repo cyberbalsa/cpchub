@@ -15,7 +15,7 @@ from hub.moderation_services import delete_user
 from tests.test_hub import package, screenshot
 
 
-@override_settings(TRUST_PROXY=True, TRUSTED_PROXY_CIDRS=["10.89.0.0/24", "2001:db8:1::/64"])
+@override_settings(ASYNC_UPLOAD_VALIDATION=False, TRUST_PROXY=True, TRUSTED_PROXY_CIDRS=["10.89.0.0/24", "2001:db8:1::/64"])
 class ClientIPTests(SimpleTestCase):
     def request(self, peer, forwarded, **headers):
         request = RequestFactory().get("/", REMOTE_ADDR=peer, HTTP_X_REAL_IP=forwarded, **headers)
@@ -50,14 +50,14 @@ class ClientIPTests(SimpleTestCase):
             self.assertIsNone(request.client_ip)
             self.assertEqual(request.client_ip_source, "unknown")
 
-    @override_settings(TRUST_PROXY=False)
+    @override_settings(ASYNC_UPLOAD_VALIDATION=False, TRUST_PROXY=False)
     def test_proxy_trust_is_off_by_default(self):
         request = self.request("10.89.0.7", "203.0.113.10")
         self.assertEqual(request.client_ip, "10.89.0.7")
         self.assertFalse(request.trusted_proxy)
 
 
-@override_settings(DEBUG=True, SECURE_SSL_REDIRECT=False, TRUST_PROXY=True, TRUSTED_PROXY_CIDRS=["10.89.0.0/24"],
+@override_settings(ASYNC_UPLOAD_VALIDATION=False, DEBUG=True, SECURE_SSL_REDIRECT=False, TRUST_PROXY=True, TRUSTED_PROXY_CIDRS=["10.89.0.0/24"],
                    STORAGES={"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
                              "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"}})
 class ActivityTests(TestCase):

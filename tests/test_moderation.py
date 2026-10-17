@@ -20,7 +20,7 @@ from hub.moderation_services import moderate_item, self_delete_item, shadow_ban_
 from tests.test_hub import package, screenshot
 
 
-@override_settings(DEBUG=True, SECURE_SSL_REDIRECT=False, STORAGES={
+@override_settings(ASYNC_UPLOAD_VALIDATION=False, DEBUG=True, SECURE_SSL_REDIRECT=False, STORAGES={
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 })

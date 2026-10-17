@@ -32,6 +32,8 @@ services:
       - "127.0.0.1:8000:8000"
     volumes:
       - media_data:/app/media
+      - /var/lib/cpchub-validation/incoming:/var/lib/cpchub-validation/incoming:rw
+      - /var/lib/cpchub-validation/results:/var/lib/cpchub-validation/results:ro
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -40,6 +42,20 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    restart: unless-stopped
+  uploads:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://cpchub:${POSTGRES_PASSWORD}@db:5432/cpchub
+    command: ["python", "manage.py", "process_upload_jobs", "--loop"]
+    volumes:
+      - media_data:/app/media
+      - /var/lib/cpchub-validation/incoming:/var/lib/cpchub-validation/incoming:rw
+      - /var/lib/cpchub-validation/results:/var/lib/cpchub-validation/results:ro
+    depends_on:
+      web:
+        condition: service_healthy
     restart: unless-stopped
   cleanup:
     build: .

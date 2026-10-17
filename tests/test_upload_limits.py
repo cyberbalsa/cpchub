@@ -27,7 +27,7 @@ LOCAL_STORAGE = {
 }
 
 
-@override_settings(DEBUG=True, SECURE_SSL_REDIRECT=False, STORAGES=LOCAL_STORAGE)
+@override_settings(ASYNC_UPLOAD_VALIDATION=False, DEBUG=True, SECURE_SSL_REDIRECT=False, STORAGES=LOCAL_STORAGE)
 class UploadLimitTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -109,7 +109,7 @@ class UploadLimitTests(TestCase):
 
     def test_invalid_duplicate_and_failed_storage_uploads_do_not_use_slots(self):
         self.assertEqual(self.api.post(f"/api/v1/items/{self.item.pk}/releases/", {
-            "file": package(data=b"not json"), "version": "bad-json",
+            "file": package(data=b""), "version": "empty-file",
         }, format="multipart").status_code, 400)
         self.assertFalse(UploadEvent.objects.exists())
         self.assertEqual(self.release().status_code, 201)
@@ -156,12 +156,12 @@ class UploadLimitTests(TestCase):
                 self.assertEqual(staff.upload_events.count(), 16)
 
 
-@override_settings(STORAGES=LOCAL_STORAGE)
+@override_settings(ASYNC_UPLOAD_VALIDATION=False, STORAGES=LOCAL_STORAGE)
 class ConcurrentUploadTests(TransactionTestCase):
     @skipUnlessDBFeature("has_select_for_no_key_update")
     def test_simultaneous_edit_and_upload_do_not_deadlock(self):
         user = get_user_model().objects.create_user("editing-uploader")
-        category = ContentType.objects.create(name="Editing", slug="editing-concurrency", uploads_enabled=True, allowed_extensions=[".json"])
+        category = ContentType.objects.create(name="Editing", slug="editing-concurrency", uploads_enabled=True, allowed_extensions=[".cpbp"])
         item = Item.objects.create(author=user, content_type=category, title="Before", status="draft")
         item_locked, upload_reserved = Event(), Event()
 
@@ -200,7 +200,7 @@ class ConcurrentUploadTests(TransactionTestCase):
     @skipUnlessDBFeature("has_select_for_update")
     def test_parallel_uploads_share_the_last_account_slot(self):
         user = get_user_model().objects.create_user("concurrent-uploader")
-        category = ContentType.objects.create(name="Concurrency", slug="upload-concurrency", uploads_enabled=True, allowed_extensions=[".json"])
+        category = ContentType.objects.create(name="Concurrency", slug="upload-concurrency", uploads_enabled=True, allowed_extensions=[".cpbp"])
         items = [Item.objects.create(author=user, content_type=category, title=f"Upload {index}", status="draft") for index in range(4)]
         UploadEvent.objects.bulk_create([UploadEvent(user=user) for _ in range(15)])
         gate = Barrier(4)
