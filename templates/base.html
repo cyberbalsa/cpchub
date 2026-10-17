@@ -28,6 +28,7 @@
   <a class="tool-button {% if catalog_view == 'saved' %}active{% endif %}" href="/?view=saved">{% include 'hub/icon.html' with icon='saved' %}<span>Collection</span></a>
   <a class="tool-button {% if catalog_view == 'mine' %}active{% endif %}" href="/?view=mine">{% include 'hub/icon.html' with icon='folder' %}<span>My uploads</span></a>
   <span class="toolbar-divider" aria-hidden="true"></span>
+  <a class="tool-button {% if request.resolver_match.url_name == 'install' %}active{% endif %}" href="{% url 'install' %}" {% if request.resolver_match.url_name == 'install' %}aria-current="page"{% endif %}>{% include 'hub/icon.html' with icon='folder' %}<span>How to install</span></a>
   <a class="tool-button {% if request.resolver_match.url_name == 'keys' %}active{% endif %}" href="{% url 'keys' %}">{% include 'hub/icon.html' with icon='key' %}<span>API keys</span></a>
   <a class="tool-button {% if request.path == '/developers/' %}active{% endif %}" href="{% url 'developers' %}">{% include 'hub/icon.html' with icon='tools' %}<span>Developers</span></a>
   {% if kofi_page_url %}<a class="tool-button donate-shortcut" href="{% url 'donate' %}" aria-label="Donate to CPC Hub"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" shape-rendering="crispEdges"><path fill="#60492e" d="M3 4h15v2h4v10h-5v3H6v-2H3zM2 21h18v2H2z"/><path fill="#fff0c4" d="M5 6h11v10h-2v2H7v-2H5zM18 8h2v6h-2z"/><path fill="#ba503d" d="M7 8h3v1h1V8h3v4h-1v1h-1v1h-2v-1H9v-1H7z"/><path fill="#d3a969" d="M5 6h11v2H5z"/></svg><span>Donate</span></a>{% endif %}

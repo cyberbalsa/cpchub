@@ -20,6 +20,7 @@ from .file_delivery import StorageUnavailable, file_response
 SITE_TITLE = "CPC Hub | Car Park Capital blueprints and scenarios"
 SITE_DESCRIPTION = "Share and download fan-made blueprints and scenarios for Car Park Capital. Browse screenshots, save creations, and find new builds for your game."
 STATIC_PAGES = {
+    "install": ("Install blueprints and scenarios | CPC Hub", "How to install Car Park Capital blueprints and scenarios on Windows and Linux."),
     "catalog": (SITE_TITLE, SITE_DESCRIPTION),
     "donate": ("Support CPC Hub | Hosting and storage", "Help cover CPC Hub's $45 monthly hosting and storage costs with an optional Ko-fi tip."),
     "developers": ("CPC Hub API | Mod manager developer guide", "Connect a mod manager to CPC Hub. Browse creations, download releases, and manage uploads with API keys or OAuth."),

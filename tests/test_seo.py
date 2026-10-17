@@ -133,24 +133,24 @@ class SearchTests(TestCase):
 
     @override_settings(SITEMAP_PAGE_SIZE=2)
     def test_sitemap_index_and_children_are_paginated_without_duplicates(self):
-        self.assertEqual(build_snapshot(), 6)  # Three static pages, two items, one author.
+        self.assertEqual(build_snapshot(), 7)  # Four static pages, two items, one author.
         root = ElementTree.fromstring(self.client.get("/sitemap.xml").content)
         ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
         links = [node.text for node in root.findall("s:sitemap/s:loc", ns)]
-        self.assertEqual(links, [f"https://cpchub.net/sitemap-{n}.xml" for n in [1, 2, 3]])
+        self.assertEqual(links, [f"https://cpchub.net/sitemap-{n}.xml" for n in [1, 2, 3, 4]])
         urls = []
         for link in links:
             response = self.client.get(link.removeprefix("https://cpchub.net"))
             self.assertIn("no-store", response["Cache-Control"])
             page = ElementTree.fromstring(response.content)
             entries = page.findall("s:url", ns)
-            self.assertEqual(len(entries), 2)
+            self.assertEqual(len(entries), 1 if link.endswith("sitemap-4.xml") else 2)
             urls.extend(node.find("s:loc", ns).text for node in entries)
         self.assertEqual(len(urls), len(set(urls)))
         self.assertIn("https://cpchub.net" + self.item.get_absolute_url(), urls)
         self.assertNotIn("https://cpchub.net" + self.private.get_absolute_url(), urls)
         self.assertEqual(self.client.get("/sitemap-0.xml").status_code, 404)
-        self.assertEqual(self.client.get("/sitemap-4.xml").status_code, 404)
+        self.assertEqual(self.client.get("/sitemap-5.xml").status_code, 404)
 
     def test_visibility_changes_remove_snapshot_urls_immediately(self):
         build_snapshot()

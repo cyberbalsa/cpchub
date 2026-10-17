@@ -25,7 +25,7 @@ def build_snapshot(*, only_if_missing=False):
     if only_if_missing and not created:
         return 0
     SitemapEntry.objects.all().delete()
-    batch = [SitemapEntry(path=reverse(name)) for name in ["catalog", "developers", "donate"]]
+    batch = [SitemapEntry(path=reverse(name)) for name in ["catalog", "install", "developers", "donate"]]
     public = published_items()
     modified = Greatest("updated_at", "review_requested_at")
     for item in public.annotate(modified=modified).values("pk", "modified").order_by("pk").iterator(chunk_size=1000):

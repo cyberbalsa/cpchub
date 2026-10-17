@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import include, path
+from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from oauth2_provider import views as oauth_views
 from rest_framework.routers import DefaultRouter
@@ -25,6 +26,7 @@ urlpatterns = [
     path("sitemap-<int:page>.xml", sitemaps.sitemap_page, name="sitemap-page"),
     path("share/items/<uuid:pk>/<uuid:screenshot_id>/image.webp", seo.share_image, name="share-image"),
     path("", views.catalog, name="catalog"),
+    path("install/", TemplateView.as_view(template_name="hub/install.html"), name="install"),
     path("creators/<int:pk>/", views.creator_profile, name="creator-profile"),
     path("upload/", views.create_item, name="item-create"),
     path("items/<uuid:pk>/", views.detail, name="item-detail"),
