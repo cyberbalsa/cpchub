@@ -1,0 +1,7 @@
+<h2 id="{{ warning_title_id }}">Leaving CPC Hub</h2>
+<p>This link takes you to another website. CPC Hub does not control its content.</p>
+<p class="external-destination" data-external-destination dir="ltr">{{ destination }}</p>
+<div class="form-actions">
+  {% if modal %}<button type="button" data-close-external-warning autofocus>Stay here</button>{% else %}<a class="win-button" href="{% url 'catalog' %}">Back to CPC Hub</a>{% endif %}
+  <a class="win-button" href="{{ destination|default:'#' }}" data-confirm-external rel="nofollow noopener noreferrer">Continue to site</a>
+</div>

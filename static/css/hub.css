@@ -209,6 +209,27 @@ input:not([type=checkbox]):not([type=radio]), textarea, select { background-colo
 .paper-panel p { font-size: 13px; line-height: 1.8; }
 .description { white-space: normal; overflow-wrap: anywhere; }
 .description p { font-size: 13px; }
+.markdown-content { color: #5b5d4d; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.markdown-content p { font-size: inherit; line-height: inherit; margin: 0 0 10px; }
+.markdown-content h4 { color: inherit; font-size: 14px; line-height: 1.5; margin: 16px 0 8px; }
+.markdown-content ul, .markdown-content ol { padding-left: 24px; margin: 8px 0 12px; }
+.markdown-content li { margin: 3px 0; }
+.markdown-content blockquote { margin: 12px 0; padding: 2px 12px; border-left: 3px solid #b3a77f; }
+.markdown-content code { font-size: 12px; background: #b6a37626; padding: 1px 4px; }
+.markdown-content pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px; background: #b6a37626; }
+.markdown-content pre code { padding: 0; background: none; }
+.markdown-content a { color: #3e6650; text-decoration: underline; text-underline-offset: 2px; }
+.markdown-content a:hover { color: #273f31; }
+.markdown-content > :first-child { margin-top: 0; }
+.markdown-content > :last-child { margin-bottom: 0; }
+.external-warning-window { width: min(520px, calc(100% - 28px)); max-height: calc(100vh - 32px); overflow: auto; color: var(--ink); }
+dialog.external-warning-window { margin: auto; }
+dialog.external-warning-window::backdrop { background: #15251bd9; }
+.external-warning-window .window-body { padding: 20px; }
+.external-warning-window h2 { font-size: 18px; margin: 0 0 14px; }
+.external-warning-window p { font-size: 13px; line-height: 1.6; }
+.external-warning-window .external-destination { padding: 10px; background: var(--paper); box-shadow: var(--recessed); overflow-wrap: anywhere; unicode-bidi: plaintext; }
+.external-warning-window .form-actions { flex-wrap: wrap; }
 .lead { font-size: 15px !important; line-height: 1.6; }
 .download-panel { margin-bottom: 20px; }
 .download-panel .window-body { padding: 20px; text-align: center; }

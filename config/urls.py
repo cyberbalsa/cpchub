@@ -9,6 +9,7 @@ from hub.accounts import ProfileView
 from hub.download_warning import download, reset_warning
 from hub.oauth import PKCEAuthorizationView
 from hub.support import donate
+from hub.links import outbound_link
 
 router = DefaultRouter()
 router.register("items", api.ItemViewSet, basename="api-item")
@@ -35,6 +36,7 @@ urlpatterns = [
     path("account/managers/<int:pk>/revoke/", views.revoke_manager, name="manager-revoke"),
     path("developers/", views.developers, name="developers"),
     path("donate/", donate, name="donate"),
+    path("out/", outbound_link, name="outbound-link"),
     path("moderation/", moderation.dashboard, name="moderation"),
     path("moderation/tags/", moderation.tag_settings, name="moderation-tag-settings"),
     path("moderation/uploads/", moderation.upload_settings, name="moderation-upload-settings"),

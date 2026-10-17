@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static hub_text %}
 {% block title %}Support CPC Hub — help cover server costs{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{% static 'css/support.css' %}">{% endblock %}
 {% block content %}
@@ -22,7 +22,7 @@
         <h2 id="support-checkout-title">Leave a tip on Ko-fi</h2>
         <p>Choose an amount on Ko-fi.</p>
         {% if kofi_page_url %}
-        <a class="win-button primary-button support-button" href="{{ kofi_page_url }}" rel="noopener noreferrer"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M3 5h13v10l-3 3H6l-3-3V5Zm13 2h4v6h-4M2 21h17"/></svg>Leave a tip <span aria-hidden="true">↗</span></a>
+        <a class="win-button primary-button support-button" href="{{ kofi_page_url|outbound_url:request }}" rel="noopener noreferrer"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M3 5h13v10l-3 3H6l-3-3V5Zm13 2h4v6h-4M2 21h17"/></svg>Leave a tip <span aria-hidden="true">↗</span></a>
         <p class="support-payment-note">Ko-fi handles the payment.</p>
         {% else %}
         <p class="support-pending">Donations are being set up. Please check back soon.</p>

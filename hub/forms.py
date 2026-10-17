@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.urls import reverse
 
 from .models import ContentType, Item
+from .markdown import MARKDOWN_HELP
 from .validators import clean_screenshot, validate_version
 from .tags import clean_tags, minimum_tag_items
 
@@ -28,6 +29,7 @@ class ItemForm(forms.ModelForm):
         model = Item
         fields = ["title", "content_type", "summary", "description", "tags", "status"]
         labels = {"content_type": "File type", "summary": "Short description"}
+        help_texts = {"description": MARKDOWN_HELP}
         widgets = {"description": forms.Textarea(attrs={"rows": 7}), "summary": forms.TextInput(attrs={"maxlength": 180})}
 
     def clean_content_type(self):
@@ -51,7 +53,7 @@ class ReleaseForm(forms.Form):
     version = forms.CharField(max_length=40, initial="1.0.0", validators=[validate_version])
     game_version = forms.CharField(max_length=40, required=False, help_text="Car Park Capital version you tested this file with. Optional.")
     file = forms.FileField(widget=forms.FileInput(attrs={"accept": ".cpbp,.cpcs"}), help_text="Upload a .cpbp blueprint or .cpcs scenario. Limit: 100 MB. ZIP packs and JSON uploads are disabled.")
-    changelog = forms.CharField(required=False, max_length=10000, widget=forms.Textarea(attrs={"rows": 4}))
+    changelog = forms.CharField(required=False, max_length=10000, help_text=MARKDOWN_HELP, widget=forms.Textarea(attrs={"rows": 4}))
 
 
 class ScreenshotForm(forms.Form):

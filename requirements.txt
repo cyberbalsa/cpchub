@@ -27,6 +27,8 @@ jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 jwcrypto==1.6.1
 jmespath==1.1.0
+markdown-it-py==4.2.0
+mdurl==0.1.2
 oauthlib==4.0.0
 packaging==26.3
 pillow==12.3.0

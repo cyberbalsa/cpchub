@@ -1522,6 +1522,8 @@ components:
           maxLength: 180
         description:
           type: string
+          description: Basic Markdown source. Supports emphasis, lists, quotes, code,
+            small headings, and HTTP(S) links. HTML and embedded images are disabled.
           maxLength: 20000
         content_type:
           type: string
@@ -1628,6 +1630,8 @@ components:
         description:
           type: string
           minLength: 1
+          description: Basic Markdown source. Supports emphasis, lists, quotes, code,
+            small headings, and HTTP(S) links. HTML and embedded images are disabled.
           maxLength: 20000
         content_type:
           type: string
@@ -1800,6 +1804,8 @@ components:
         description:
           type: string
           minLength: 1
+          description: Basic Markdown source. Supports emphasis, lists, quotes, code,
+            small headings, and HTTP(S) links. HTML and embedded images are disabled.
           maxLength: 20000
         content_type:
           type: string
@@ -1840,6 +1846,8 @@ components:
           maxLength: 40
         changelog:
           type: string
+          description: Basic Markdown source. Supports emphasis, lists, quotes, code,
+            small headings, and HTTP(S) links. HTML and embedded images are disabled.
           maxLength: 10000
         original_filename:
           type: string
@@ -1896,6 +1904,8 @@ components:
           maxLength: 40
         changelog:
           type: string
+          description: Basic Markdown source. Supports emphasis, lists, quotes, code,
+            small headings, and HTTP(S) links. HTML and embedded images are disabled.
           maxLength: 10000
         original_filename:
           type: string
@@ -1932,6 +1942,8 @@ components:
           maxLength: 40
         changelog:
           type: string
+          description: Basic Markdown source. Supports emphasis, lists, quotes, code,
+            small headings, and HTTP(S) links. HTML and embedded images are disabled.
           maxLength: 10000
       required:
       - file

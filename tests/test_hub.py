@@ -103,7 +103,7 @@ class HubTests(TestCase):
             self.assertEqual(response.context["site_totals"], {"uploads": 1, "total_bytes": 2048})
             self.assertContains(response, "1 upload</span>")
             self.assertContains(response, "2.0\u00a0KB</span>")
-            self.assertContains(response, 'href="https://github.com/cyberbalsa/cpchub">Source code</a>')
+            self.assertContains(response, 'href="/out/?url=https%3A%2F%2Fgithub.com%2Fcyberbalsa%2Fcpchub">Source code</a>')
 
     @override_settings(ASYNC_UPLOAD_VALIDATION=False, DEBUG=False)
     def test_production_catalog_and_detail_use_collected_artwork(self):

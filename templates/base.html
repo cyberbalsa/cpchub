@@ -1,4 +1,4 @@
-{% load static django_htmx %}
+{% load static django_htmx hub_text %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -41,7 +41,11 @@
   <main id="main">{% block content_wrapper %}{% block content %}{% endblock %}{% endblock %}</main>
   <footer class="status-bar"><p class="status-bar-field"><span class="online-dot"></span> Community file exchange</p><p class="status-bar-field">Blueprints · Scenarios</p><p class="status-bar-field status-right">cpchub.net</p></footer>
 </div>
-<footer class="desktop-footer"><span>Car Park Capital community files · <a class="support-footer-link" href="{% url 'donate' %}">Support CPC Hub</a> · <a class="support-footer-link" href="https://github.com/cyberbalsa/cpchub">Source code</a> · Put together by <a class="support-footer-link" href="https://balsa.info">Balsa</a></span><span>Fan-made site and content · Not affiliated with the game developers.</span></footer>
+<footer class="desktop-footer"><span>Car Park Capital community files · <a class="support-footer-link" href="{% url 'donate' %}">Support CPC Hub</a> · <a class="support-footer-link" href="{{ 'https://github.com/cyberbalsa/cpchub'|outbound_url:request }}">Source code</a> · Put together by <a class="support-footer-link" href="{{ 'https://balsa.info'|outbound_url:request }}">Balsa</a></span><span>Fan-made site and content · Not affiliated with the game developers.</span></footer>
+<dialog id="external-warning" class="window external-warning-window" aria-labelledby="external-warning-title" data-warning-path="{% url 'outbound-link' %}">
+  <div class="title-bar"><div class="title-bar-text">External link</div><div class="title-bar-controls"><button type="button" aria-label="Close" data-close-external-warning></button></div></div>
+  <div class="window-body">{% include 'hub/outbound_content.html' with modal=True warning_title_id='external-warning-title' destination='' %}</div>
+</dialog>
 {% block extra_body %}{% endblock %}
 </body>
 </html>

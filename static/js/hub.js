@@ -1,4 +1,41 @@
 "use strict";
+function confirmExternalLink(event) {
+  if (event.defaultPrevented || event.button > 1) return;
+  const dialog = document.getElementById("external-warning");
+  if (!dialog || typeof dialog.showModal !== "function") return;
+  if (event.target.closest("[data-close-external-warning]")) {
+    dialog.close();
+    return;
+  }
+  const link = event.target.closest("a[href]");
+  if (!link) return;
+  if (link.hasAttribute("data-confirm-external")) {
+    if (dialog.open) dialog.close();
+    return;
+  }
+  let destination;
+  try {
+    const url = new URL(link.href);
+    if (url.origin === location.origin && url.pathname === dialog.dataset.warningPath) {
+      destination = new URL(url.searchParams.get("url"));
+    } else if (url.origin !== location.origin) {
+      destination = url;
+    } else {
+      return;
+    }
+    if (!["https:", "http:"].includes(destination.protocol) || destination.username || destination.password) return;
+  } catch {
+    return;
+  }
+  event.preventDefault();
+  const proceed = dialog.querySelector("[data-confirm-external]");
+  proceed.href = destination.href;
+  proceed.target = link.target === "_blank" || event.ctrlKey || event.metaKey || event.shiftKey || event.button === 1 ? "_blank" : "_self";
+  dialog.querySelector("[data-external-destination]").textContent = destination.href;
+  dialog.showModal();
+}
+document.addEventListener("click", confirmExternalLink);
+document.addEventListener("auxclick", confirmExternalLink);
 document.addEventListener("htmx:configRequest", (event) => {
   if (event.detail.elt.id !== "catalog-filter") return;
   for (const [name, value] of Object.entries(event.detail.parameters)) {

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from .markdown import MARKDOWN_API_HELP
 from .models import APIKey, ContentType, Item, Release, Revision, Screenshot, Tag, UploadJob
 from .validators import validate_version
 from .tags import clean_tags
@@ -64,6 +65,7 @@ class TagSuggestionSerializer(serializers.ModelSerializer):
 
 
 class ReleaseSerializer(serializers.ModelSerializer):
+    changelog = serializers.CharField(max_length=10000, required=False, allow_blank=True, help_text=MARKDOWN_API_HELP)
     file_stats = FileStatsSerializer(read_only=True, help_text='Statistics decoded in an isolated VM. Empty for files not yet inspected; null means unavailable or not applicable.')
     # Keep the PostgreSQL counter limit in the schema when developing with SQLite.
     downloads = serializers.IntegerField(min_value=0, max_value=2147483647, read_only=True, help_text="Download links issued for this release, deduplicated by account and by IP for 14 days. IPv6 uses /32 subnets. Historical totals are retained.")
@@ -81,7 +83,7 @@ class ReleaseUploadSerializer(serializers.Serializer):
     file = serializers.FileField(help_text="Raw .cpbp blueprint or .cpcs scenario, up to 15 MB by default (Admin-adjustable). ZIP packs and JSON uploads are disabled.")
     version = serializers.CharField(max_length=40, validators=[validate_version])
     game_version = serializers.CharField(max_length=40, required=False, allow_blank=True)
-    changelog = serializers.CharField(max_length=10000, required=False, allow_blank=True)
+    changelog = serializers.CharField(max_length=10000, required=False, allow_blank=True, help_text=MARKDOWN_API_HELP)
 
 
 class ScreenshotSerializer(serializers.ModelSerializer):
@@ -114,6 +116,7 @@ class UploadJobSerializer(serializers.ModelSerializer):
 
 
 class ItemSerializer(serializers.ModelSerializer):
+    description = serializers.CharField(max_length=20000, help_text=MARKDOWN_API_HELP)
     downloads = serializers.IntegerField(min_value=0, max_value=2147483647, read_only=True, help_text="Download links issued across all releases, deduplicated by account and by IP for 14 days. IPv6 uses /32 subnets. Downloading another release does not recount the creation. Historical totals are retained.")
     author = serializers.CharField(source="author.username", read_only=True)
     collection_count = serializers.IntegerField(min_value=0, read_only=True, help_text="Number of people who currently have this creation saved in their collection.")

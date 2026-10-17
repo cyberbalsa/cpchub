@@ -14,6 +14,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from .access import ROLES, assigned_role, can_manage_content, can_moderate, is_admin, item_query
+from .markdown import MARKDOWN_HELP
 from .models import AccountActivity, FileDeletion, Item, ItemReview, ModerationLog, Release, Screenshot, TagSettings, UploadJob, UploadSettings, UserModeration
 from .moderation_services import delete_item, delete_user, log_action, moderate_item, revoke_credentials, shadow_ban_user, update_user
 from .services import record_revision
@@ -165,6 +166,7 @@ class ReleaseMetadataForm(forms.ModelForm):
     class Meta:
         model = Release
         fields = ["version", "game_version", "changelog"]
+        help_texts = {"changelog": MARKDOWN_HELP}
 
 
 class ScreenshotCaptionForm(forms.ModelForm):
