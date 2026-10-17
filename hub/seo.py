@@ -3,8 +3,9 @@ import json
 from urllib.parse import urlencode
 
 from django.conf import settings
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, HttpResponsePermanentRedirect
 from django.shortcuts import get_object_or_404
+from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.html import format_html
@@ -139,8 +140,22 @@ def share_image(request, pk, screenshot_id):
 
 @require_safe
 def robots(request):
-    lines = ["User-agent: *", "Allow: /", "Disallow: /api/", "Disallow: /o/", "Disallow: /admin/", "Disallow: /moderation/", "", "Sitemap: " + absolute_url(reverse("sitemap-index")), ""]
-    return HttpResponse("\n".join(lines), content_type="text/plain; charset=utf-8")
+    body = render_to_string("hub/robots.txt", {
+        "sitemap_url": absolute_url(reverse("sitemap-index")),
+        "security_url": absolute_url(reverse("security-txt")),
+    })
+    return HttpResponse(body, content_type="text/plain; charset=utf-8")
+
+
+@require_safe
+def security_txt(request):
+    body = render_to_string("hub/security.txt", {"canonical_url": absolute_url(reverse("security-txt"))})
+    return HttpResponse(body, content_type="text/plain; charset=utf-8")
+
+
+@require_safe
+def security_txt_redirect(request):
+    return HttpResponsePermanentRedirect(absolute_url(reverse("security-txt")))
 
 
 class SearchIndexMiddleware:

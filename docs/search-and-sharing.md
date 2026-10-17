@@ -26,6 +26,20 @@ systemctl --user start cpchub-sitemap.service
 systemctl --user list-timers cpchub-sitemap.timer
 ```
 
-`/robots.txt` advertises `https://cpchub.net/sitemap.xml`. Submit that index URL in Google Search Console after verifying the domain. Cloudflare rules should allow verified search crawlers and link-preview bots to read public pages, `/share/`, `/robots.txt`, `/sitemap*.xml`, and `/static/`. A successful request with a bot's User-Agent checks the response format; it does not prove that Google has crawled or indexed a page.
+`/robots.txt` advertises `https://cpchub.net/sitemap.xml`. Submit that index URL in Google Search Console after verifying the domain. A successful request with a bot's User-Agent checks the response format; it does not prove that Google has crawled or indexed a page.
+
+## Cloudflare crawler access
+
+The live browser-check exception uses `cf.client.bot` and the verified categories `Search Engine Crawler` and `Page Preview`. It covers GET and HEAD requests to public pages, creator profiles, screenshots, static assets, robots.txt, and sitemap pages. Cloudflare verifies the crawler's identity; a matching User-Agent alone does not qualify.
+
+The rule skips Browser Integrity Check and Security Level checks. The automation challenge already exempts verified bots. Managed WAF rules, rate limits, exposed-file blocks, and admin/login challenges remain enabled. Private content still requires the application's permission checks.
+
+`deploy/cloudflare/public-crawlers-rule.json` contains the deployed rule payload. It extends the existing public API exception within the Free plan's five-rule allowance. Apply it as a PATCH to that rule in the zone's `http_request_firewall_custom` entrypoint; keep the other rules and their order. Matching requests are logged in Cloudflare Security Events. Add any future public page routes to the path list.
+
+## Crawler and security files
+
+`templates/hub/robots.txt` allows public pages and images, excludes account and staff endpoints, and points to the daily sitemap. Filtered pages remain crawlable so search engines can read their `noindex` directives. Game download endpoints are excluded.
+
+`/.well-known/security.txt` follows [RFC 9116](https://www.rfc-editor.org/rfc/rfc9116.html). `/security.txt` redirects there. It links to private GitHub vulnerability reporting and lists Balsa.38 on Signal for critical issues. Other bugs go to GitHub Issues. Review the contacts and renew `Expires` in `templates/hub/security.txt` before **17 April 2027**. Keep the GitHub `SECURITY.md` policy in sync.
 
 References: [Open Graph](https://ogp.me/), [Google sitemap guidance](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap), [Google structured data guidance](https://developers.google.com/search/docs/appearance/structured-data/sd-policies), and [Cloudflare verified bots](https://developers.cloudflare.com/waf/custom-rules/use-cases/allow-traffic-from-verified-bots/).

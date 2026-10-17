@@ -19,6 +19,8 @@ router.register("keys", api.KeyViewSet, basename="api-key")
 
 urlpatterns = [
     path("robots.txt", seo.robots, name="robots"),
+    path(".well-known/security.txt", seo.security_txt, name="security-txt"),
+    path("security.txt", seo.security_txt_redirect, name="security-txt-redirect"),
     path("sitemap.xml", sitemaps.sitemap_index, name="sitemap-index"),
     path("sitemap-<int:page>.xml", sitemaps.sitemap_page, name="sitemap-page"),
     path("share/items/<uuid:pk>/<uuid:screenshot_id>/image.webp", seo.share_image, name="share-image"),

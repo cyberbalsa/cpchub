@@ -1,0 +1,25 @@
+# CPC Hub - fan-made blueprints and scenarios for Car Park Capital.
+# Public creations, creator profiles, screenshots and static assets are crawlable.
+
+User-agent: *
+Allow: /
+
+# Account, staff and application endpoints.
+Disallow: /account/
+Disallow: /accounts/
+Disallow: /admin/
+Disallow: /moderation/
+Disallow: /api/
+Disallow: /o/
+Disallow: /upload/
+Disallow: /health/
+Disallow: /out/
+
+# Index the creation pages; leave game files to players.
+Disallow: /items/*/releases/*/download/
+
+# Search and filtered pages carry noindex in their responses.
+# Pagination stays crawlable. The sitemap is rebuilt daily.
+Sitemap: {{ sitemap_url }}
+
+# Report security issues: {{ security_url }}

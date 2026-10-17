@@ -1,0 +1,11 @@
+# CPC Hub security reports.
+# For critical issues, message Balsa.38 on Signal.
+# Start a new message in Signal and enter the full username.
+
+Contact: https://github.com/cyberbalsa/cpchub/security/advisories/new
+Expires: 2027-04-17T00:00:00Z
+Preferred-Languages: en
+Canonical: {{ canonical_url }}
+Policy: https://github.com/cyberbalsa/cpchub/blob/main/SECURITY.md
+
+# Other bugs and feature requests: https://github.com/cyberbalsa/cpchub/issues
