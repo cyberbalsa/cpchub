@@ -4,7 +4,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 from oauth2_provider import views as oauth_views
 from rest_framework.routers import DefaultRouter
 
-from hub import api, views, moderation, self_service
+from hub import api, views, moderation, self_service, seo, sitemaps
 from hub.accounts import ProfileView
 from hub.download_warning import download, reset_warning
 from hub.oauth import PKCEAuthorizationView
@@ -18,6 +18,10 @@ router.register("tags", api.TagViewSet, basename="api-tag")
 router.register("keys", api.KeyViewSet, basename="api-key")
 
 urlpatterns = [
+    path("robots.txt", seo.robots, name="robots"),
+    path("sitemap.xml", sitemaps.sitemap_index, name="sitemap-index"),
+    path("sitemap-<int:page>.xml", sitemaps.sitemap_page, name="sitemap-page"),
+    path("share/items/<uuid:pk>/<uuid:screenshot_id>/image.webp", seo.share_image, name="share-image"),
     path("", views.catalog, name="catalog"),
     path("creators/<int:pk>/", views.creator_profile, name="creator-profile"),
     path("upload/", views.create_item, name="item-create"),

@@ -69,6 +69,16 @@ services:
       web:
         condition: service_healthy
     restart: unless-stopped
+  sitemap:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://cpchub:${POSTGRES_PASSWORD}@db:5432/cpchub
+    command: ["python", "manage.py", "build_sitemap", "--loop"]
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
 volumes:
   postgres_data:
   media_data:

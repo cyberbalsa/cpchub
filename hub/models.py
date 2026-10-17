@@ -44,6 +44,22 @@ class Tag(models.Model):
         return self.name
 
 
+class SitemapState(models.Model):
+    """A persistent daily snapshot, shared by every web worker."""
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    generated_at = models.DateTimeField(default=timezone.now)
+
+
+class SitemapEntry(models.Model):
+    path = models.CharField(max_length=300, unique=True)
+    last_modified = models.DateTimeField(null=True)
+    item = models.ForeignKey("Item", null=True, on_delete=models.CASCADE, related_name="+")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.CASCADE, related_name="+")
+
+    class Meta:
+        ordering = ["path"]
+
+
 class TagSettings(models.Model):
     minimum_items = models.PositiveIntegerField(default=11)
 

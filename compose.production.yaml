@@ -10,6 +10,10 @@ services:
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:?Set the private proxy subnet and loopback addresses}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; r=urllib.request.Request('http://127.0.0.1:8000/health/',headers={'X-Forwarded-Proto':'https'}); urllib.request.urlopen(r).read()"]
+  sitemap:
+    environment:
+      DEBUG: "0"
+      PUBLIC_URL: https://cpchub.net
   caddy:
     image: caddy:2-alpine
     ports:

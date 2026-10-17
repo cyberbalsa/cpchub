@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{{ creator.username }} · CPC Hub{% endblock %}
+{% block title %}{{ seo.title }}{% endblock %}
 {% block content %}
 <div class="page-content">
   <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="{% url 'catalog' %}">Community</a><span aria-hidden="true">›</span><span>{{ creator.username }}</span></nav>

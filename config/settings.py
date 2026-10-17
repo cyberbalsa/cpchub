@@ -32,14 +32,14 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware", "django.contrib.auth.middleware.AuthenticationMiddleware",
     "allauth.account.middleware.AccountMiddleware", "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware", "django_htmx.middleware.HtmxMiddleware",
-    "hub.middleware.PrivateResponseMiddleware",
+    "hub.middleware.PrivateResponseMiddleware", "hub.seo.SearchIndexMiddleware",
 ]
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "DIRS": [BASE_DIR / "templates"],
               "APP_DIRS": True, "OPTIONS": {"context_processors": [
                   "django.template.context_processors.request", "django.contrib.auth.context_processors.auth",
-                  "django.contrib.messages.context_processors.messages", "hub.context_processors.site",
+                  "django.contrib.messages.context_processors.messages", "hub.context_processors.site", "hub.seo.context",
               ]}}]
 DATABASES = {"default": dj_database_url.config(default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}", conn_max_age=60)}
 if not DEBUG and DATABASES["default"]["ENGINE"] != "django.db.backends.postgresql":
@@ -174,3 +174,7 @@ SPECTACULAR_SETTINGS = {
     "OAUTH2_SCOPES": OAUTH2_PROVIDER["SCOPES"],
     "SWAGGER_UI_OAUTH2_CONFIG": {"usePkceWithAuthorizationCodeGrant": True},
 }
+
+SITEMAP_PAGE_SIZE = int(os.getenv("SITEMAP_PAGE_SIZE", "1000"))
+if not 1 <= SITEMAP_PAGE_SIZE <= 10000:
+    raise ImproperlyConfigured("SITEMAP_PAGE_SIZE must be between 1 and 10000.")

@@ -23,6 +23,7 @@ from .upload_limits import UploadLimitExceeded
 from .services import add_release, add_screenshot, create_with_release, record_revision, remove_screenshot, validate_publication
 from .tags import filter_tags, normalize_tag
 from .file_stats import FileStatsFilterForm, filter_file_stats
+from .seo import catalog_metadata, creator_metadata, item_metadata
 
 
 @never_cache
@@ -57,6 +58,7 @@ def catalog(request):
                "stats": stats, "stats_form": stats_form, "clear_stats_url": '/?' + clear_stats_params.urlencode(), "has_demo": items.filter(is_demo=True).exists(),
                "featured_items": public_items().filter(featured_at__isnull=False).order_by("-featured_at", "pk")[:6] if view == "all" and not q and not tag and not category and not stats_form.active and not request.GET.get("page") else [],
                "types_with_counts": ContentType.objects.filter(uploads_enabled=True).annotate(total=Count("items", filter=Q(items__status="published", items__is_hidden=False, items__deleted_at=None, items__author__moderation_state__shadow_banned_at__isnull=True))).order_by("position", "name")}
+    context["seo"] = catalog_metadata(request, page)
     return render(request, "hub/results.html" if request.htmx and not request.htmx.history_restore_request else "hub/catalog.html", context)
 
 
@@ -69,9 +71,11 @@ def creator_profile(request, pk):
     if moderation_state and moderation_state.shadow_banned_at and not show_private:
         raise Http404
     items = (item_query() if show_private else public_items()).filter(author=creator).order_by("-updated_at", "pk")
+    page = Paginator(items, 12).get_page(request.GET.get("page"))
     return render(request, "hub/creator_profile.html", {
+        "seo": creator_metadata(request, creator, page),
         "creator": creator, "owns_profile": owns_profile, "show_private": show_private,
-        "page_obj": Paginator(items, 12).get_page(request.GET.get("page")),
+        "page_obj": page,
     })
 
 
@@ -83,6 +87,7 @@ def detail(request, pk):
     if item.is_hidden and not can_moderate(request.user):
         return hidden_response(request, item)
     return render(request, "hub/detail.html", {
+        "seo": item_metadata(request, item),
         "item": item, "saved": request.user.is_authenticated and Bookmark.objects.filter(user=request.user, item=item).exists(),
         "show_download_warning": not warning_acknowledged(request), "download_warning_form": DownloadWarningForm(),
         "can_edit": can_edit_item(request.user, item),

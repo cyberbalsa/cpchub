@@ -1,5 +1,5 @@
 {% extends 'base.html' %}{% load static hub_text %}
-{% block title %}{{ item.title }} — CPC Hub{% endblock %}
+{% block title %}{{ seo.title }}{% endblock %}
 {% block extra_head %}<script src="{% static 'js/gallery.js' %}" defer></script>{% endblock %}
 {% block content %}<div class="page-content">
 <div class="breadcrumbs"><a href="/">Community</a><span>›</span><a href="/?type={{ item.content_type.slug }}">{{ item.content_type.name }}</a><span>›</span>{{ item.title }}</div>
