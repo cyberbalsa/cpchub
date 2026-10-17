@@ -15,7 +15,7 @@ from rest_framework.views import APIView
 from .models import APIKey, AccountActivity, ContentType, Item, Release, UploadJob
 from .activity import record_activity
 from .permissions import CatalogPermission, KeyPermission, token_scopes
-from .serializers import (ContentTypeSerializer, ErrorSerializer, IssuedKeySerializer, ItemSerializer,
+from .serializers import (ContentTypeSerializer, ErrorSerializer, FileStatsFilterSerializer, IssuedKeySerializer, ItemSerializer,
                           KeyCreateSerializer, KeySerializer, ProfileSerializer, ReleaseSerializer,
                           ReleaseUploadSerializer, RevisionSerializer, ScreenshotSerializer, ScreenshotUploadSerializer, TagSerializer, TagSuggestionSerializer, UploadJobSerializer)
 from .services import add_release, add_screenshot, record_revision, remove_screenshot, validate_publication
@@ -23,6 +23,7 @@ from .file_delivery import file_response
 from .download_counts import count_download
 from .access import accessible_items, can_edit_item, can_moderate, item_query, visible_items
 from .tags import filter_tags, normalize_tag, public_tags, suggested_tags
+from .file_stats import FileStatsFilterForm, filter_file_stats
 
 
 @extend_schema_view(list=extend_schema(description="Public tags with counts of visible, published creations. Tags need 11 creations by default; Admins can change this threshold. Drafts, hidden, deleted, shadow-banned and demo creations do not count.", parameters=[OpenApiParameter("q", str, description="Find tag names containing this text.")]))
@@ -55,7 +56,7 @@ class ContentTypeViewSet(viewsets.ReadOnlyModelViewSet):
 
 @extend_schema_view(
     retrieve=extend_schema(description="Read a visible creation. Hidden creations return 403 with the public moderation reason. Shadow-banned and self-deleted creations return 404 to other users; their creator and staff browser sessions retain access. Drafts remain private to the creator and staff.", responses={200: ItemSerializer, 403: ErrorSerializer, 404: ErrorSerializer}),
-    list=extend_schema(parameters=[OpenApiParameter("q", str, description="Search titles, descriptions and public tags (all own tags with mine=true)"), OpenApiParameter("tag", str, description="Exact tag name, ignoring case and extra whitespace. Public tags only, unless mine=true."), OpenApiParameter("type", str, description="Content type slug"), OpenApiParameter("sort", str, enum=["newest", "popular", "updated"]), OpenApiParameter("mine", bool, description="Only your uploads")]),
+    list=extend_schema(parameters=[FileStatsFilterSerializer, OpenApiParameter("q", str, description="Search titles, descriptions and public tags (all own tags with mine=true)"), OpenApiParameter("tag", str, description="Exact tag name, ignoring case and extra whitespace. Public tags only, unless mine=true."), OpenApiParameter("type", str, description="Content type slug"), OpenApiParameter("sort", str, enum=["newest", "popular", "updated"]), OpenApiParameter("mine", bool, description="Only your uploads")]),
     create=extend_schema(description="Create metadata for a blueprint or scenario. Pack and mod uploads are disabled. API items start as drafts; upload a raw .cpbp or .cpcs release and at least one screenshot, then PATCH status to published. Each item can have up to eight screenshots.", responses={201: ItemSerializer, 400: ErrorSerializer, 403: ErrorSerializer}),
     partial_update=extend_schema(description="Authors can edit their own metadata. Admin and Moderator browser sessions may edit any creation; API keys and OAuth tokens remain limited to their owner. Publishing requires an enabled file type, a validated release and at least one validated screenshot. Setting status to published while file checks are pending records the intent; the response remains draft until all checks pass. Records a revision; files and previous releases are immutable.", responses={200: ItemSerializer, 400: ErrorSerializer, 403: ErrorSerializer, 404: ErrorSerializer}),
 )
@@ -80,6 +81,10 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             if params.get("mine") == "true":
                 qs = item_query().filter(author=self.request.user) if self.request.user.is_authenticated else qs.none()
             qs = filter_tags(qs, query=params.get("q", "").strip()[:200], tag=params.get("tag", "")[:200], private=params.get("mine") == "true")
+            stats_form = FileStatsFilterForm(params)
+            if not stats_form.is_valid():
+                raise ValidationError(stats_form.errors)
+            qs = filter_file_stats(qs, stats_form)
             if params.get("type"):
                 qs = qs.filter(content_type__slug=params["type"])
             qs = qs.order_by({"newest": "-created_at", "popular": "-downloads"}.get(params.get("sort"), "-updated_at"), "id")

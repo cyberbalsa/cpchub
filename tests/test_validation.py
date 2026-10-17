@@ -135,7 +135,9 @@ class UploadValidationTests(TestCase):
         return Item.objects.get()
 
     def result(self, job, code=0, digest=None):
-        payload = guest.clean_image(io.BytesIO(picture()), len(picture())) if job.kind == 'screenshot' and code == 0 else b''
+        payload = b''
+        if code == 0:
+            payload = guest.clean_image(io.BytesIO(picture()), len(picture())) if job.kind == 'screenshot' else guest.evaluate(1, io.BytesIO(blueprint()), len(blueprint()))
         data = RESULT_MAGIC + bytes([code]) + len(payload).to_bytes(4, 'big') + (digest or bytes.fromhex(job.sha256)) + payload
         (self.root / 'results' / f'{job.pk.hex}.result').write_bytes(data)
         with self.captureOnCommitCallbacks(execute=True), patch('PIL.Image.open', side_effect=AssertionError('The collector must not decode uploads')):
@@ -271,6 +273,48 @@ class UploadValidationTests(TestCase):
         self.assertEqual(job.status, 'failed')
         self.assertEqual(item.releases.count(), 1)
         self.assertEqual(set((self.root / 'media').rglob('*.*')), files_before)
+
+    def test_decoded_stats_are_saved_and_backfilled_without_reupload_or_republication(self):
+        from hub.upload_jobs import queue_release_stats
+        item = self.create()
+        for job in item.upload_jobs.all():
+            self.result(job)
+        item.refresh_from_db()
+        release = item.releases.get()
+        self.assertEqual(release.file_stats['width'], 1)
+        self.assertEqual(release.file_stats['parking_spaces'], 0)
+        Release.objects.filter(pk=release.pk).update(file_stats={})
+        before = (item.status, item.updated_at, item.content_revision, item.downloads, release.file.name)
+        files_before = set((self.root / 'media').rglob('*.*'))
+        job = queue_release_stats(release)
+        self.assertIsNone(queue_release_stats(release))
+        self.result(job)
+        item.refresh_from_db()
+        release.refresh_from_db()
+        self.assertEqual(release.file_stats['footprint_tiles'], 1)
+        self.assertEqual((item.status, item.updated_at, item.content_revision, item.downloads, release.file.name), before)
+        self.assertEqual(set((self.root / 'media').rglob('*.*')), files_before)
+        self.assertEqual(item.releases.count(), 1)
+        job = queue_release_stats(release)
+        self.result(job, code=1)
+        item.refresh_from_db()
+        self.assertEqual(item.status, 'published')
+        release.refresh_from_db()
+        self.assertEqual(release.file_stats['width'], 1)
+
+    def test_invalid_native_stats_never_create_a_release(self):
+        from sandbox.protocol import encode_stats
+        for payload in [b'x' * 120, encode_stats({'kind': 2, 'width': 32, 'height': 32, 'depth': 32,
+                                               'footprint_tiles': 1024, 'maps': 1, 'entities': 0})]:
+            item = self.create()
+            job = item.upload_jobs.get(kind='release')
+            result = RESULT_MAGIC + b'\x00' + len(payload).to_bytes(4, 'big') + bytes.fromhex(job.sha256) + payload
+            (self.root / 'results' / f'{job.pk.hex}.result').write_bytes(result)
+            collect_job(job.pk)
+            job.refresh_from_db()
+            self.assertEqual(job.status, 'failed')
+            self.assertFalse(item.releases.exists())
+            item.delete()
 
     def test_game_file_limit_defaults_to_fifteen_mb_and_is_admin_adjustable(self):
         response = self.client.post('/upload/', {**self.data, 'file': SimpleUploadedFile('huge.cpbp', bytes(15 * 1024 * 1024 + 1)), 'screenshots': [SimpleUploadedFile('lot.png', picture())]})

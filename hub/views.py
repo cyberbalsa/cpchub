@@ -22,6 +22,7 @@ from .activity import record_activity
 from .upload_limits import UploadLimitExceeded
 from .services import add_release, add_screenshot, create_with_release, record_revision, remove_screenshot, validate_publication
 from .tags import filter_tags, normalize_tag
+from .file_stats import FileStatsFilterForm, filter_file_stats
 
 
 @never_cache
@@ -41,6 +42,11 @@ def catalog(request):
         else:
             items = items.filter(bookmarks__user=request.user)
     items = filter_tags(items, query=q, tag=tag, private=view == "mine")
+    stats_form = FileStatsFilterForm(request.GET)
+    items = filter_file_stats(items, stats_form)
+    clear_stats_params = request.GET.copy()
+    for field in [*stats_form.fields, 'page']:
+        clear_stats_params.pop(field, None)
     if category:
         items = items.filter(content_type__slug=category)
     items = items.order_by({"popular": "-downloads", "newest": "-created_at"}.get(sort, "-updated_at"), "id")
@@ -48,8 +54,8 @@ def catalog(request):
     public = public_items().filter(is_demo=False)
     stats = public.aggregate(items=Count("pk"), downloads=Sum("downloads"), authors=Count("author", distinct=True))
     context = {"page_obj": page, "q": q, "tag": tag, "category": category, "catalog_view": view, "sort": sort,
-               "stats": stats, "has_demo": items.filter(is_demo=True).exists(),
-               "featured_items": public_items().filter(featured_at__isnull=False).order_by("-featured_at", "pk")[:6] if view == "all" and not q and not tag and not category and not request.GET.get("page") else [],
+               "stats": stats, "stats_form": stats_form, "clear_stats_url": '/?' + clear_stats_params.urlencode(), "has_demo": items.filter(is_demo=True).exists(),
+               "featured_items": public_items().filter(featured_at__isnull=False).order_by("-featured_at", "pk")[:6] if view == "all" and not q and not tag and not category and not stats_form.active and not request.GET.get("page") else [],
                "types_with_counts": ContentType.objects.filter(uploads_enabled=True).annotate(total=Count("items", filter=Q(items__status="published", items__is_hidden=False, items__deleted_at=None, items__author__moderation_state__shadow_banned_at__isnull=True))).order_by("position", "name")}
     return render(request, "hub/results.html" if request.htmx and not request.htmx.history_restore_request else "hub/catalog.html", context)
 

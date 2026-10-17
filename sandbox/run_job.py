@@ -124,7 +124,7 @@ def run(job):
             if len(header) != 13 or header[:8] != MAGIC or header[8] not in (0, 1):
                 raise ValueError('No guest result')
             size = int.from_bytes(header[9:], 'big')
-            if size > MAX_RESULT or (kind != 3 and size) or (header[8] and size):
+            if size > MAX_RESULT or (kind != 3 and size not in (0, 120)) or (header[8] and size):
                 raise ValueError('Invalid guest result size')
             payload = output.read(size)
             if len(payload) != size:

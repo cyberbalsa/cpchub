@@ -1,0 +1,10 @@
+{% with rows=release.stat_rows %}{% if rows %}
+<div class="file-stats">
+  <table class="stats-table">
+    <caption>Version {{ release.version }} · {{ release.original_filename }}</caption>
+    <thead><tr><th scope="col">Property</th><th scope="col">Value</th></tr></thead>
+    <tbody>{% for row in rows %}<tr><th scope="row">{{ row.label }}</th><td>{{ row.value }}{% if row.unit %} <span class="stats-unit">{{ row.unit }}</span>{% endif %}</td></tr>{% endfor %}</tbody>
+  </table>
+  <p class="stats-note">Decoded from this version’s game file. Parking counts include saved bays.</p>
+</div>
+{% endif %}{% endwith %}

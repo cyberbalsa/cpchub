@@ -1,4 +1,10 @@
 "use strict";
+document.addEventListener("htmx:configRequest", (event) => {
+  if (event.detail.elt.id !== "catalog-filter") return;
+  for (const [name, value] of Object.entries(event.detail.parameters)) {
+    if (value === "") delete event.detail.parameters[name];
+  }
+});
 document.addEventListener("click", (event) => {
   const dialog = document.getElementById("download-warning");
   if (!dialog || typeof dialog.showModal !== "function") return;

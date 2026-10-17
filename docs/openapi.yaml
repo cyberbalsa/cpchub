@@ -10,6 +10,214 @@ paths:
       operationId: v1_items_list
       parameters:
       - in: query
+        name: max_depth
+        schema:
+          type: integer
+          maximum: 2048
+          minimum: 0
+        description: Maximum depth (tiles) in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: max_entities
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        description: Maximum saved entities in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: max_entrances
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        description: Maximum parking entrances in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: max_exits
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        description: Maximum parking exits in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: max_footprint_tiles
+        schema:
+          type: integer
+          maximum: 67108864
+          minimum: 0
+        description: Maximum footprint area (tiles) in the latest release. Missing
+          statistics never match. Bounds are inclusive.
+      - in: query
+        name: max_format_version
+        schema:
+          type: integer
+          maximum: 3
+          minimum: 0
+        description: Maximum blueprint format version in the latest release. Missing
+          statistics never match. Bounds are inclusive.
+      - in: query
+        name: max_golf_cart_spaces
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        description: Maximum golf cart spaces in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: max_height
+        schema:
+          type: integer
+          maximum: 2048
+          minimum: 0
+        description: Maximum height (tiles) in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: max_maps
+        schema:
+          type: integer
+          maximum: 16
+          minimum: 0
+        description: Maximum maps in the latest release. Missing statistics never
+          match. Bounds are inclusive.
+      - in: query
+        name: max_object_types
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        description: Maximum object types in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: max_objects
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        description: Maximum placed objects in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: max_parking_spaces
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        description: Maximum car parking spaces in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: max_width
+        schema:
+          type: integer
+          maximum: 2048
+          minimum: 0
+        description: Maximum width (tiles) in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: min_depth
+        schema:
+          type: integer
+          maximum: 2048
+          minimum: 0
+        description: Minimum depth (tiles) in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: min_entities
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        description: Minimum saved entities in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: min_entrances
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        description: Minimum parking entrances in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: min_exits
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        description: Minimum parking exits in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: min_footprint_tiles
+        schema:
+          type: integer
+          maximum: 67108864
+          minimum: 0
+        description: Minimum footprint area (tiles) in the latest release. Missing
+          statistics never match. Bounds are inclusive.
+      - in: query
+        name: min_format_version
+        schema:
+          type: integer
+          maximum: 3
+          minimum: 0
+        description: Minimum blueprint format version in the latest release. Missing
+          statistics never match. Bounds are inclusive.
+      - in: query
+        name: min_golf_cart_spaces
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        description: Minimum golf cart spaces in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: min_height
+        schema:
+          type: integer
+          maximum: 2048
+          minimum: 0
+        description: Minimum height (tiles) in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: min_maps
+        schema:
+          type: integer
+          maximum: 16
+          minimum: 0
+        description: Minimum maps in the latest release. Missing statistics never
+          match. Bounds are inclusive.
+      - in: query
+        name: min_object_types
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        description: Minimum object types in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: min_objects
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        description: Minimum placed objects in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: min_parking_spaces
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        description: Minimum car parking spaces in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
+        name: min_width
+        schema:
+          type: integer
+          maximum: 2048
+          minimum: 0
+        description: Minimum width (tiles) in the latest release. Missing statistics
+          never match. Bounds are inclusive.
+      - in: query
         name: mine
         schema:
           type: boolean
@@ -1081,6 +1289,182 @@ components:
       required:
       - errors
       - status
+    FileStats:
+      type: object
+      properties:
+        schema_version:
+          type: integer
+          maximum: 1
+          minimum: 1
+        kind:
+          $ref: '#/components/schemas/FileStatsKindEnum'
+        format_version:
+          type:
+          - integer
+          - 'null'
+          maximum: 3
+          minimum: 2
+        width:
+          type: integer
+          maximum: 2048
+          minimum: 1
+          description: Blueprint width, or largest map width, in tiles.
+        depth:
+          type: integer
+          maximum: 2048
+          minimum: 1
+          description: Blueprint depth, or largest map depth, in tiles.
+        height:
+          type: integer
+          maximum: 2048
+          minimum: 1
+          description: Blueprint height, or largest map height, in tiles.
+        footprint_tiles:
+          type: integer
+          maximum: 67108864
+          minimum: 1
+          description: Width × depth for blueprints; sum of map areas for scenarios.
+        objects:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000000
+          minimum: 0
+        object_types:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000000
+          minimum: 0
+        parking_spaces:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000000
+          minimum: 0
+          description: Saved ParkingBay objects; does not check road access or usability.
+        golf_cart_spaces:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000000
+          minimum: 0
+        entrances:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000000
+          minimum: 0
+        exits:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000000
+          minimum: 0
+        maps:
+          type:
+          - integer
+          - 'null'
+          maximum: 16
+          minimum: 1
+        entities:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000000
+          minimum: 0
+    FileStatsKindEnum:
+      enum:
+      - blueprint
+      - scenario
+      type: string
+      description: |-
+        * `blueprint` - blueprint
+        * `scenario` - scenario
+    FileStatsRequest:
+      type: object
+      properties:
+        schema_version:
+          type: integer
+          maximum: 1
+          minimum: 1
+        kind:
+          $ref: '#/components/schemas/FileStatsKindEnum'
+        format_version:
+          type:
+          - integer
+          - 'null'
+          maximum: 3
+          minimum: 2
+        width:
+          type: integer
+          maximum: 2048
+          minimum: 1
+          description: Blueprint width, or largest map width, in tiles.
+        depth:
+          type: integer
+          maximum: 2048
+          minimum: 1
+          description: Blueprint depth, or largest map depth, in tiles.
+        height:
+          type: integer
+          maximum: 2048
+          minimum: 1
+          description: Blueprint height, or largest map height, in tiles.
+        footprint_tiles:
+          type: integer
+          maximum: 67108864
+          minimum: 1
+          description: Width × depth for blueprints; sum of map areas for scenarios.
+        objects:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000000
+          minimum: 0
+        object_types:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000000
+          minimum: 0
+        parking_spaces:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000000
+          minimum: 0
+          description: Saved ParkingBay objects; does not check road access or usability.
+        golf_cart_spaces:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000000
+          minimum: 0
+        entrances:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000000
+          minimum: 0
+        exits:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000000
+          minimum: 0
+        maps:
+          type:
+          - integer
+          - 'null'
+          maximum: 16
+          minimum: 1
+        entities:
+          type:
+          - integer
+          - 'null'
+          maximum: 1000000
+          minimum: 0
     IssuedKey:
       type: object
       properties:
@@ -1333,14 +1717,6 @@ components:
             Keys can always be revoked.
       required:
       - name
-    KindEnum:
-      enum:
-      - release
-      - screenshot
-      type: string
-      description: |-
-        * `release` - Game file
-        * `screenshot` - Screenshot
     PaginatedItemList:
       type: object
       required:
@@ -1492,10 +1868,17 @@ components:
           readOnly: true
           description: Stable application URL. Checks permissions and redirects to
             an expiring signed download URL when using Wasabi.
+        file_stats:
+          allOf:
+          - $ref: '#/components/schemas/FileStats'
+          readOnly: true
+          description: Statistics decoded in an isolated VM. Empty for files not yet
+            inspected; null means unavailable or not applicable.
       required:
       - created_at
       - download_url
       - downloads
+      - file_stats
       - id
       - original_filename
       - sha256
@@ -1651,7 +2034,7 @@ components:
           readOnly: true
         kind:
           allOf:
-          - $ref: '#/components/schemas/KindEnum'
+          - $ref: '#/components/schemas/UploadJobKindEnum'
           readOnly: true
         status:
           allOf:
@@ -1695,6 +2078,16 @@ components:
       - release
       - screenshot
       - status
+    UploadJobKindEnum:
+      enum:
+      - release
+      - screenshot
+      - stats
+      type: string
+      description: |-
+        * `release` - Game file
+        * `screenshot` - Screenshot
+        * `stats` - File statistics
     UploadJobStatusEnum:
       enum:
       - pending

@@ -17,6 +17,8 @@ The VM has a read-only root disk and input disk, a bounded output disk, one virt
 
 The guest writes result bytes before its ready marker. The launcher kills the VM before reading the result, checks the result length and status, and attaches the hash of the submitted bytes. The app checks that hash again before storing a game file. Neither the worker nor the app mounts a guest-written filesystem. The jail and cgroup are removed after each run.
 
+Native files also return a fixed 120-byte statistics packet. It contains only a version marker and bounded integers; names, descriptions, scripts, and arbitrary metadata never cross this boundary. The app validates the packet's type, dimensions, counts, and relationships before saving it on the release. Screenshots still return sanitized WebP bytes.
+
 Queue files are temporary and private; they are never served. Approved UGC goes to Wasabi. Acknowledged jobs are removed from the host queue, and abandoned files expire after 24 hours. Missing results fail after 15 minutes. Validator failures never trigger parsing in the web process. Queue backpressure permits at most 32 pending files per submitting account and 64 across the site; screenshot slots include pending checks.
 
 ## What the checks establish
@@ -57,5 +59,13 @@ Inspect services with `systemctl status cpchub-validator` and `systemctl --user 
 Release and screenshot uploads return **202 Accepted** with an `UploadJob`. Poll `/api/v1/items/{id}/upload-jobs/` using the author's credentials or a staff browser session. A passed job contains its release or screenshot ID. Failed jobs contain a safe error message. Other users cannot read jobs.
 
 Clients can PATCH `status: published` while jobs are pending. The item remains `draft` with `publish_after_validation: true` until all checks pass. Explicitly choosing draft cancels automatic publication. Deleting a creation prevents publication and its queued files are discarded. Pending jobs also prevent content-type changes and duplicate version submissions.
+
+Each release exposes typed `file_stats` in the API and a table on the detail page. Counts describe saved objects, including individual car and golf-cart bays; they do not establish usable parking capacity or road access. Blueprint dimensions use the actual saved size, not padded storage dimensions. Scenario dimensions are the largest width, depth, and height across maps; scenario area is the sum of map areas. An unavailable count is null, not zero.
+
+The catalog and `/api/v1/items/` accept inclusive `min_` and `max_` filters for `width`, `depth`, `height`, `footprint_tiles`, `objects`, `object_types`, `parking_spaces`, `golf_cart_spaces`, `entrances`, `exits`, `maps`, `entities`, and `format_version`. All bounds match the same latest release. Missing stats never match. These filters combine with tags, categories, saved creations, and ownership filters.
+
+After upgrading an existing installation, run `python manage.py backfill_file_stats` in the app container. It queues up to 32 native releases without stats; rerun after those jobs finish for larger catalogs. `--release UUID` selects a release and `--force` recomputes existing stats. Files are read from storage and decoded in fresh VMs. Only derived database fields change: original files, publication state, download counts, release dates, and review history stay intact. No new Wasabi objects are created. Failures leave existing stats and publication state intact.
+
+For a rolling upgrade, deploy the app before updating the guest artifacts and root launcher. The app accepts the previous empty native result for compatibility; backfill fills any missing stats afterward. Stop the worker while replacing its artifacts, then start it again. Do not run the new guest with the old launcher or collector.
 
 Tests for storage/authentication use an explicit synchronous test override. Production has no environment switch to bypass the queue. The asynchronous tests cover private drafts, failure handling, publication intent, input tampering, quotas, and permissions. Guest tests use synthetic files, plus separate integration probes against a real jailed Firecracker process.

@@ -156,6 +156,7 @@ class UploadJob(models.Model):
     class Kind(models.TextChoices):
         RELEASE = "release", "Game file"
         SCREENSHOT = "screenshot", "Screenshot"
+        STATS = "stats", "File statistics"
 
     class Status(models.TextChoices):
         PENDING = "pending", "Checking"
@@ -204,11 +205,18 @@ class Release(models.Model):
     sha256 = models.CharField(max_length=64)
     size = models.PositiveBigIntegerField()
     downloads = models.PositiveIntegerField(default=0)
+    file_stats = models.JSONField(default=dict, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ["-created_at", "-pk"]
         constraints = [models.UniqueConstraint(fields=["item", "version"], name="unique_item_release_version")]
+        indexes = [models.Index(fields=['item', '-created_at', '-id'], name='release_latest_stats_idx')]
+
+    @property
+    def stat_rows(self):
+        from .file_stats import stat_rows
+        return stat_rows(self.file_stats)
 
 
 class DownloadUser(models.Model):

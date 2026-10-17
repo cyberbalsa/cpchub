@@ -12,6 +12,7 @@ from django.core.files import File
 from django.core.files.base import ContentFile
 from django.db import connection, transaction
 from django.utils import timezone
+from sandbox.protocol import PACKET, decode_stats
 
 from .activity import record_activity
 from .models import AccountActivity, Item, Release, Screenshot, UploadJob
@@ -59,8 +60,8 @@ def _native_kind(item, upload):
     return expected[1]
 
 
-def _submit(item, user, upload, kind, metadata):
-    job = UploadJob(item=item, submitted_by=user, kind='screenshot' if kind == 3 else 'release',
+def _submit(item, user, upload, kind, metadata, *, existing_release=None):
+    job = UploadJob(item=item, submitted_by=user, kind='stats' if existing_release else 'screenshot' if kind == 3 else 'release', release=existing_release,
                     original_filename=Path(upload.name).name[:255], size=upload.size, metadata=metadata)
     temporary, target = incoming_path(job.pk, 'tmp'), incoming_path(job.pk)
     digest, written = hashlib.sha256(), 0
@@ -159,6 +160,27 @@ def queue_screenshot(item, *, image, caption='', request=None):
     return job
 
 
+@transaction.atomic
+def queue_release_stats(release):
+    """Recheck an existing file without changing publication, storage or quotas."""
+    user = release.item.author
+    _admit(user)
+    item = Item.objects.select_for_update().get(pk=release.item_id)
+    release = Release.objects.select_for_update().get(pk=release.pk, item=item)
+    kind = {'.cpbp': 1, '.cpcs': 2}.get(Path(release.original_filename).suffix.lower())
+    if item.deleted_at or item.is_demo or kind is None or not 0 < release.size <= 100 * 1024 * 1024:
+        raise ValidationError('This file cannot be queued for statistics.')
+    if UploadJob.objects.filter(release=release, kind='stats', status='pending').exists():
+        return None
+    with release.file.open('rb') as source:
+        upload = File(source, name=release.original_filename)
+        job = _submit(item, user, upload, kind, {}, existing_release=release)
+    if job.sha256 != release.sha256 or job.size != release.size:
+        discard_job_files(job.pk)
+        raise ValidationError('The stored file does not match its checksum.')
+    return job
+
+
 def _read_result(job):
     path = Path(settings.UPLOAD_QUEUE_ROOT) / 'results' / f'{job.pk.hex}.result'
     try:
@@ -170,7 +192,7 @@ def _read_result(job):
             if size > MAX_RESULT or header[13:45].hex() != job.sha256:
                 raise ValueError('Mismatched validator response')
             payload = result.read(size + 1)
-            if len(payload) != size or (job.kind == 'release' and size) or (header[8] and size):
+            if len(payload) != size or (job.kind != 'screenshot' and size not in (0, PACKET.size)) or (header[8] and size):
                 raise ValueError('Invalid validator output')
             if header[8] == 0 and job.kind == 'screenshot' and (len(payload) < 12 or payload[:4] != b'RIFF' or payload[8:12] != b'WEBP'):
                 raise ValueError('Missing sanitized screenshot')
@@ -196,6 +218,12 @@ def collect_job(job_id):
         if result is None and job.created_at > timezone.now() - timedelta(minutes=15):
             return False
         code, payload = result if result is not None else (2, b'')
+        stats = {}
+        if code == 0 and job.kind != 'screenshot' and payload:
+            try:
+                stats = decode_stats(payload, {'.cpbp': 1, '.cpcs': 2}.get(Path(job.original_filename).suffix.lower()))
+            except ValueError:
+                code = 2
         if item.deleted_at:
             code = 2
         if code == 0 and job.kind == 'release' and item.releases.filter(version=job.metadata.get('version')).exists():
@@ -204,7 +232,10 @@ def collect_job(job_id):
             code = 2
         if code == 0:
             from .reviews import queue_for_review
-            if job.kind == 'release':
+            if job.kind == 'stats':
+                if not stats or not Release.objects.filter(pk=job.release_id, item=item, sha256=job.sha256, size=job.size).update(file_stats=stats):
+                    code = 2
+            elif job.kind == 'release':
                 with tempfile.TemporaryFile() as temporary:
                     digest, written = hashlib.sha256(), 0
                     try:
@@ -223,17 +254,19 @@ def collect_job(job_id):
                     else:
                         temporary.seek(0)
                         job.release = Release.objects.create(item=item, file=File(temporary, name=job.original_filename),
-                            original_filename=job.original_filename, size=job.size, sha256=job.sha256, **job.metadata)
+                            original_filename=job.original_filename, size=job.size, sha256=job.sha256, file_stats=stats, **job.metadata)
             else:
                 job.screenshot = Screenshot.objects.create(item=item, image=ContentFile(payload, name='screenshot.webp'), caption=job.metadata.get('caption', ''))
-            if code == 0:
+            if code == 0 and job.kind != 'stats':
                 queue_for_review(item)
                 Item.objects.filter(pk=item.pk).update(updated_at=timezone.now())
         job.status = 'passed' if code == 0 else 'failed'
-        job.error = '' if code == 0 else ('This file did not pass validation. Export it again from the game and retry.' if code == 1 and job.kind == 'release' else 'This screenshot could not be read safely. Use a still PNG, JPEG or WebP: 320×180 minimum, 8,192 pixels per side maximum, up to 20 megapixels and 10 MB. Avoid extreme aspect ratios.' if code == 1 else 'The file check could not finish. Upload the file again to retry.')
+        job.error = '' if code == 0 else ('This file did not pass validation. Export it again from the game and retry.' if code == 1 and job.kind != 'screenshot' else 'This screenshot could not be read safely. Use a still PNG, JPEG or WebP: 320×180 minimum, 8,192 pixels per side maximum, up to 20 megapixels and 10 MB. Avoid extreme aspect ratios.' if code == 1 else 'The file check could not finish. Upload the file again to retry.')
         job.completed_at = timezone.now()
         job.save(update_fields=['status', 'error', 'completed_at', 'release', 'screenshot'])
-        if code != 0:
+        if job.kind == 'stats':
+            pass  # Recomputing derived stats never changes the creation's publication state.
+        elif code != 0:
             item.publish_after_validation = False
             item.save(update_fields=['publish_after_validation'])
         elif item.publish_after_validation and not item.upload_jobs.filter(status='pending').exists():

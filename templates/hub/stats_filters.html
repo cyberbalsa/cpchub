@@ -1,0 +1,13 @@
+<details class="stats-filters" {% if stats_form.active %}open{% endif %}>
+  <summary>Filter by file stats{% if stats_form.active %} <span class="badge">Active</span>{% endif %}</summary>
+  <p>Match the latest file version. Leave a bound empty for no limit. Files without that stat are excluded.</p>
+  <div class="stats-filter-grid">
+    {% for range in stats_form.ranges %}<fieldset class="stat-range">
+      <legend>{{ range.label }}{% if range.unit %} <span>({{ range.unit }})</span>{% endif %}</legend>
+      <div>{{ range.minimum }}<span aria-hidden="true">to</span>{{ range.maximum }}</div>
+    </fieldset>{% endfor %}
+  </div>
+  <p>For scenarios, width, depth and height use the largest value across maps; area is the total of all maps.</p>
+  <button class="win-button" type="submit">Apply file filters</button>
+  <a class="win-button" href="{{ clear_stats_url }}">Clear file filters</a>
+</details>

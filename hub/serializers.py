@@ -3,6 +3,33 @@ from rest_framework import serializers
 from .models import APIKey, ContentType, Item, Release, Revision, Screenshot, Tag, UploadJob
 from .validators import validate_version
 from .tags import clean_tags
+from .file_stats import METRICS
+from sandbox.protocol import BOUNDS
+
+
+class FileStatsSerializer(serializers.Serializer):
+    schema_version = serializers.IntegerField(min_value=1, max_value=1, required=False)
+    kind = serializers.ChoiceField(choices=['blueprint', 'scenario'], required=False)
+    format_version = serializers.IntegerField(min_value=2, max_value=3, allow_null=True, required=False)
+    width = serializers.IntegerField(min_value=1, max_value=2048, required=False, help_text='Blueprint width, or largest map width, in tiles.')
+    depth = serializers.IntegerField(min_value=1, max_value=2048, required=False, help_text='Blueprint depth, or largest map depth, in tiles.')
+    height = serializers.IntegerField(min_value=1, max_value=2048, required=False, help_text='Blueprint height, or largest map height, in tiles.')
+    footprint_tiles = serializers.IntegerField(min_value=1, max_value=67108864, required=False, help_text='Width × depth for blueprints; sum of map areas for scenarios.')
+    objects = serializers.IntegerField(min_value=0, max_value=1000000, allow_null=True, required=False)
+    object_types = serializers.IntegerField(min_value=0, max_value=1000000, allow_null=True, required=False)
+    parking_spaces = serializers.IntegerField(min_value=0, max_value=1000000, allow_null=True, required=False, help_text='Saved ParkingBay objects; does not check road access or usability.')
+    golf_cart_spaces = serializers.IntegerField(min_value=0, max_value=1000000, allow_null=True, required=False)
+    entrances = serializers.IntegerField(min_value=0, max_value=1000000, allow_null=True, required=False)
+    exits = serializers.IntegerField(min_value=0, max_value=1000000, allow_null=True, required=False)
+    maps = serializers.IntegerField(min_value=1, max_value=16, allow_null=True, required=False)
+    entities = serializers.IntegerField(min_value=0, max_value=1000000, allow_null=True, required=False)
+
+
+FileStatsFilterSerializer = type('FileStatsFilterSerializer', (serializers.Serializer,), {
+    f'{bound}_{name}': serializers.IntegerField(required=False, min_value=0, max_value=BOUNDS.get(name, (0, 1000000))[1],
+        help_text=f'{title} {label.lower()}{" (" + unit + ")" if unit else ""} in the latest release. Missing statistics never match. Bounds are inclusive.')
+    for name, (label, unit) in METRICS.items() for bound, title in [('min', 'Minimum'), ('max', 'Maximum')]
+})
 
 
 class ErrorSerializer(serializers.Serializer):
@@ -37,6 +64,7 @@ class TagSuggestionSerializer(serializers.ModelSerializer):
 
 
 class ReleaseSerializer(serializers.ModelSerializer):
+    file_stats = FileStatsSerializer(read_only=True, help_text='Statistics decoded in an isolated VM. Empty for files not yet inspected; null means unavailable or not applicable.')
     # Keep the PostgreSQL counter limit in the schema when developing with SQLite.
     downloads = serializers.IntegerField(min_value=0, max_value=2147483647, read_only=True, help_text="Download links issued for this release, deduplicated by account and by IP for 14 days. IPv6 uses /32 subnets. Historical totals are retained.")
     download_url = serializers.SerializerMethodField(help_text="Stable application URL. Checks permissions and redirects to an expiring signed download URL when using Wasabi.")
@@ -46,7 +74,7 @@ class ReleaseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Release
-        fields = ["id", "version", "game_version", "changelog", "original_filename", "sha256", "size", "downloads", "created_at", "download_url"]
+        fields = ["id", "version", "game_version", "changelog", "original_filename", "sha256", "size", "downloads", "created_at", "download_url", "file_stats"]
 
 
 class ReleaseUploadSerializer(serializers.Serializer):

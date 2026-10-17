@@ -440,3 +440,26 @@ dialog.download-warning-window::backdrop { background: #15251bd9; }
 .role-guide dd { margin: 4px 0; }
 .featured-section { margin: 28px 0; }
 .game-toolbar { flex-wrap: wrap; }
+
+.stats-table { width: 100%; border-collapse: collapse; font-size: 13px; color: var(--ink); }
+.stats-table caption { caption-side: top; text-align: left; font-size: 12px; color: var(--muted); padding: 0 0 12px; overflow-wrap: anywhere; }
+.stats-table th, .stats-table td { border: 1px solid #b4a477; padding: 10px 12px; }
+.stats-table thead th { background: #ccb98b; color: #354f42; font-weight: bold; }
+.stats-table tbody th { text-align: left; font-weight: normal; background: #e4d5ac; width: 65%; }
+.stats-table td { background: #f5e9c9; text-align: right; font-variant-numeric: tabular-nums; font-weight: bold; white-space: nowrap; }
+.stats-table thead th:last-child { text-align: right; }
+.stats-table tbody tr:nth-child(even) td { background: #ecdfba; }
+.stats-unit { font-weight: normal; font-size: 11px; color: var(--muted); }
+.paper-panel .stats-note { font-size: 11px; margin: 10px 0 0; color: var(--muted); }
+.release-body .file-stats { margin-top: 18px; }
+.stats-filters { flex-basis: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #b4a477; background: #e8dab5; }
+.stats-filters summary { cursor: pointer; font-size: 12px; font-weight: bold; color: #354f42; }
+.stats-filters p { font-size: 11px; color: var(--muted); line-height: 1.6; margin: 12px 0; }
+.stats-filter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; }
+.stat-range { min-width: 0; margin: 0; padding: 0; border: 0; }
+.stat-range legend { float: none; width: auto; padding: 0; margin: 0 0 5px; background: transparent; font: bold 11px Tahoma, sans-serif; }
+.stat-range legend span { font-weight: normal; }
+.stat-range > div { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.stat-range input { width: 0; min-width: 0; flex: 1; height: 30px; background: #fff8df; }
+@media (max-width: 1199px) { .stats-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 575px) { .stats-filter-grid { grid-template-columns: minmax(0, 1fr); } .stats-table th, .stats-table td { padding: 9px 8px; } }

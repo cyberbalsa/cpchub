@@ -7,6 +7,11 @@ import struct
 import warnings
 import zlib
 
+try:
+    from cpchub_protocol import encode_stats
+except ModuleNotFoundError:  # The test suite imports this module from the source tree.
+    from sandbox.protocol import encode_stats
+
 REQUEST_MAGIC = b'CPCVAL1\x00'
 RESULT_MAGIC = b'CPCRES1\x00'
 MAX_METADATA = 16 * 1024 * 1024
@@ -105,6 +110,21 @@ def validate_blueprint(source, length):
         raise InvalidFile('Blueprint exceeds its map')
     if length != 8 + size + 2 + 3 * x * y * z + x * z:
         raise InvalidFile('Truncated or extra blueprint data')
+    counts = obj['placedTemplates']
+    if all(isinstance(name, str) and isinstance(placements, list) for name, placements in counts.items()):
+        counts = {name: len(placements) for name, placements in counts.items() if placements}
+    else:
+        counts = None
+    return {'kind': 1, 'format_version': version, 'width': actual[0], 'height': actual[1],
+            'depth': actual[2], 'footprint_tiles': actual[0] * actual[2], **object_stats(counts)}
+
+
+def object_stats(counts):
+    names = {'parking_spaces': 'ParkingBay', 'golf_cart_spaces': 'GolfCartBay',
+             'entrances': 'ParkingEntrance', 'exits': 'ParkingExit'}
+    return {'objects': sum(counts.values()) if counts is not None else None,
+            'object_types': len(counts) if counts is not None else None,
+            **{key: counts.get(name, 0) if counts is not None else None for key, name in names.items()}}
 
 
 class Inflater:
@@ -155,17 +175,38 @@ def validate_scenario(source, length):
     if not isinstance(rooms, list) or not 1 <= len(rooms) <= 16:
         raise InvalidFile('Missing scenario rooms')
     expected = 0
+    widths, heights, depths, area, entities = [], [], [], 0, 0
+    counts = {}
     for room in rooms:
         if not isinstance(room, dict) or not isinstance(room.get('entities'), (list, dict)) or not isinstance(room.get('scenario'), (dict, list)):
             raise InvalidFile('Missing room metadata')
         x, y, z = dimensions(room.get('tileMapSize'))
         expected += 10 + 3 * x * y * z + 2 * x * z
+        widths.append(x)
+        heights.append(y)
+        depths.append(z)
+        area += x * z
+        entities += len(room['entities'])
+        records = room['entities'].values() if isinstance(room['entities'], dict) else room['entities']
+        for entity in records:
+            if counts is None:
+                break
+            if not isinstance(entity, dict) or not isinstance(entity.get('components', {}), dict):
+                counts = None
+            elif 'Placed' in entity.get('components', {}):
+                name = entity.get('template')
+                if not isinstance(name, str):
+                    counts = None
+                else:
+                    counts[name] = counts.get(name, 0) + 1
     if size + 8 + expected > MAX_EXPANDED:
         raise InvalidFile('Scenario too large')
     while decoded.read(1024 * 1024):
         pass
     if decoded.total != size + 8 + expected:
         raise InvalidFile('Truncated or extra map data')
+    return {'kind': 2, 'width': max(widths), 'height': max(heights), 'depth': max(depths),
+            'footprint_tiles': area, 'maps': len(rooms), 'entities': entities, **object_stats(counts)}
 
 
 def clean_image(source, length):
@@ -194,9 +235,9 @@ def clean_image(source, length):
 
 def evaluate(kind, source, length):
     if kind == 1:
-        validate_blueprint(source, length)
+        return encode_stats(validate_blueprint(source, length))
     elif kind == 2:
-        validate_scenario(source, length)
+        return encode_stats(validate_scenario(source, length))
     elif kind == 3:
         return clean_image(source, length)
     else:
