@@ -13,6 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
+from .activity import activity_cutoff
 from .access import ROLES, assigned_role, can_manage_content, can_moderate, is_admin, item_query
 from .markdown import MARKDOWN_HELP
 from .models import AccountActivity, FileDeletion, Item, ItemReview, ModerationLog, Release, Screenshot, TagSettings, UploadJob, UploadSettings, UserModeration
@@ -125,7 +126,7 @@ class ActivityFilterForm(forms.Form):
 @staff_required(admin_only=True)
 def account_activity(request):
     form = ActivityFilterForm(request.GET)
-    events = AccountActivity.objects.select_related("user", "item")
+    events = AccountActivity.objects.filter(created_at__gt=activity_cutoff()).select_related("user", "item")
     if form.is_valid():
         if form.cleaned_data["user"]:
             events = events.filter(user_id=form.cleaned_data["user"])

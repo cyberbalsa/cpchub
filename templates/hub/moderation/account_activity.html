@@ -4,7 +4,7 @@
 <div class="page-content">
   {% include 'hub/moderation/nav.html' %}
   <h1>Login &amp; upload history</h1>
-  <p>Admin-only records of successful sign-ins and uploads. Browser details and language are supplied by the client.</p>
+  <p>Admin-only records of successful sign-ins and uploads from the last 14 days. Older records are automatically deleted. Browser details and language are supplied by the client.</p>
   <form method="get" class="moderation-filter">
     {{ filter_form.user }}{{ filter_form.user.errors }}
     <label>{{ filter_form.username.label }} {{ filter_form.username }}{{ filter_form.username.errors }}</label>

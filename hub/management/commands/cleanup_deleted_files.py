@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
+from hub.activity import purge_account_activity
 from hub.file_cleanup import clean_deleted_file
 from hub.download_counts import purge_download_ips
 from hub.models import FileDeletion, UploadEvent
@@ -9,9 +10,11 @@ from hub.upload_limits import UPLOAD_WINDOW
 
 
 class Command(BaseCommand):
-    help = "Remove expired download IPs and creations, and retry storage deletions."
+    help = "Remove expired account activity, download IPs and creations, and retry storage deletions."
 
     def handle(self, **options):
+        removed = purge_account_activity()
+        self.stdout.write(f"{removed} expired account activity records removed.")
         removed = purge_download_ips()
         self.stdout.write(f"{removed} expired download IP records removed.")
         UploadEvent.objects.filter(created_at__lte=timezone.now() - UPLOAD_WINDOW).delete()

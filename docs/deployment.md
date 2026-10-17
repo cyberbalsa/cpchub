@@ -37,7 +37,7 @@ The request path is Cloudflare → host cloudflared → loopback-only Nginx → 
 
 Successful Steam/Discord sign-ins, new creations, publication, new releases, and screenshot uploads create database records. They contain the account, timestamp, IP and its source, user-agent, language header, authentication method, social provider ID for sign-ins, request path without query strings, and Cloudflare Ray ID when available. Cookies, authorization headers, passwords, OAuth codes, tokens, and uploaded file contents are not copied into the records. Browser and language headers are client-supplied and are not verified identity.
 
-Admins can search records by account, IP, and action at `/moderation/activity/`, or follow “View login & upload history” from user management. Moderators, Reviewers, ordinary users, and the public API cannot access this history. Purging an account removes its activity records. Records start at deployment; past logins are not reconstructed. IP bans are not implemented yet; their future controls and enforcement changes must be Admin-only.
+Admins can search records by account, IP, and action at `/moderation/activity/`, or follow “View login & upload history” from user management. Moderators, Reviewers, ordinary users, and the public API cannot access this history. History is limited to the last 14 days. Records expire exactly 14 days after creation and are permanently deleted by the five-minute cleanup job, including records linked to uploads; the uploads themselves are unaffected. Purging an account removes its activity records. Records start at deployment; past logins are not reconstructed. IP bans are not implemented yet; their future controls and enforcement changes must be Admin-only.
 
 ### Download counts and upload limits
 
@@ -45,7 +45,7 @@ Download counts use the trusted address above: an individual IPv4 address or an 
 
 Cloudflare Cache Rules must bypass caching for `/api/` routes and `/items/.../releases/.../download/`. Keep this bypass after any general cache rule. Cloudflare [converts cache-eligible HEAD requests to GET](https://developers.cloudflare.com/cache/concepts/cache-behavior/) before contacting the origin, even if the response later prevents caching. The bypass preserves HEAD so link checks do not increase download counts. This rule is configured on the live zone.
 
-The backup script excludes `hub_downloadip` data so backups do not prolong IP retention. Nginx and Gunicorn omit client addresses from new download access-log entries. Login and upload activity retention remains separate. Restoring a backup restores account markers and totals but starts with empty IP markers.
+The backup script excludes `hub_downloadip` and `hub_accountactivity` data so backups do not prolong IP retention. Nginx and Gunicorn omit client addresses from new download access-log entries. Login and upload activity also expires after 14 days. Restoring a backup restores account markers and totals but starts with empty IP markers and activity history.
 
 Creation files and new releases accepted into the validation queue share 16 slots per rolling hour per account. Screenshots and metadata edits do not consume slots. All three staff roles are exempt. PostgreSQL account locks prevent parallel uploads from exceeding the limit. Rejected submissions use no slot; queued files keep their slot even if checks later fail. Deleting a release or creation does not reset the allowance. Quota rejections return HTTP 429 and a `Retry-After` header in seconds. Expired quota events are removed by the cleanup job.
 
@@ -120,7 +120,7 @@ user.save(update_fields=["is_staff", "is_superuser"])
 
 They can then open `/moderation/` and `/admin/` using the same social login. Use the moderation panel’s User management page for subsequent role assignments. New users receive no staff permissions automatically.
 
-The cleanup timer runs `python manage.py cleanup_deleted_files` every five minutes. It deletes expired download IP records and upload quota events, permanently removes creations whose 14-day self-deletion period has ended, then retries pending file deletions. Check pending counts in the moderation panel and service logs with `cpc journalctl --user -u cpchub-cleanup.service`. Hiding or shadow banning blocks new signed URLs; already issued Wasabi URLs retain their original expiry, up to five minutes on this deployment.
+The cleanup timer runs `python manage.py cleanup_deleted_files` every five minutes. It deletes expired login/upload activity, download IP records and upload quota events, permanently removes creations whose 14-day self-deletion period has ended, then retries pending file deletions. Check pending counts in the moderation panel and service logs with `cpc journalctl --user -u cpchub-cleanup.service`. Hiding or shadow banning blocks new signed URLs; already issued Wasabi URLs retain their original expiry, up to five minutes on this deployment.
 
 ## Isolated upload worker
 

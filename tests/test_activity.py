@@ -1,8 +1,13 @@
 import tempfile
+import io
+from datetime import timedelta
+from unittest.mock import patch
 
 from allauth.core.internal.httpkit import get_client_ip
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.core.management import call_command
+from django.utils import timezone
 from django.http import HttpResponse
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from rest_framework.test import APIClient
@@ -10,7 +15,7 @@ from rest_framework.throttling import BaseThrottle
 
 from hub.activity import record_activity
 from hub.client_ip import TrustedProxyMiddleware
-from hub.models import APIKey, AccountActivity, ContentType
+from hub.models import APIKey, AccountActivity, ContentType, Item
 from hub.moderation_services import delete_user
 from tests.test_hub import package, screenshot
 
@@ -144,3 +149,29 @@ class ActivityTests(TestCase):
         self.assertEqual(event.ip_address, "198.51.100.20")
         self.assertEqual(event.cf_ray, "")
         self.assertEqual(len(event.user_agent), 1024)
+
+    def test_history_and_cleanup_enforce_fourteen_days_for_every_action(self):
+        now = timezone.now()
+        cutoff = now - timedelta(days=14)
+        item = Item.objects.create(author=self.author, content_type=self.category, title="Kept upload")
+        expired_ids = []
+        current_ids = []
+        for action in AccountActivity.Action.values:
+            for timestamp in (cutoff - timedelta(seconds=1), cutoff, cutoff + timedelta(seconds=1)):
+                event = AccountActivity.objects.create(
+                    user=self.author, item=item if action != AccountActivity.Action.LOGIN else None,
+                    action=action, ip_address="203.0.113.10", ip_source="proxy", auth_method="session",
+                )
+                AccountActivity.objects.filter(pk=event.pk).update(created_at=timestamp)
+                (expired_ids if timestamp <= cutoff else current_ids).append(event.pk)
+        self.client.force_login(self.admin)
+        with patch("hub.activity.timezone.now", return_value=now):
+            response = self.client.get("/moderation/activity/", {"ip": "203.0.113.10"})
+            self.assertEqual({event.pk for event in response.context["page_obj"]}, set(current_ids))
+            self.assertContains(response, "last 14 days")
+            call_command("cleanup_deleted_files", stdout=io.StringIO())
+            call_command("cleanup_deleted_files", stdout=io.StringIO())
+        self.assertFalse(AccountActivity.objects.filter(pk__in=expired_ids).exists())
+        self.assertEqual(set(AccountActivity.objects.values_list("pk", flat=True)), set(current_ids))
+        self.assertTrue(Item.objects.filter(pk=item.pk).exists())
+        self.assertTrue(get_user_model().objects.filter(pk=self.author.pk).exists())

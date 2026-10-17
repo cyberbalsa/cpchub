@@ -1,10 +1,23 @@
 import re
+from datetime import timedelta
 
 from allauth.account.signals import user_logged_in
 from django.dispatch import receiver
+from django.utils import timezone
 
 from .client_ip import normalize_ip
 from .models import AccountActivity, APIKey
+
+
+ACTIVITY_RETENTION = timedelta(days=14)
+
+
+def activity_cutoff():
+    return timezone.now() - ACTIVITY_RETENTION
+
+
+def purge_account_activity():
+    return AccountActivity.objects.filter(created_at__lte=activity_cutoff()).delete()[0]
 
 
 def clean_header(value, limit):
