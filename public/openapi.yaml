@@ -2,565 +2,589 @@ openapi: 3.1.0
 info:
   title: CPC Hub API
   version: 1.0.0
-  description: Versioned community catalog for Car Park Capital. OAuth authorization
-    code + S256 PKCE for mod managers; scoped personal API keys for scripts.
+  description: Versioned community catalog for Car Park Capital. OAuth authorization code + S256 PKCE
+    for mod managers; scoped personal API keys for scripts.
 paths:
   /api/v1/items/:
     get:
       operationId: v1_items_list
       parameters:
-      - in: query
-        name: max_depth
-        schema:
-          type: integer
-          maximum: 2048
-          minimum: 0
-        description: Maximum depth (tiles) in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: max_entities
-        schema:
-          type: integer
-          maximum: 1000000
-          minimum: 0
-        description: Maximum saved entities in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: max_entrances
-        schema:
-          type: integer
-          maximum: 1000000
-          minimum: 0
-        description: Maximum parking entrances in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: max_exits
-        schema:
-          type: integer
-          maximum: 1000000
-          minimum: 0
-        description: Maximum parking exits in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: max_footprint_tiles
-        schema:
-          type: integer
-          maximum: 67108864
-          minimum: 0
-        description: Maximum footprint area (tiles) in the latest release. Missing
-          statistics never match. Bounds are inclusive.
-      - in: query
-        name: max_format_version
-        schema:
-          type: integer
-          maximum: 3
-          minimum: 0
-        description: Maximum blueprint format version in the latest release. Missing
-          statistics never match. Bounds are inclusive.
-      - in: query
-        name: max_golf_cart_spaces
-        schema:
-          type: integer
-          maximum: 1000000
-          minimum: 0
-        description: Maximum golf cart spaces in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: max_height
-        schema:
-          type: integer
-          maximum: 2048
-          minimum: 0
-        description: Maximum height (tiles) in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: max_maps
-        schema:
-          type: integer
-          maximum: 16
-          minimum: 0
-        description: Maximum maps in the latest release. Missing statistics never
-          match. Bounds are inclusive.
-      - in: query
-        name: max_object_types
-        schema:
-          type: integer
-          maximum: 1000000
-          minimum: 0
-        description: Maximum object types in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: max_objects
-        schema:
-          type: integer
-          maximum: 1000000
-          minimum: 0
-        description: Maximum placed objects in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: max_parking_spaces
-        schema:
-          type: integer
-          maximum: 1000000
-          minimum: 0
-        description: Maximum car parking spaces in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: max_width
-        schema:
-          type: integer
-          maximum: 2048
-          minimum: 0
-        description: Maximum width (tiles) in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: min_depth
-        schema:
-          type: integer
-          maximum: 2048
-          minimum: 0
-        description: Minimum depth (tiles) in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: min_entities
-        schema:
-          type: integer
-          maximum: 1000000
-          minimum: 0
-        description: Minimum saved entities in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: min_entrances
-        schema:
-          type: integer
-          maximum: 1000000
-          minimum: 0
-        description: Minimum parking entrances in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: min_exits
-        schema:
-          type: integer
-          maximum: 1000000
-          minimum: 0
-        description: Minimum parking exits in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: min_footprint_tiles
-        schema:
-          type: integer
-          maximum: 67108864
-          minimum: 0
-        description: Minimum footprint area (tiles) in the latest release. Missing
-          statistics never match. Bounds are inclusive.
-      - in: query
-        name: min_format_version
-        schema:
-          type: integer
-          maximum: 3
-          minimum: 0
-        description: Minimum blueprint format version in the latest release. Missing
-          statistics never match. Bounds are inclusive.
-      - in: query
-        name: min_golf_cart_spaces
-        schema:
-          type: integer
-          maximum: 1000000
-          minimum: 0
-        description: Minimum golf cart spaces in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: min_height
-        schema:
-          type: integer
-          maximum: 2048
-          minimum: 0
-        description: Minimum height (tiles) in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: min_maps
-        schema:
-          type: integer
-          maximum: 16
-          minimum: 0
-        description: Minimum maps in the latest release. Missing statistics never
-          match. Bounds are inclusive.
-      - in: query
-        name: min_object_types
-        schema:
-          type: integer
-          maximum: 1000000
-          minimum: 0
-        description: Minimum object types in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: min_objects
-        schema:
-          type: integer
-          maximum: 1000000
-          minimum: 0
-        description: Minimum placed objects in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: min_parking_spaces
-        schema:
-          type: integer
-          maximum: 1000000
-          minimum: 0
-        description: Minimum car parking spaces in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: min_width
-        schema:
-          type: integer
-          maximum: 2048
-          minimum: 0
-        description: Minimum width (tiles) in the latest release. Missing statistics
-          never match. Bounds are inclusive.
-      - in: query
-        name: mine
-        schema:
-          type: boolean
-        description: Only your uploads
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      - in: query
-        name: q
-        schema:
-          type: string
-        description: Search titles, descriptions and public tags (all own tags with
-          mine=true)
-      - in: query
-        name: sort
-        schema:
-          type: string
-          enum:
-          - newest
-          - popular
-          - updated
-      - in: query
-        name: tag
-        schema:
-          type: string
-        description: Exact tag name, ignoring case and extra whitespace. Public tags
-          only, unless mine=true.
-      - in: query
-        name: type
-        schema:
-          type: string
-        description: Content type slug
+        - in: query
+          name: max_depth
+          schema:
+            type: integer
+            minimum: 0
+          description: Maximum depth (tiles) in the latest release. Missing statistics never match. Bounds are
+            inclusive.
+        - in: query
+          name: max_entities
+          schema:
+            type: integer
+            minimum: 0
+          description: Maximum saved entities in the latest release. Missing statistics never match. Bounds
+            are inclusive.
+        - in: query
+          name: max_entrances
+          schema:
+            type: integer
+            minimum: 0
+          description: Maximum parking entrances in the latest release. Missing statistics never match. Bounds
+            are inclusive.
+        - in: query
+          name: max_exits
+          schema:
+            type: integer
+            minimum: 0
+          description: Maximum parking exits in the latest release. Missing statistics never match. Bounds are
+            inclusive.
+        - in: query
+          name: max_footprint_tiles
+          schema:
+            type: integer
+            minimum: 0
+          description: Maximum footprint area (tiles) in the latest release. Missing statistics never match.
+            Bounds are inclusive.
+        - in: query
+          name: max_format_version
+          schema:
+            type: integer
+            minimum: 0
+          description: Maximum blueprint format version in the latest release. Missing statistics never match.
+            Bounds are inclusive.
+        - in: query
+          name: max_golf_cart_spaces
+          schema:
+            type: integer
+            minimum: 0
+          description: Maximum golf cart spaces in the latest release. Missing statistics never match. Bounds
+            are inclusive.
+        - in: query
+          name: max_height
+          schema:
+            type: integer
+            minimum: 0
+          description: Maximum height (tiles) in the latest release. Missing statistics never match. Bounds
+            are inclusive.
+        - in: query
+          name: max_maps
+          schema:
+            type: integer
+            minimum: 0
+          description: Maximum maps in the latest release. Missing statistics never match. Bounds are inclusive.
+        - in: query
+          name: max_object_types
+          schema:
+            type: integer
+            minimum: 0
+          description: Maximum object types in the latest release. Missing statistics never match. Bounds are
+            inclusive.
+        - in: query
+          name: max_objects
+          schema:
+            type: integer
+            minimum: 0
+          description: Maximum placed objects in the latest release. Missing statistics never match. Bounds
+            are inclusive.
+        - in: query
+          name: max_parking_spaces
+          schema:
+            type: integer
+            minimum: 0
+          description: Maximum car parking spaces in the latest release. Missing statistics never match.
+            Bounds are inclusive.
+        - in: query
+          name: max_width
+          schema:
+            type: integer
+            minimum: 0
+          description: Maximum width (tiles) in the latest release. Missing statistics never match. Bounds are
+            inclusive.
+        - in: query
+          name: min_depth
+          schema:
+            type: integer
+            minimum: 0
+          description: Minimum depth (tiles) in the latest release. Missing statistics never match. Bounds are
+            inclusive.
+        - in: query
+          name: min_entities
+          schema:
+            type: integer
+            minimum: 0
+          description: Minimum saved entities in the latest release. Missing statistics never match. Bounds
+            are inclusive.
+        - in: query
+          name: min_entrances
+          schema:
+            type: integer
+            minimum: 0
+          description: Minimum parking entrances in the latest release. Missing statistics never match. Bounds
+            are inclusive.
+        - in: query
+          name: min_exits
+          schema:
+            type: integer
+            minimum: 0
+          description: Minimum parking exits in the latest release. Missing statistics never match. Bounds are
+            inclusive.
+        - in: query
+          name: min_footprint_tiles
+          schema:
+            type: integer
+            minimum: 0
+          description: Minimum footprint area (tiles) in the latest release. Missing statistics never match.
+            Bounds are inclusive.
+        - in: query
+          name: min_format_version
+          schema:
+            type: integer
+            minimum: 0
+          description: Minimum blueprint format version in the latest release. Missing statistics never match.
+            Bounds are inclusive.
+        - in: query
+          name: min_golf_cart_spaces
+          schema:
+            type: integer
+            minimum: 0
+          description: Minimum golf cart spaces in the latest release. Missing statistics never match. Bounds
+            are inclusive.
+        - in: query
+          name: min_height
+          schema:
+            type: integer
+            minimum: 0
+          description: Minimum height (tiles) in the latest release. Missing statistics never match. Bounds
+            are inclusive.
+        - in: query
+          name: min_maps
+          schema:
+            type: integer
+            minimum: 0
+          description: Minimum maps in the latest release. Missing statistics never match. Bounds are inclusive.
+        - in: query
+          name: min_object_types
+          schema:
+            type: integer
+            minimum: 0
+          description: Minimum object types in the latest release. Missing statistics never match. Bounds are
+            inclusive.
+        - in: query
+          name: min_objects
+          schema:
+            type: integer
+            minimum: 0
+          description: Minimum placed objects in the latest release. Missing statistics never match. Bounds
+            are inclusive.
+        - in: query
+          name: min_parking_spaces
+          schema:
+            type: integer
+            minimum: 0
+          description: Minimum car parking spaces in the latest release. Missing statistics never match.
+            Bounds are inclusive.
+        - in: query
+          name: min_width
+          schema:
+            type: integer
+            minimum: 0
+          description: Minimum width (tiles) in the latest release. Missing statistics never match. Bounds are
+            inclusive.
+        - in: query
+          name: mine
+          schema:
+            type: boolean
+          description: Only your uploads
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: Search titles, descriptions and public tags (all own tags with mine=true)
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum:
+              - newest
+              - popular
+              - updated
+        - in: query
+          name: tag
+          schema:
+            type: string
+          description: Exact tag name, ignoring case and extra whitespace. Public tags only, unless mine=true.
+        - in: query
+          name: type
+          schema:
+            type: string
+          description: Content type slug
+        - in: query
+          name: view
+          schema:
+            type: string
+            enum:
+              - all
+              - mine
+              - saved
+        - in: query
+          name: author
+          schema:
+            type: integer
+            minimum: 1
       tags:
-      - v1
+        - v1
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - read
-      - cookieAuth: []
-      - {}
+        - PersonalAPIKey: []
+        - oauth2:
+            - read
+        - cookieAuth: []
+        - {}
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaginatedItemList'
-          description: ''
-        '400':
+                $ref: "#/components/schemas/PaginatedItemList"
+          description: ""
+        "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '401':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "401":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '403':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "403":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '404':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '429':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "429":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+          description: ""
     post:
       operationId: v1_items_create
-      description: Create metadata for a blueprint or scenario. Pack and mod uploads
-        are disabled. API items start as drafts; upload a raw .cpbp or .cpcs release
-        and at least one screenshot, then PATCH status to published. Each item can
-        have up to eight screenshots.
+      description: Create metadata for a blueprint or scenario. Pack and mod uploads are disabled. API
+        items start as drafts; upload a raw .cpbp or .cpcs release and at least one screenshot, then
+        PATCH status to published. Each item can have up to eight screenshots.
       tags:
-      - v1
+        - v1
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ItemRequest'
+              $ref: "#/components/schemas/ItemRequest"
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/ItemRequest'
+              $ref: "#/components/schemas/ItemRequest"
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/ItemRequest'
+              $ref: "#/components/schemas/ItemRequest"
         required: true
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - write
-      - cookieAuth: []
+        - PersonalAPIKey: []
+        - oauth2:
+            - write
+        - cookieAuth: []
       responses:
-        '201':
+        "201":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Item'
-          description: ''
-        '400':
+                $ref: "#/components/schemas/Item"
+          description: ""
+        "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '403':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "401":
+          description: Request rejected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: ""
   /api/v1/items/{id}/:
     get:
       operationId: v1_items_retrieve
-      description: Read a visible creation. Hidden creations return 403 with the public
-        moderation reason. Shadow-banned and self-deleted creations return 404 to
-        other users; their creator and staff browser sessions retain access. Drafts
-        remain private to the creator and staff.
+      description: Read a visible creation. Hidden creations return 403 with the public moderation reason.
+        Shadow-banned and self-deleted creations return 404 to other users; their creator and staff
+        browser sessions retain access. Drafts remain private to the creator and staff.
       parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        description: A UUID string identifying this item.
-        required: true
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          description: A UUID string identifying this item.
+          required: true
       tags:
-      - v1
+        - v1
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - read
-      - cookieAuth: []
-      - {}
+        - PersonalAPIKey: []
+        - oauth2:
+            - read
+        - cookieAuth: []
+        - {}
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Item'
-          description: ''
-        '403':
+                $ref: "#/components/schemas/Item"
+          description: ""
+        "401":
+          description: Request rejected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '404':
+                $ref: "#/components/schemas/Error"
+        "403":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: ""
     patch:
       operationId: v1_items_partial_update
-      description: Authors can edit their own metadata. Admin and Moderator browser
-        sessions may edit any creation; API keys and OAuth tokens remain limited to
-        their owner. Publishing requires an enabled file type, a validated release
-        and at least one validated screenshot. Setting status to published while file
-        checks are pending records the intent; the response remains draft until all
-        checks pass. Records a revision; files and previous releases are immutable.
+      description: Authors can edit their own metadata. Admin and Moderator browser sessions may edit any
+        creation; API keys and OAuth tokens remain limited to their owner. Publishing requires an
+        enabled file type, a validated release and at least one validated screenshot. Setting status
+        to published while file checks are pending records the intent; the response remains draft
+        until all checks pass. Records a revision; files and previous releases are immutable.
       parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        description: A UUID string identifying this item.
-        required: true
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          description: A UUID string identifying this item.
+          required: true
       tags:
-      - v1
+        - v1
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchedItemRequest'
+              $ref: "#/components/schemas/PatchedItemRequest"
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/PatchedItemRequest'
+              $ref: "#/components/schemas/PatchedItemRequest"
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/PatchedItemRequest'
+              $ref: "#/components/schemas/PatchedItemRequest"
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - write
-      - cookieAuth: []
+        - PersonalAPIKey: []
+        - oauth2:
+            - write
+        - cookieAuth: []
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Item'
-          description: ''
-        '400':
+                $ref: "#/components/schemas/Item"
+          description: ""
+        "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '403':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "401":
+          description: Request rejected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '404':
+                $ref: "#/components/schemas/Error"
+        "403":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: ""
     delete:
       operationId: v1_items_destroy
-      description: Author-only soft deletion. Immediately private to the creator and
-        staff; recoverable for 14 days with POST restore/. After 14 days the creation
-        and stored files are permanently removed.
+      description: Author-only soft deletion. Immediately private to the creator and staff; recoverable
+        for 14 days with POST restore/. After 14 days the creation and stored files are permanently
+        removed.
       parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        description: A UUID string identifying this item.
-        required: true
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          description: A UUID string identifying this item.
+          required: true
       tags:
-      - v1
+        - v1
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - write
-      - cookieAuth: []
+        - PersonalAPIKey: []
+        - oauth2:
+            - write
+        - cookieAuth: []
       responses:
-        '204':
+        "204":
           description: No response body
-        '403':
+        "400":
+          description: Request rejected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '404':
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Request rejected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: ""
   /api/v1/items/{id}/history/:
     get:
       operationId: v1_items_history_list
       parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        description: A UUID string identifying this item.
-        required: true
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          description: A UUID string identifying this item.
+          required: true
       tags:
-      - v1
+        - v1
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - read
-      - cookieAuth: []
+        - PersonalAPIKey: []
+        - oauth2:
+            - read
+        - cookieAuth: []
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Revision'
-          description: ''
+                  $ref: "#/components/schemas/Revision"
+          description: ""
+        "401":
+          description: Request rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Request rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /api/v1/items/{id}/releases/:
     post:
       operationId: v1_items_releases_create
-      description: Upload to an owned creation, or use an Admin or Moderator browser
-        session to add a release to any creation. The file type must be enabled. Published
-        items must have at least one screenshot before adding a release. Version strings
-        are unique per item. Existing releases cannot be overwritten. Returns 202
-        with a validation job. The creation stays draft until isolated checks finish.
-        Poll upload-jobs/ for the result. Submitted creation files and new releases
-        share a rolling limit of 16 uploads per hour per account across sessions,
-        API keys and OAuth tokens. Admins, Moderators and Reviewers are exempt; screenshots
-        do not use slots. A 429 response includes Retry-After in seconds.
+      description: Upload to an owned creation, or use an Admin or Moderator browser session to add a
+        release to any creation. The file type must be enabled. Published items must have at least
+        one screenshot before adding a release. Version strings are unique per item. Existing
+        releases cannot be overwritten. Returns 202 with a validation job. The creation stays draft
+        until isolated checks finish. Poll upload-jobs/ for the result. Submitted creation files and
+        new releases share a rolling limit of 16 uploads per hour per account across sessions, API
+        keys and OAuth tokens. Admins, Moderators and Reviewers are exempt; screenshots do not use
+        slots. A 429 response includes Retry-After in seconds.
       parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        description: A UUID string identifying this item.
-        required: true
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          description: A UUID string identifying this item.
+          required: true
       tags:
-      - v1
+        - v1
       requestBody:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/ReleaseUploadRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/ReleaseUploadRequest'
+              $ref: "#/components/schemas/ReleaseUploadRequest"
         required: true
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - write
-      - cookieAuth: []
+        - PersonalAPIKey: []
+        - oauth2:
+            - write
+        - cookieAuth: []
       responses:
-        '202':
+        "202":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UploadJob'
-          description: ''
-        '400':
+                $ref: "#/components/schemas/UploadJob"
+          description: ""
+        "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '403':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "401":
+          description: Request rejected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '429':
+                $ref: "#/components/schemas/Error"
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "429":
           headers:
             Retry-After:
               schema:
@@ -569,50 +593,45 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '503':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "503":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+          description: ""
   /api/v1/items/{id}/releases/{release_id}/download/:
     get:
       operationId: v1_items_releases_download_retrieve
-      description: 'Checks item visibility, then redirects to a short-lived signed
-        R2 object streamed through the Worker (200). Download requests are counted and never edge-cached. Follow redirects
-        without forwarding CPC Hub credentials to the storage host. Successful GETs
-        count link issuance, not completed transfers. Creation and release counters
-        each deduplicate by account and IP: a match on either prevents another count.
-        Account markers persist; IP markers expire 14 days after their last download.
-        IPv4 uses the individual address; IPv6 uses the /32 subnet. HEAD does not
-        count. Signed URLs default to 300 seconds. SHA-256 and size are in release
-        metadata.'
+      description: Checks item visibility and streams the release from R2 through the Worker. Never
+        edge-cached. Successful GETs count requests, not completed transfers. Counts deduplicate by
+        account and IP; IP markers expire after 14 days and IPv6 uses /32 subnets. HEAD returns the
+        same headers without bytes or download counting.
       parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        description: A UUID string identifying this item.
-        required: true
-      - in: path
-        name: release_id
-        schema:
-          type: string
-          format: uuid
-        required: true
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          description: A UUID string identifying this item.
+          required: true
+        - in: path
+          name: release_id
+          schema:
+            type: string
+            format: uuid
+          required: true
       tags:
-      - v1
+        - v1
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - read
-      - cookieAuth: []
-      - {}
+        - PersonalAPIKey: []
+        - oauth2:
+            - read
+        - cookieAuth: []
+        - {}
       responses:
-        '200':
+        "200":
           headers:
             X-Content-SHA256:
               schema:
@@ -623,632 +642,792 @@ paths:
               schema:
                 type: string
                 format: binary
-          description: ''
-        '302':
-          headers:
-            Location:
-              schema:
-                type: string
-              description: Expiring signed URL. Request this endpoint again for a
-                fresh URL.
-            X-Content-SHA256:
-              schema:
-                type: string
-              description: SHA-256 of the release file.
-          description: No response body
-        '403':
+          description: ""
+        "401":
+          description: Request rejected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '404':
+                $ref: "#/components/schemas/Error"
+        "403":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '503':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: ""
   /api/v1/items/{id}/restore/:
     post:
       operationId: v1_items_restore_create
-      description: Restore your own self-deleted creation within 14 days. Existing
-        draft status and moderation restrictions remain in effect.
+      description: Restore your own self-deleted creation within 14 days. Existing draft status and
+        moderation restrictions remain in effect.
       parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        description: A UUID string identifying this item.
-        required: true
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          description: A UUID string identifying this item.
+          required: true
       tags:
-      - v1
+        - v1
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - write
-      - cookieAuth: []
+        - PersonalAPIKey: []
+        - oauth2:
+            - write
+        - cookieAuth: []
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Item'
-          description: ''
-        '400':
+                $ref: "#/components/schemas/Item"
+          description: ""
+        "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '403':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "401":
+          description: Request rejected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '404':
+                $ref: "#/components/schemas/Error"
+        "403":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: ""
   /api/v1/items/{id}/screenshots/:
     post:
       operationId: v1_items_screenshots_create
       parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        description: A UUID string identifying this item.
-        required: true
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          description: A UUID string identifying this item.
+          required: true
       tags:
-      - v1
+        - v1
       requestBody:
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/ScreenshotUploadRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/ScreenshotUploadRequest'
+              $ref: "#/components/schemas/ScreenshotUploadRequest"
         required: true
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - write
-      - cookieAuth: []
+        - PersonalAPIKey: []
+        - oauth2:
+            - write
+        - cookieAuth: []
       responses:
-        '202':
+        "202":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UploadJob'
-          description: ''
-        '400':
+                $ref: "#/components/schemas/UploadJob"
+          description: ""
+        "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '403':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "401":
+          description: Request rejected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '503':
+                $ref: "#/components/schemas/Error"
+        "403":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: ""
   /api/v1/items/{id}/screenshots/{screenshot_id}/:
     delete:
       operationId: v1_items_screenshots_destroy
-      description: Remove an owned screenshot, or use an Admin browser session to
-        remove any screenshot. Published creations must keep at least one screenshot;
-        add a replacement or save as a draft first.
+      description: Remove an owned screenshot, or use an Admin browser session to remove any screenshot.
+        Published creations must keep at least one screenshot; add a replacement or save as a draft
+        first.
       parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        description: A UUID string identifying this item.
-        required: true
-      - in: path
-        name: screenshot_id
-        schema:
-          type: string
-          format: uuid
-        required: true
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          description: A UUID string identifying this item.
+          required: true
+        - in: path
+          name: screenshot_id
+          schema:
+            type: string
+            format: uuid
+          required: true
       tags:
-      - v1
+        - v1
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - write
-      - cookieAuth: []
+        - PersonalAPIKey: []
+        - oauth2:
+            - write
+        - cookieAuth: []
       responses:
-        '204':
+        "204":
           description: No response body
-        '400':
+        "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '403':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "401":
+          description: Request rejected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '404':
+                $ref: "#/components/schemas/Error"
+        "403":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: ""
   /api/v1/items/{id}/screenshots/{screenshot_id}/image/:
     get:
       operationId: v1_items_screenshots_image_retrieve
-      description: Checks item visibility before redirecting to a short-lived signed
-        screenshot URL. Local development can return image bytes directly. Keep this
-        application URL for future requests; signed URLs expire.
+      description: Checks item visibility, then redirects new screenshots to the public unguessable
+        screenshots CDN URL. Legacy screenshots return WebP bytes directly.
       parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        description: A UUID string identifying this item.
-        required: true
-      - in: path
-        name: screenshot_id
-        schema:
-          type: string
-          format: uuid
-        required: true
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          description: A UUID string identifying this item.
+          required: true
+        - in: path
+          name: screenshot_id
+          schema:
+            type: string
+            format: uuid
+          required: true
       tags:
-      - v1
+        - v1
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - read
-      - cookieAuth: []
-      - {}
+        - PersonalAPIKey: []
+        - oauth2:
+            - read
+        - cookieAuth: []
+        - {}
       responses:
-        '200':
+        "200":
           content:
             image/webp:
               schema:
                 type: string
                 format: binary
-          description: ''
-        '302':
+          description: ""
+        "302":
           headers:
             Location:
               schema:
                 type: string
-              description: Expiring signed WebP image URL.
+              description: Public screenshots CDN URL.
           description: No response body
-        '403':
+        "401":
+          description: Request rejected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '404':
+                $ref: "#/components/schemas/Error"
+        "403":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '503':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: ""
   /api/v1/items/{id}/upload-jobs/:
     get:
       operationId: v1_items_upload_jobs_list
-      description: File-check status for the author or a staff browser session. Upload
-        endpoints return 202 with a job ID. Files remain private and the creation
-        stays draft until checks finish. A passed job supplies its release or screenshot
-        ID; a failed job supplies a safe error message.
+      description: File-check status for the author or a staff browser session. Upload endpoints return
+        202 with a job ID. Files remain private and the creation stays draft until checks finish. A
+        passed job supplies its release or screenshot ID; a failed job supplies a safe error
+        message.
       parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        description: A UUID string identifying this item.
-        required: true
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          description: A UUID string identifying this item.
+          required: true
       tags:
-      - v1
+        - v1
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - read
-      - cookieAuth: []
+        - PersonalAPIKey: []
+        - oauth2:
+            - read
+        - cookieAuth: []
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/UploadJob'
-          description: ''
+                  $ref: "#/components/schemas/UploadJob"
+          description: ""
+        "401":
+          description: Request rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Request rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /api/v1/keys/:
     get:
       operationId: v1_keys_list
-      parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
+      parameters: []
       tags:
-      - v1
+        - v1
       security:
-      - oauth2:
-        - keys:write
-      - cookieAuth: []
+        - oauth2:
+            - keys:write
+        - cookieAuth: []
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaginatedKeyList'
-          description: ''
-        '400':
+                $ref: "#/components/schemas/PaginatedKeyList"
+          description: ""
+        "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '401':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "401":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '403':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "403":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '404':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '429':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "429":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+          description: ""
     post:
       operationId: v1_keys_create
-      description: Session or OAuth keys:write scope required. OAuth clients may mint
-        only read/write scopes they hold, and manage only their own keys. API keys
-        cannot mint more keys. The secret is returned once. Keys do not expire by
-        default; omit days or send null. Set days to 1–90 for an expiring key. All
-        keys can be revoked.
+      description: Session or OAuth keys:write scope required. OAuth clients may mint only read/write
+        scopes they hold, and manage only their own keys. API keys cannot mint more keys. The secret
+        is returned once. Keys do not expire by default; omit days or send null. Set days to 1–90
+        for an expiring key. All keys can be revoked.
       tags:
-      - v1
+        - v1
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/KeyCreateRequest'
+              $ref: "#/components/schemas/KeyCreateRequest"
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/KeyCreateRequest'
+              $ref: "#/components/schemas/KeyCreateRequest"
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/KeyCreateRequest'
+              $ref: "#/components/schemas/KeyCreateRequest"
         required: true
       security:
-      - oauth2:
-        - keys:write
-      - cookieAuth: []
+        - oauth2:
+            - keys:write
+        - cookieAuth: []
       responses:
-        '201':
+        "201":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IssuedKey'
-          description: ''
-        '400':
+                $ref: "#/components/schemas/IssuedKey"
+          description: ""
+        "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '403':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "401":
+          description: Request rejected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: ""
   /api/v1/keys/{id}/:
     delete:
       operationId: v1_keys_destroy
       description: Revoke a key immediately. The audit record is retained.
       parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        description: A UUID string identifying this api key.
-        required: true
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          description: A UUID string identifying this api key.
+          required: true
       tags:
-      - v1
+        - v1
       security:
-      - oauth2:
-        - keys:write
-      - cookieAuth: []
+        - oauth2:
+            - keys:write
+        - cookieAuth: []
       responses:
-        '204':
+        "204":
           description: No response body
-        '403':
+        "400":
+          description: Request rejected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '404':
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Request rejected.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: ""
   /api/v1/me/:
     get:
       operationId: v1_me_retrieve
-      description: Minimal profile for the signed-in mod manager; no email or provider
-        secrets.
+      description: Minimal profile for the signed-in mod manager; no email or provider secrets.
       tags:
-      - v1
+        - v1
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - read
-      - cookieAuth: []
+        - PersonalAPIKey: []
+        - oauth2:
+            - read
+        - cookieAuth: []
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Profile'
-          description: ''
-        '401':
+                $ref: "#/components/schemas/Profile"
+          description: ""
+        "401":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '403':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "403":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+          description: ""
   /api/v1/tags/:
     get:
       operationId: v1_tags_list
-      description: Public tags with counts of visible, published creations. Tags need
-        11 creations by default; Admins can change this threshold. Drafts, hidden,
-        deleted, shadow-banned and demo creations do not count.
+      description: Public tags with counts of visible, published creations. Tags need 11 creations by
+        default; Admins can change this threshold. Drafts, hidden, deleted, shadow-banned and demo
+        creations do not count.
       parameters:
-      - name: page
-        required: false
-        in: query
-        description: A page number within the paginated result set.
-        schema:
-          type: integer
-      - in: query
-        name: q
-        schema:
-          type: string
-        description: Find tag names containing this text.
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: Find tag names containing this text.
       tags:
-      - v1
+        - v1
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - read
-      - cookieAuth: []
-      - {}
+        - PersonalAPIKey: []
+        - oauth2:
+            - read
+        - cookieAuth: []
+        - {}
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaginatedTagList'
-          description: ''
-        '400':
+                $ref: "#/components/schemas/PaginatedTagList"
+          description: ""
+        "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '401':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "401":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '403':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "403":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '404':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '429':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "429":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+          description: ""
   /api/v1/tags/suggest/:
     get:
       operationId: v1_tags_suggest_list
-      description: Existing tag suggestions for signed-in editors, including uncommon
-        tags on public creations and tags on their own private creations. Other users'
-        private tags are excluded. Returns up to 20 names; accepts the q substring
-        filter.
+      description: Existing tag suggestions for signed-in editors, including uncommon tags on public
+        creations and tags on their own private creations. Other users' private tags are excluded.
+        Returns up to 20 names; accepts the q substring filter.
       parameters:
-      - in: query
-        name: q
-        schema:
-          type: string
+        - in: query
+          name: q
+          schema:
+            type: string
       tags:
-      - v1
+        - v1
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - read
-      - cookieAuth: []
+        - PersonalAPIKey: []
+        - oauth2:
+            - read
+        - cookieAuth: []
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/TagSuggestion'
-          description: ''
+                  $ref: "#/components/schemas/TagSuggestion"
+          description: ""
+        "401":
+          description: Request rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Request rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /api/v1/types/:
     get:
       operationId: v1_types_list
       description: Discover enabled upload types and their accepted extensions.
       tags:
-      - v1
+        - v1
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - read
-      - cookieAuth: []
-      - {}
+        - PersonalAPIKey: []
+        - oauth2:
+            - read
+        - cookieAuth: []
+        - {}
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ContentType'
-          description: ''
-        '400':
+                  $ref: "#/components/schemas/ContentType"
+          description: ""
+        "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '401':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "401":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '403':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "403":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '404':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '429':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "429":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+          description: ""
   /api/v1/types/{slug}/:
     get:
       operationId: v1_types_retrieve
       description: Discover enabled upload types and their accepted extensions.
       parameters:
-      - in: path
-        name: slug
-        schema:
-          type: string
-        required: true
+        - in: path
+          name: slug
+          schema:
+            type: string
+          required: true
       tags:
-      - v1
+        - v1
       security:
-      - PersonalAPIKey: []
-      - oauth2:
-        - read
-      - cookieAuth: []
-      - {}
+        - PersonalAPIKey: []
+        - oauth2:
+            - read
+        - cookieAuth: []
+        - {}
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ContentType'
-          description: ''
-        '400':
+                $ref: "#/components/schemas/ContentType"
+          description: ""
+        "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '401':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "401":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '403':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "403":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '404':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
-        '429':
+                $ref: "#/components/schemas/Error"
+          description: ""
+        "429":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-          description: ''
+                $ref: "#/components/schemas/Error"
+          description: ""
+  /o/token/:
+    post:
+      operationId: oauth_token
+      description: Exchange an S256 PKCE code or rotate a refresh token. Access tokens last one hour.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/OAuthTokenRequest"
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthTokenRequest"
+      responses:
+        "200":
+          description: Issued tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthToken"
+        "400": &a1
+          description: OAuth error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthError"
+  /o/revoke_token/:
+    post:
+      operationId: oauth_revoke
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/OAuthRevokeRequest"
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthRevokeRequest"
+      responses:
+        "200":
+          description: Token family revoked, or token already absent.
+        "400": *a1
+  /o/authorize/:
+    get:
+      operationId: oauth_authorize
+      security:
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: client_id
+          schema: &a2
+            type: string
+          required: true
+        - in: query
+          name: redirect_uri
+          schema: &a3
+            type: string
+            format: uri
+          required: true
+        - in: query
+          name: response_type
+          schema: &a4
+            type: string
+            const: code
+          required: true
+        - in: query
+          name: code_challenge_method
+          schema: &a5
+            type: string
+            const: S256
+          required: true
+        - in: query
+          name: code_challenge
+          schema: &a6
+            type: string
+            pattern: ^[A-Za-z0-9_-]{43}$
+          required: true
+        - in: query
+          name: scope
+          schema: *a2
+          required: false
+        - in: query
+          name: state
+          schema: *a2
+          required: false
+      responses:
+        "200":
+          description: Consent page.
+          content:
+            text/html:
+              schema: *a2
+        "400": *a1
+        "401": *a1
+    post:
+      operationId: oauth_consent
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/OAuthAuthorizeRequest"
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthAuthorizeRequest"
+      responses:
+        "302":
+          description: Callback with code or access_denied and original state.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        "400": *a1
+        "401": *a1
+        "403": *a1
 components:
   schemas:
     ContentType:
@@ -1265,30 +1444,39 @@ components:
           type: string
           maxLength: 200
         allowed_extensions:
-          description: Lowercase extensions, e.g. [".zip", ".cpbp", ".json"]. ZIP
-            contents are not executed or extracted.
+          type: array
+          items:
+            type: string
+            pattern: ^\.[a-z0-9]+$
+          description: "Accepted native file extensions: .cpbp or .cpcs."
         uploads_enabled:
           type: boolean
           description: Allow new creations and releases for this type.
         max_upload_bytes:
           type: integer
           readOnly: true
-          description: Current maximum size of each game file. Defaults to 15 MiB;
-            Admin-adjustable.
+          description: Current maximum size of each game file. Defaults to 15 MiB; Admin-adjustable.
       required:
-      - max_upload_bytes
-      - name
-      - slug
+        - slug
+        - name
+        - description
+        - allowed_extensions
+        - uploads_enabled
+        - max_upload_bytes
     Error:
       type: object
       properties:
         status:
           type: integer
         errors:
-          description: Field errors or a detail message.
+          type: object
+          properties:
+            detail: *a2
+          required:
+            - detail
       required:
-      - errors
-      - status
+        - errors
+        - status
     FileStats:
       type: object
       properties:
@@ -1297,11 +1485,11 @@ components:
           maximum: 1
           minimum: 1
         kind:
-          $ref: '#/components/schemas/FileStatsKindEnum'
+          $ref: "#/components/schemas/FileStatsKindEnum"
         format_version:
           type:
-          - integer
-          - 'null'
+            - integer
+            - "null"
           maximum: 3
           minimum: 2
         width:
@@ -1326,145 +1514,61 @@ components:
           description: Width × depth for blueprints; sum of map areas for scenarios.
         objects:
           type:
-          - integer
-          - 'null'
+            - integer
+            - "null"
           maximum: 1000000
           minimum: 0
         object_types:
           type:
-          - integer
-          - 'null'
+            - integer
+            - "null"
           maximum: 1000000
           minimum: 0
         parking_spaces:
           type:
-          - integer
-          - 'null'
+            - integer
+            - "null"
           maximum: 1000000
           minimum: 0
           description: Saved ParkingBay objects; does not check road access or usability.
         golf_cart_spaces:
           type:
-          - integer
-          - 'null'
+            - integer
+            - "null"
           maximum: 1000000
           minimum: 0
         entrances:
           type:
-          - integer
-          - 'null'
+            - integer
+            - "null"
           maximum: 1000000
           minimum: 0
         exits:
           type:
-          - integer
-          - 'null'
+            - integer
+            - "null"
           maximum: 1000000
           minimum: 0
         maps:
           type:
-          - integer
-          - 'null'
+            - integer
+            - "null"
           maximum: 16
           minimum: 1
         entities:
           type:
-          - integer
-          - 'null'
+            - integer
+            - "null"
           maximum: 1000000
           minimum: 0
     FileStatsKindEnum:
       enum:
-      - blueprint
-      - scenario
+        - blueprint
+        - scenario
       type: string
       description: |-
         * `blueprint` - blueprint
         * `scenario` - scenario
-    FileStatsRequest:
-      type: object
-      properties:
-        schema_version:
-          type: integer
-          maximum: 1
-          minimum: 1
-        kind:
-          $ref: '#/components/schemas/FileStatsKindEnum'
-        format_version:
-          type:
-          - integer
-          - 'null'
-          maximum: 3
-          minimum: 2
-        width:
-          type: integer
-          maximum: 2048
-          minimum: 1
-          description: Blueprint width, or largest map width, in tiles.
-        depth:
-          type: integer
-          maximum: 2048
-          minimum: 1
-          description: Blueprint depth, or largest map depth, in tiles.
-        height:
-          type: integer
-          maximum: 2048
-          minimum: 1
-          description: Blueprint height, or largest map height, in tiles.
-        footprint_tiles:
-          type: integer
-          maximum: 67108864
-          minimum: 1
-          description: Width × depth for blueprints; sum of map areas for scenarios.
-        objects:
-          type:
-          - integer
-          - 'null'
-          maximum: 1000000
-          minimum: 0
-        object_types:
-          type:
-          - integer
-          - 'null'
-          maximum: 1000000
-          minimum: 0
-        parking_spaces:
-          type:
-          - integer
-          - 'null'
-          maximum: 1000000
-          minimum: 0
-          description: Saved ParkingBay objects; does not check road access or usability.
-        golf_cart_spaces:
-          type:
-          - integer
-          - 'null'
-          maximum: 1000000
-          minimum: 0
-        entrances:
-          type:
-          - integer
-          - 'null'
-          maximum: 1000000
-          minimum: 0
-        exits:
-          type:
-          - integer
-          - 'null'
-          maximum: 1000000
-          minimum: 0
-        maps:
-          type:
-          - integer
-          - 'null'
-          maximum: 16
-          minimum: 1
-        entities:
-          type:
-          - integer
-          - 'null'
-          maximum: 1000000
-          minimum: 0
     IssuedKey:
       type: object
       properties:
@@ -1478,35 +1582,43 @@ components:
         prefix:
           type: string
           maxLength: 16
-        scopes: {}
+        scopes:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ScopesEnum"
         created_at:
           type: string
           format: date-time
           readOnly: true
         expires_at:
           type:
-          - string
-          - 'null'
+            - string
+            - "null"
           format: date-time
         last_used_at:
           type:
-          - string
-          - 'null'
+            - string
+            - "null"
           format: date-time
         revoked_at:
           type:
-          - string
-          - 'null'
+            - string
+            - "null"
           format: date-time
         key:
           type: string
           description: Shown only once. Store in the operating system credential store.
       required:
-      - created_at
-      - id
-      - key
-      - name
-      - prefix
+        - id
+        - name
+        - prefix
+        - scopes
+        - created_at
+        - expires_at
+        - last_used_at
+        - revoked_at
+        - key
     Item:
       type: object
       properties:
@@ -1522,25 +1634,24 @@ components:
           maxLength: 180
         description:
           type: string
-          description: Basic Markdown source. Supports emphasis, lists, quotes, code,
-            small headings, and HTTP(S) links. HTML and embedded images are disabled.
+          description: Basic Markdown source. Supports emphasis, lists, quotes, code, small headings, and
+            HTTP(S) links. HTML and embedded images are disabled.
           maxLength: 20000
         content_type:
           type: string
-          description: 'An enabled type from /api/v1/types/: blueprints or scenarios.
-            Pack and mod uploads are disabled.'
+          description: "An enabled type from /api/v1/types/: blueprints or scenarios. Pack and mod uploads are
+            disabled."
         author:
           type: string
           readOnly: true
         tags:
           type: string
-          description: Comma-separated tags. Public responses include only tags meeting
-            the configurable publication threshold (11 visible creations by default).
-            Authors and staff browser sessions can read all assigned tags. Use /api/v1/tags/suggest/
-            for editing suggestions.
+          description: Comma-separated tags. Public responses include only tags meeting the configurable
+            publication threshold (11 visible creations by default). Authors and staff browser
+            sessions can read all assigned tags. Use /api/v1/tags/suggest/ for editing suggestions.
           maxLength: 200
         status:
-          $ref: '#/components/schemas/ItemStatusEnum'
+          $ref: "#/components/schemas/ItemStatusEnum"
         publish_after_validation:
           type: boolean
           readOnly: true
@@ -1555,14 +1666,14 @@ components:
           readOnly: true
         deleted_at:
           type:
-          - string
-          - 'null'
+            - string
+            - "null"
           format: date-time
           readOnly: true
         featured_at:
           type:
-          - string
-          - 'null'
+            - string
+            - "null"
           format: date-time
           readOnly: true
         downloads:
@@ -1570,15 +1681,14 @@ components:
           maximum: 2147483647
           minimum: 0
           readOnly: true
-          description: Download links issued across all releases, deduplicated by
-            account and by IP for 14 days. IPv6 uses /32 subnets. Downloading another
-            release does not recount the creation. Historical totals are retained.
+          description: Download links issued across all releases, deduplicated by account and by IP for 14
+            days. IPv6 uses /32 subnets. Downloading another release does not recount the creation.
+            Historical totals are retained.
         collection_count:
           type: integer
           minimum: 0
           readOnly: true
-          description: Number of people who currently have this creation saved in
-            their collection.
+          description: Number of people who currently have this creation saved in their collection.
         created_at:
           type: string
           format: date-time
@@ -1590,32 +1700,34 @@ components:
         releases:
           type: array
           items:
-            $ref: '#/components/schemas/Release'
+            $ref: "#/components/schemas/Release"
           readOnly: true
         screenshots:
           type: array
           items:
-            $ref: '#/components/schemas/Screenshot'
+            $ref: "#/components/schemas/Screenshot"
           readOnly: true
       required:
-      - author
-      - collection_count
-      - content_type
-      - created_at
-      - deleted_at
-      - description
-      - downloads
-      - featured_at
-      - hidden_reason
-      - id
-      - is_demo
-      - is_hidden
-      - publish_after_validation
-      - releases
-      - screenshots
-      - summary
-      - title
-      - updated_at
+        - id
+        - title
+        - summary
+        - description
+        - content_type
+        - author
+        - tags
+        - status
+        - publish_after_validation
+        - is_demo
+        - is_hidden
+        - hidden_reason
+        - deleted_at
+        - featured_at
+        - downloads
+        - collection_count
+        - created_at
+        - updated_at
+        - releases
+        - screenshots
     ItemRequest:
       type: object
       properties:
@@ -1630,32 +1742,31 @@ components:
         description:
           type: string
           minLength: 1
-          description: Basic Markdown source. Supports emphasis, lists, quotes, code,
-            small headings, and HTTP(S) links. HTML and embedded images are disabled.
+          description: Basic Markdown source. Supports emphasis, lists, quotes, code, small headings, and
+            HTTP(S) links. HTML and embedded images are disabled.
           maxLength: 20000
         content_type:
           type: string
           minLength: 1
-          description: 'An enabled type from /api/v1/types/: blueprints or scenarios.
-            Pack and mod uploads are disabled.'
+          description: "An enabled type from /api/v1/types/: blueprints or scenarios. Pack and mod uploads are
+            disabled."
         tags:
           type: string
-          description: Comma-separated tags. Public responses include only tags meeting
-            the configurable publication threshold (11 visible creations by default).
-            Authors and staff browser sessions can read all assigned tags. Use /api/v1/tags/suggest/
-            for editing suggestions.
+          description: Comma-separated tags. Public responses include only tags meeting the configurable
+            publication threshold (11 visible creations by default). Authors and staff browser
+            sessions can read all assigned tags. Use /api/v1/tags/suggest/ for editing suggestions.
           maxLength: 200
         status:
-          $ref: '#/components/schemas/ItemStatusEnum'
+          $ref: "#/components/schemas/ItemStatusEnum"
       required:
-      - content_type
-      - description
-      - summary
-      - title
+        - content_type
+        - description
+        - summary
+        - title
     ItemStatusEnum:
       enum:
-      - draft
-      - published
+        - draft
+        - published
       type: string
       description: |-
         * `draft` - Draft (private)
@@ -1673,31 +1784,39 @@ components:
         prefix:
           type: string
           maxLength: 16
-        scopes: {}
+        scopes:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ScopesEnum"
         created_at:
           type: string
           format: date-time
           readOnly: true
         expires_at:
           type:
-          - string
-          - 'null'
+            - string
+            - "null"
           format: date-time
         last_used_at:
           type:
-          - string
-          - 'null'
+            - string
+            - "null"
           format: date-time
         revoked_at:
           type:
-          - string
-          - 'null'
+            - string
+            - "null"
           format: date-time
       required:
-      - created_at
-      - id
-      - name
-      - prefix
+        - id
+        - name
+        - prefix
+        - scopes
+        - created_at
+        - expires_at
+        - last_used_at
+        - revoked_at
     KeyCreateRequest:
       type: object
       properties:
@@ -1707,89 +1826,96 @@ components:
           maxLength: 80
         scopes:
           type: array
+          minItems: 1
           items:
-            $ref: '#/components/schemas/ScopesEnum'
+            $ref: "#/components/schemas/ScopesEnum"
           default:
-          - read
+            - read
         days:
           type:
-          - integer
-          - 'null'
+            - integer
+            - "null"
           maximum: 90
           minimum: 1
-          description: Omit or send null for no expiry (default), or choose 1–90 days.
-            Keys can always be revoked.
+          description: Omit or send null for no expiry (default), or choose 1–90 days. Keys can always be
+            revoked.
       required:
-      - name
+        - name
     PaginatedItemList:
       type: object
       required:
-      - count
-      - results
+        - count
+        - next
+        - previous
+        - results
       properties:
         count:
           type: integer
           example: 123
         next:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           format: uri
-          example: http://api.example.org/accounts/?page=4
         previous:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           format: uri
-          example: http://api.example.org/accounts/?page=2
         results:
           type: array
           items:
-            $ref: '#/components/schemas/Item'
+            $ref: "#/components/schemas/Item"
     PaginatedKeyList:
       type: object
       required:
-      - count
-      - results
+        - count
+        - next
+        - previous
+        - results
       properties:
         count:
           type: integer
           example: 123
         next:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           format: uri
-          example: http://api.example.org/accounts/?page=4
         previous:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           format: uri
-          example: http://api.example.org/accounts/?page=2
         results:
           type: array
           items:
-            $ref: '#/components/schemas/Key'
+            $ref: "#/components/schemas/Key"
     PaginatedTagList:
       type: object
       required:
-      - count
-      - results
+        - count
+        - next
+        - previous
+        - results
       properties:
         count:
           type: integer
           example: 123
         next:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           format: uri
-          example: http://api.example.org/accounts/?page=4
         previous:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
           format: uri
-          example: http://api.example.org/accounts/?page=2
         results:
           type: array
           items:
-            $ref: '#/components/schemas/Tag'
+            $ref: "#/components/schemas/Tag"
     PatchedItemRequest:
       type: object
       properties:
@@ -1804,23 +1930,22 @@ components:
         description:
           type: string
           minLength: 1
-          description: Basic Markdown source. Supports emphasis, lists, quotes, code,
-            small headings, and HTTP(S) links. HTML and embedded images are disabled.
+          description: Basic Markdown source. Supports emphasis, lists, quotes, code, small headings, and
+            HTTP(S) links. HTML and embedded images are disabled.
           maxLength: 20000
         content_type:
           type: string
           minLength: 1
-          description: 'An enabled type from /api/v1/types/: blueprints or scenarios.
-            Pack and mod uploads are disabled.'
+          description: "An enabled type from /api/v1/types/: blueprints or scenarios. Pack and mod uploads are
+            disabled."
         tags:
           type: string
-          description: Comma-separated tags. Public responses include only tags meeting
-            the configurable publication threshold (11 visible creations by default).
-            Authors and staff browser sessions can read all assigned tags. Use /api/v1/tags/suggest/
-            for editing suggestions.
+          description: Comma-separated tags. Public responses include only tags meeting the configurable
+            publication threshold (11 visible creations by default). Authors and staff browser
+            sessions can read all assigned tags. Use /api/v1/tags/suggest/ for editing suggestions.
           maxLength: 200
         status:
-          $ref: '#/components/schemas/ItemStatusEnum'
+          $ref: "#/components/schemas/ItemStatusEnum"
     Profile:
       type: object
       properties:
@@ -1829,8 +1954,8 @@ components:
         username:
           type: string
       required:
-      - id
-      - username
+        - id
+        - username
     Release:
       type: object
       properties:
@@ -1846,8 +1971,8 @@ components:
           maxLength: 40
         changelog:
           type: string
-          description: Basic Markdown source. Supports emphasis, lists, quotes, code,
-            small headings, and HTTP(S) links. HTML and embedded images are disabled.
+          description: Basic Markdown source. Supports emphasis, lists, quotes, code, small headings, and
+            HTTP(S) links. HTML and embedded images are disabled.
           maxLength: 10000
         original_filename:
           type: string
@@ -1857,7 +1982,7 @@ components:
           maxLength: 64
         size:
           type: integer
-          maximum: 9223372036854775807
+          maximum: 9223372036854776000
           minimum: 0
           format: int64
         downloads:
@@ -1865,8 +1990,8 @@ components:
           maximum: 2147483647
           minimum: 0
           readOnly: true
-          description: Download links issued for this release, deduplicated by account
-            and by IP for 14 days. IPv6 uses /32 subnets. Historical totals are retained.
+          description: Download links issued for this release, deduplicated by account and by IP for 14 days.
+            IPv6 uses /32 subnets. Historical totals are retained.
         created_at:
           type: string
           format: date-time
@@ -1874,65 +1999,34 @@ components:
         download_url:
           type: string
           readOnly: true
-          description: Stable application URL. Checks permissions and redirects to
-            a download URL served by the Worker with download counting.
+          description: Stable application URL that checks visibility and streams file bytes through the Worker.
+          format: uri
         file_stats:
           allOf:
-          - $ref: '#/components/schemas/FileStats'
+            - $ref: "#/components/schemas/FileStats"
           readOnly: true
-          description: Statistics decoded in an isolated VM. Empty for files not yet
-            inspected; null means unavailable or not applicable.
+          description: Statistics decoded in a private validation Worker. Empty for legacy files not yet
+            inspected; null fields mean unavailable or not applicable.
       required:
-      - created_at
-      - download_url
-      - downloads
-      - file_stats
-      - id
-      - original_filename
-      - sha256
-      - size
-      - version
-    ReleaseRequest:
-      type: object
-      properties:
-        version:
-          type: string
-          minLength: 1
-          maxLength: 40
-        game_version:
-          type: string
-          maxLength: 40
-        changelog:
-          type: string
-          description: Basic Markdown source. Supports emphasis, lists, quotes, code,
-            small headings, and HTTP(S) links. HTML and embedded images are disabled.
-          maxLength: 10000
-        original_filename:
-          type: string
-          minLength: 1
-          maxLength: 255
-        sha256:
-          type: string
-          minLength: 1
-          maxLength: 64
-        size:
-          type: integer
-          maximum: 9223372036854775807
-          minimum: 0
-          format: int64
-      required:
-      - original_filename
-      - sha256
-      - size
-      - version
+        - id
+        - version
+        - game_version
+        - changelog
+        - original_filename
+        - sha256
+        - size
+        - downloads
+        - created_at
+        - download_url
+        - file_stats
     ReleaseUploadRequest:
       type: object
       properties:
         file:
           type: string
           format: binary
-          description: Raw .cpbp blueprint or .cpcs scenario, up to 15 MB by default
-            (Admin-adjustable). ZIP packs and JSON uploads are disabled.
+          description: Raw .cpbp blueprint or .cpcs scenario, up to 15 MB by default (Admin-adjustable). ZIP
+            packs and JSON uploads are disabled.
         version:
           type: string
           minLength: 1
@@ -1942,31 +2036,62 @@ components:
           maxLength: 40
         changelog:
           type: string
-          description: Basic Markdown source. Supports emphasis, lists, quotes, code,
-            small headings, and HTTP(S) links. HTML and embedded images are disabled.
+          description: Basic Markdown source. Supports emphasis, lists, quotes, code, small headings, and
+            HTTP(S) links. HTML and embedded images are disabled.
           maxLength: 10000
       required:
-      - file
-      - version
+        - file
+        - version
     Revision:
       type: object
       properties:
         id:
           type: integer
           readOnly: true
-        snapshot: {}
+        snapshot:
+          type: object
+          properties:
+            title:
+              type: string
+              minLength: 1
+              maxLength: 100
+            summary:
+              type: string
+              minLength: 1
+              maxLength: 180
+            description:
+              type: string
+              minLength: 1
+              description: Basic Markdown source. Supports emphasis, lists, quotes, code, small headings, and
+                HTTP(S) links. HTML and embedded images are disabled.
+              maxLength: 20000
+            content_type:
+              type: string
+              minLength: 1
+              description: "An enabled type from /api/v1/types/: blueprints or scenarios. Pack and mod uploads are
+                disabled."
+            tags:
+              type: string
+              description: Comma-separated tags. Public responses include only tags meeting the configurable
+                publication threshold (11 visible creations by default). Authors and staff browser
+                sessions can read all assigned tags. Use /api/v1/tags/suggest/ for editing
+                suggestions.
+              maxLength: 200
+            status:
+              $ref: "#/components/schemas/ItemStatusEnum"
+          additionalProperties: true
         created_at:
           type: string
           format: date-time
           readOnly: true
       required:
-      - created_at
-      - id
-      - snapshot
+        - created_at
+        - id
+        - snapshot
     ScopesEnum:
       enum:
-      - read
-      - write
+        - read
+        - write
       type: string
       description: |-
         * `read` - read
@@ -1984,36 +2109,31 @@ components:
         image_url:
           type: string
           readOnly: true
-          description: Stable application URL. Checks permissions and redirects to
-            a public, unguessable screenshot URL on the screenshots CDN.
+          description: Public unguessable screenshots CDN URL, or application URL for legacy screenshots.
+          format: uri
         created_at:
           type: string
           format: date-time
           readOnly: true
       required:
-      - created_at
-      - id
-      - image_url
-    ScreenshotRequest:
-      type: object
-      properties:
-        caption:
-          type: string
-          maxLength: 180
+        - id
+        - caption
+        - image_url
+        - created_at
     ScreenshotUploadRequest:
       type: object
       properties:
         image:
           type: string
           format: binary
-          description: Still PNG, JPEG or WebP; 320×180 minimum, 8192 pixels per side
-            maximum, max 10 MB and 20 megapixels; aspect ratio 1:6 to 6:1. Checked
-            and re-encoded to WebP inside an isolated VM. Returns a validation job.
+          description: Still PNG, JPEG or WebP; 320×180 minimum, 8192 pixels per side maximum, max 10 MB and
+            20 megapixels; aspect ratio 1:6 to 6:1. Checked and re-encoded to WebP inside a private
+            validation Worker. Returns a validation job.
         caption:
           type: string
           maxLength: 180
       required:
-      - image
+        - image
     Tag:
       type: object
       properties:
@@ -2024,11 +2144,10 @@ components:
           type: integer
           minimum: 0
           readOnly: true
-          description: Number of visible, published, non-demo creations using this
-            tag.
+          description: Number of visible, published, non-demo creations using this tag.
       required:
-      - item_count
-      - name
+        - item_count
+        - name
     TagSuggestion:
       type: object
       properties:
@@ -2036,7 +2155,7 @@ components:
           type: string
           maxLength: 600
       required:
-      - name
+        - name
     UploadJob:
       type: object
       properties:
@@ -2046,11 +2165,11 @@ components:
           readOnly: true
         kind:
           allOf:
-          - $ref: '#/components/schemas/UploadJobKindEnum'
+            - $ref: "#/components/schemas/UploadJobKindEnum"
           readOnly: true
         status:
           allOf:
-          - $ref: '#/components/schemas/UploadJobStatusEnum'
+            - $ref: "#/components/schemas/UploadJobStatusEnum"
           readOnly: true
         original_filename:
           type: string
@@ -2060,14 +2179,14 @@ components:
           readOnly: true
         release:
           type:
-          - string
-          - 'null'
+            - string
+            - "null"
           format: uuid
           readOnly: true
         screenshot:
           type:
-          - string
-          - 'null'
+            - string
+            - "null"
           format: uuid
           readOnly: true
         created_at:
@@ -2076,25 +2195,33 @@ components:
           readOnly: true
         completed_at:
           type:
-          - string
-          - 'null'
+            - string
+            - "null"
           format: date-time
           readOnly: true
+        get_status_display:
+          type: string
+          enum:
+            - Checking
+            - Passed
+            - Failed
+          readOnly: true
       required:
-      - completed_at
-      - created_at
-      - error
-      - id
-      - kind
-      - original_filename
-      - release
-      - screenshot
-      - status
+        - id
+        - kind
+        - status
+        - original_filename
+        - error
+        - release
+        - screenshot
+        - created_at
+        - completed_at
+        - get_status_display
     UploadJobKindEnum:
       enum:
-      - release
-      - screenshot
-      - stats
+        - release
+        - screenshot
+        - stats
       type: string
       description: |-
         * `release` - Game file
@@ -2102,25 +2229,115 @@ components:
         * `stats` - File statistics
     UploadJobStatusEnum:
       enum:
-      - pending
-      - passed
-      - failed
+        - pending
+        - passed
+        - failed
       type: string
       description: |-
         * `pending` - Checking
         * `passed` - Passed
         * `failed` - Failed
+    OAuthError:
+      type: object
+      properties:
+        error: *a2
+        error_description: *a2
+      required:
+        - error
+        - error_description
+    OAuthToken:
+      type: object
+      properties:
+        access_token: *a2
+        token_type:
+          type: string
+          enum:
+            - Bearer
+        expires_in:
+          type: integer
+          minimum: 1
+        refresh_token: *a2
+        scope: *a2
+      required:
+        - access_token
+        - token_type
+        - expires_in
+        - refresh_token
+        - scope
+    OAuthTokenRequest:
+      oneOf:
+        - type: object
+          properties:
+            grant_type:
+              const: authorization_code
+              type: string
+            client_id: *a2
+            redirect_uri:
+              type: string
+              format: uri
+            code: *a2
+            code_verifier:
+              type: string
+              pattern: ^[A-Za-z0-9._~-]{43,128}$
+          required:
+            - grant_type
+            - client_id
+            - redirect_uri
+            - code
+            - code_verifier
+        - type: object
+          properties:
+            grant_type:
+              const: refresh_token
+              type: string
+            client_id: *a2
+            refresh_token: *a2
+          required:
+            - grant_type
+            - client_id
+            - refresh_token
+    OAuthRevokeRequest:
+      type: object
+      properties:
+        client_id: *a2
+        token: *a2
+      required:
+        - client_id
+        - token
+    OAuthAuthorizeRequest:
+      type: object
+      properties:
+        client_id: *a2
+        redirect_uri: *a3
+        response_type: *a4
+        code_challenge_method: *a5
+        code_challenge: *a6
+        scope: *a2
+        state: *a2
+        approve:
+          type: string
+          enum:
+            - yes
+            - no
+        csrfmiddlewaretoken: *a2
+      required:
+        - client_id
+        - redirect_uri
+        - response_type
+        - code_challenge_method
+        - code_challenge
+        - approve
+        - csrfmiddlewaretoken
   securitySchemes:
     PersonalAPIKey:
-      type: apiKey
-      in: header
-      name: Authorization
-      description: ApiKey cpc_<prefix>_<secret>. Keys are scoped and revocable, with
-        no expiry by default.
+      type: http
+      scheme: bearer
+      description: "Personal API key: Bearer cpc_<prefix>_<secret>. Legacy ApiKey and Api-Key prefixes
+        remain accepted. Keys are scoped and revocable."
     cookieAuth:
       type: apiKey
       in: cookie
-      name: sessionid
+      name: cpc_session
     oauth2:
       type: oauth2
       flows:
@@ -2131,3 +2348,8 @@ components:
             read: Read your profile and catalog
             write: Publish and edit your uploads
             keys:write: Create and revoke API keys for this manager
+servers:
+  - url: https://cpchub.net
+    description: Production
+  - url: /
+    description: Current host (including local development)

@@ -1,3 +1,4 @@
+import {timingSafeEqual} from 'node:crypto';
 import {Hono} from 'hono';
 import {getCookie,setCookie,deleteCookie} from 'hono/cookie';
 import type {Context} from 'hono';
@@ -8,18 +9,20 @@ export async function userById(env:Env,id:number,auth:User['auth']='session',sco
 }
 export async function authenticate(c:Context<App>){
  const authorization=c.req.header('Authorization');
- if(authorization){const raw=authorization.replace(/^(Bearer|Api-Key)\s+/i,'');const digest=await hash(raw);
-  if(raw.startsWith('cpc_')){const key=await one(c.env.DB,'SELECT * FROM hub_apikey WHERE digest=? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>?)',digest,now());if(!key)throw new HttpError(401,'Invalid API key.');const u=await userById(c.env,key.user_id,'key',JSON.parse(key.scopes));if(u)await run(c.env.DB,'UPDATE hub_apikey SET last_used_at=? WHERE id=?',now(),key.id);return u;}
-  const token=await one(c.env.DB,"SELECT * FROM worker_token WHERE digest=? AND kind='access' AND expires_at>?",digest,Date.now());if(!token)throw new HttpError(401,'Invalid access token.');const u=await userById(c.env,token.user_id,'oauth',token.scope.split(' '));if(u)u.client_id=token.client_id;return u;
+ if(authorization){const match=/^(Bearer|Api-?Key) +([^\s]+)$/i.exec(authorization);if(!match)throw new HttpError(401,'Invalid Authorization header.');const raw=match[2];const digest=await hash(raw);
+  if(raw.startsWith('cpc_')){const key=await one(c.env.DB,'SELECT * FROM hub_apikey WHERE digest=? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>?)',digest,now());if(!key)throw new HttpError(401,'Invalid API key.');const u=await userById(c.env,key.user_id,'key',JSON.parse(key.scopes));if(!u)throw new HttpError(401,'Invalid API key.');await run(c.env.DB,'UPDATE hub_apikey SET last_used_at=? WHERE id=?',now(),key.id);return u;}
+  const token=await one(c.env.DB,"SELECT * FROM worker_token WHERE digest=? AND kind='access' AND expires_at>?",digest,Date.now());if(!token)throw new HttpError(401,'Invalid access token.');const u=await userById(c.env,token.user_id,'oauth',token.scope.split(' '));if(!u)throw new HttpError(401,'Invalid access token.');u.client_id=token.client_id;return u;
  }
  const sid=getCookie(c,'cpc_session');if(!sid)return null;const session=await one(c.env.DB,'SELECT * FROM worker_session WHERE digest=? AND expires_at>?',await hash(sid),Date.now());if(!session)return null;const u=await userById(c.env,session.user_id);if(u)u.csrf=session.csrf;return u;
 }
+// Hash to equal-length buffers before constant-time comparison (Workers node:crypto).
+export async function secretEqual(left:string,right:string){const [a,b]=await Promise.all([hash(left),hash(right)]);return timingSafeEqual(Buffer.from(a,'hex'),Buffer.from(b,'hex'));}
 export async function csrf(c:Context<App>){
  if(['GET','HEAD','OPTIONS'].includes(c.req.method)||c.req.path==='/o/token/'||c.req.path==='/o/revoke_token/')return;
  const u=c.get('user');if(u&&u.auth!=='session')return;
  const origin=c.req.header('Origin');if(origin&&origin!==new URL(c.env.PUBLIC_URL).origin)throw new HttpError(403,'Invalid request origin.');
  const expected=u?.csrf||getCookie(c,'cpc_csrf');let supplied=c.req.header('X-CSRFToken')||c.get('uploadBody')?.csrfmiddlewaretoken;if(!supplied&&/^(application\/x-www-form-urlencoded|multipart\/form-data)/.test(c.req.header('Content-Type')||''))supplied=(await c.req.raw.clone().formData()).get('csrfmiddlewaretoken');
- if(!expected||supplied!==expected)throw new HttpError(403,'Invalid CSRF token.');
+ if(!expected||typeof supplied!=='string'||!await secretEqual(supplied,expected))throw new HttpError(403,'Invalid CSRF token.');
 }
 export async function session(c:Context<App>,user:User){const sid=random();await run(c.env.DB,"INSERT INTO hub_accountactivity(user_id,item_id,item_title,action,ip_address,ip_source,user_agent,accept_language,auth_method,provider_uid,request_path,cf_ray,created_at) VALUES (?,NULL,'','login',?,'proxy',?,?,?,'',?,?,?)",user.id,c.req.header('CF-Connecting-IP')||null,(c.req.header('User-Agent')||'').slice(0,1024),(c.req.header('Accept-Language')||'').slice(0,256),c.req.path.includes('steam')?'steam':c.req.path.includes('discord')?'discord':'staff',c.req.path.slice(0,255),(c.req.header('CF-Ray')||'').slice(0,80),now());await run(c.env.DB,'INSERT INTO worker_session VALUES (?,?,?,?)',await hash(sid),user.id,random(),Date.now()+30*86400000);setCookie(c,'cpc_session',sid,{httpOnly:true,secure:c.env.PUBLIC_URL.startsWith('https:'),sameSite:'Lax',path:'/',maxAge:30*86400});}
 async function socialUser(c:Context<App>,provider:string,uid:string,name:string,connect?:number){
@@ -39,7 +42,7 @@ authRoutes.post('/accounts/:provider/login/',async c=>{
  const returnTo=redirect+'?state='+encodeURIComponent(state);return c.redirect('https://steamcommunity.com/openid/login?'+new URLSearchParams({'openid.ns':'http://specs.openid.net/auth/2.0','openid.mode':'checkid_setup','openid.return_to':returnTo,'openid.realm':c.env.PUBLIC_URL+'/','openid.identity':'http://specs.openid.net/auth/2.0/identifier_select','openid.claimed_id':'http://specs.openid.net/auth/2.0/identifier_select'}));
 });
 authRoutes.get('/accounts/:provider/login/callback/',async c=>{
- const provider=c.req.param('provider'),state=c.req.query('state');if(!state||state!==getCookie(c,'cpc_login'))throw new HttpError(403,'Invalid login state.');
+ const provider=c.req.param('provider'),state=c.req.query('state');if(!state||!await secretEqual(state,getCookie(c,'cpc_login')||''))throw new HttpError(403,'Invalid login state.');
  const login=await c.env.DB.prepare('DELETE FROM worker_login WHERE state=? AND provider=? AND expires_at>? RETURNING *').bind(state,provider,Date.now()).first<Row>();if(!login)throw new HttpError(403,'Expired login.');deleteCookie(c,'cpc_login',{path:'/'});
  let uid='',name='';
  if(provider==='discord'){

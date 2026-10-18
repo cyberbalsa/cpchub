@@ -28,3 +28,15 @@ npm run check && npm test && npm run build
 ```
 
 [API docs](https://cpchub.net/api/docs/) · [Hosting costs](docs/costs.md) · [Migration notes](docs/deployment-status.md)
+
+Tests require Node.js 22.13+ (Node.js 24 recommended) for the built-in SQLite test database.
+`npm test` rebuilds templates and the local API explorer, validates the OpenAPI 3.1 document,
+checks every registered API/OAuth operation and schema datatype, and exercises the request
+handlers against all SQL migrations. R2, Queues, and cache use test doubles; these tests do
+not replace deployed Workers/service integration checks.
+
+API clients should use `Authorization: Bearer <API_KEY_OR_ACCESS_TOKEN>`; the legacy
+`ApiKey` and `Api-Key` prefixes remain supported. Tokens are stored as SHA-256 digests;
+CSRF and login-state comparisons use constant-time crypto operations, following
+[Cloudflare's timing-safe authentication guidance](https://developers.cloudflare.com/workers/examples/protect-against-timing-attacks/)
+and its supported [Node.js crypto API](https://developers.cloudflare.com/workers/runtime-apis/nodejs/crypto/).

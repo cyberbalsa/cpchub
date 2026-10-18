@@ -27,3 +27,8 @@ function convert(s){
 function walk(dir){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const p=path.join(dir,entry.name);if(entry.isDirectory())walk(p);else if(entry.name.endsWith('.html')||entry.name.endsWith('.txt')){let s=convert(fs.readFileSync(p,'utf8'));try { output+=nunjucks.precompileString(s,{name:path.relative('templates',p),env}); }catch(e){throw new Error(p+': '+e.message);}}}}
 walk('templates');
 output+='\nexport default window.nunjucksPrecompiled;\n';fs.writeFileSync('src/templates.generated.js',output);
+// Serve the pinned API explorer locally under the site's existing CSP.
+const swaggerDir='public/static/vendor/swagger-ui';
+fs.mkdirSync(swaggerDir,{recursive:true});
+for(const name of ['swagger-ui.css','swagger-ui-bundle.js','LICENSE','NOTICE'])
+ fs.copyFileSync('node_modules/swagger-ui-dist/'+name,swaggerDir+'/'+name);
