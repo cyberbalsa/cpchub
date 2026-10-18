@@ -1,0 +1,4 @@
+{
+  "extends": "../../browser/tsconfig.json",
+  "include": ["../../browser/**/*.ts", "./**/*.ts"]
+}

@@ -10,3 +10,4 @@ src/templates.generated.js
 migration-data/
 
 __pycache__/
+coverage/

@@ -1,51 +1,304 @@
-import {Hono} from 'hono';
-import {App,Env,HttpError,one,all,run,now} from './env';
-import {authenticate,csrf,authRoutes} from './auth';
-import {passkeys} from './passkeys';
-import {api} from './api';
-import {pages} from './pages';
-import {moderation,dashboard} from './moderation';
-import {oauth} from './oauth';
-import {edgeCache} from './cache';
-import {maintenance,processJob} from './uploads';
-import {render,esc} from './render';
-import {PUBLIC} from './catalog';
-import {refreshMonthlyCosts} from './billing';
-import {refreshEstimates} from './cost-estimates';
-import {multipart} from './multipart';
-import {settings} from './settings';
-import {requestRateLimit} from './rate-limits';
-const app=new Hono<App>({strict:true});
-app.use('*',async(c,next)=>{
- try{c.set('user',await authenticate(c));}catch(error){
-  // Invalid credentials get the anonymous allowance, never the 3x allowance.
-  if(error instanceof HttpError&&error.status===401){const limited=await requestRateLimit(c,null);if(limited)return limited;}
-  throw error;
- }
- const limited=await requestRateLimit(c,c.get('user'));if(limited)return limited;
- if(c.get('user')&&c.get('user')!.auth!=='session'&&!c.req.path.startsWith('/api/v1/'))throw new HttpError(403,'Browser session required.');
- if(c.get('user')?.auth!=='session'&&c.get('user')&&!c.get('user')!.scopes.includes(c.req.method==='GET'||c.req.method==='HEAD'?'read':'write')&&!c.req.path.includes('/keys/'))throw new HttpError(403,'Required scope is missing.');
- if(!['GET','HEAD','OPTIONS'].includes(c.req.method)){const size=Number(c.req.header('Content-Length')||0);if(size>100*1024*1024)throw new HttpError(413,'Request too large.');if(!c.req.header('Content-Type')?.startsWith('multipart/form-data')&&c.req.raw.body){const reader=c.req.raw.clone().body!.getReader();let bytes=0;while(true){const part=await reader.read();if(part.done)break;bytes+=part.value.length;if(bytes>65536){void reader.cancel();throw new HttpError(413,'Request metadata exceeds 64 KiB.');}}}if(c.req.header('Content-Type')?.startsWith('multipart/form-data')&&c.req.path!=='/accounts/login/'){if(!c.get('user'))throw new HttpError(401,'Sign in to upload.');const origin=c.req.header('Origin');if(origin&&origin!==new URL(c.env.PUBLIC_URL).origin)throw new HttpError(403,'Invalid origin.');const parsed=await multipart(c.req.raw,c.env);c.set('uploadBody',parsed.data);try{await csrf(c);}catch(e){await Promise.all(parsed.files.map(f=>c.env.QUARANTINE.delete(f.key)));throw e;}}else await csrf(c);}
- await next();
- c.header('X-Content-Type-Options','nosniff');c.header('Referrer-Policy','strict-origin-when-cross-origin');c.header('X-Frame-Options','DENY');
- c.header('Content-Security-Policy',`default-src 'self'; img-src 'self' ${c.env.SCREENSHOT_URL} data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://steamcommunity.com https://discord.com`);
- if(!c.req.path.startsWith('/api/v1/'))c.header('Cache-Control','private, no-store');
- const u=c.get('user');if(u&&c.req.method==='POST'&&c.res.status<400&&(/^\/upload\/$/.test(c.req.path)||/\/releases\/|\/screenshots\//.test(c.req.path))){c.executionCtx.waitUntil(run(c.env.DB,'INSERT INTO hub_accountactivity(user_id,item_id,item_title,action,ip_address,ip_source,user_agent,accept_language,auth_method,provider_uid,request_path,cf_ray,created_at) VALUES (?,NULL,?,?,?,?,?,?,?,?,?,?,?)',u.id,'',c.req.path.includes('screenshots')?'screenshot':c.req.path==='/upload/'?'create':'release',c.req.header('CF-Connecting-IP')||null,'proxy',(c.req.header('User-Agent')||'').slice(0,1024),(c.req.header('Accept-Language')||'').slice(0,256),u.auth,'',c.req.path.slice(0,255),(c.req.header('CF-Ray')||'').slice(0,80),now()));}
+import { Hono, type Context } from "hono";
+import {
+  App,
+  Env,
+  Table,
+  HttpError,
+  one,
+  all,
+  run,
+  now,
+  publicId,
+  dbId,
+} from "./env";
+import { authenticate, csrf, authRoutes } from "./auth";
+import { passkeys } from "./passkeys";
+import { api } from "./api";
+import { pages } from "./pages";
+import { moderation, dashboard } from "./moderation";
+import { oauth } from "./oauth";
+import { edgeCache } from "./cache";
+import { maintenance, processJob } from "./uploads";
+import { render, esc } from "./render";
+import { PUBLIC, getItem } from "./catalog";
+import { refreshMonthlyCosts } from "./billing";
+import { refreshEstimates } from "./cost-estimates";
+import { multipart } from "./multipart";
+import { settings } from "./settings";
+import { requestRateLimit } from "./rate-limits";
+const app = new Hono<App>({ strict: true });
+app.use("*", async (c: Context<App>, next) => {
+  try {
+    c.set("user", await authenticate(c));
+  } catch (error) {
+    // Invalid credentials get the anonymous allowance, never the 3x allowance.
+    if (error instanceof HttpError && error.status === 401) {
+      const limited = await requestRateLimit(c, null);
+      if (limited) return limited;
+    }
+    throw error;
+  }
+  const limited = await requestRateLimit(c, c.get("user"));
+  if (limited) return limited;
+  if (
+    c.get("user") &&
+    c.get("user")!.auth !== "session" &&
+    !c.req.path.startsWith("/api/v1/")
+  )
+    throw new HttpError(403, "Browser session required.");
+  if (
+    c.get("user")?.auth !== "session" &&
+    c.get("user") &&
+    !c
+      .get("user")!
+      .scopes.includes(
+        c.req.method === "GET" || c.req.method === "HEAD" ? "read" : "write",
+      ) &&
+    !c.req.path.includes("/keys/")
+  )
+    throw new HttpError(403, "Required scope is missing.");
+  if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method)) {
+    const size = Number(c.req.header("Content-Length") || 0);
+    if (size > 100 * 1024 * 1024)
+      throw new HttpError(413, "Request too large.");
+    if (
+      !c.req.header("Content-Type")?.startsWith("multipart/form-data") &&
+      c.req.raw.body
+    ) {
+      const reader = (
+        c.req.raw.clone().body! as ReadableStream<Uint8Array>
+      ).getReader();
+      let bytes = 0;
+      while (true) {
+        const part = await reader.read();
+        if (part.done) break;
+        bytes += part.value.length;
+        if (bytes > 65536) {
+          void reader.cancel();
+          throw new HttpError(413, "Request metadata exceeds 64 KiB.");
+        }
+      }
+    }
+    if (
+      c.req.header("Content-Type")?.startsWith("multipart/form-data") &&
+      c.req.path !== "/accounts/login/"
+    ) {
+      if (!c.get("user")) throw new HttpError(401, "Sign in to upload.");
+      const origin = c.req.header("Origin");
+      if (origin && origin !== new URL(c.env.PUBLIC_URL).origin)
+        throw new HttpError(403, "Invalid origin.");
+      const parsed = await multipart(c.req.raw, c.env);
+      c.set("uploadBody", parsed.data);
+      try {
+        await csrf(c);
+      } catch (e) {
+        await Promise.all(
+          parsed.files.map((f) => c.env.QUARANTINE.delete(f.key)),
+        );
+        throw e;
+      }
+    } else await csrf(c);
+  }
+  await next();
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("Referrer-Policy", "strict-origin-when-cross-origin");
+  c.header("X-Frame-Options", "DENY");
+  c.header(
+    "Content-Security-Policy",
+    `default-src 'self'; img-src 'self' ${c.env.SCREENSHOT_URL} data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://steamcommunity.com https://discord.com`,
+  );
+  if (!c.req.path.startsWith("/api/v1/"))
+    c.header("Cache-Control", "private, no-store");
+  const u = c.get("user");
+  if (
+    u &&
+    c.req.method === "POST" &&
+    c.res.status < 400 &&
+    (/^\/upload\/$/.test(c.req.path) ||
+      /\/releases\/|\/screenshots\//.test(c.req.path))
+  ) {
+    c.executionCtx.waitUntil(
+      run(
+        c.env.DB,
+        "INSERT INTO hub_accountactivity(user_id,item_id,item_title,action,ip_address,ip_source,user_agent,accept_language,auth_method,provider_uid,request_path,cf_ray,created_at) VALUES (?,NULL,?,?,?,?,?,?,?,?,?,?,?)",
+        u.id,
+        "",
+        c.req.path.includes("screenshots")
+          ? "screenshot"
+          : c.req.path === "/upload/"
+            ? "create"
+            : "release",
+        c.req.header("CF-Connecting-IP") || null,
+        "proxy",
+        (c.req.header("User-Agent") || "").slice(0, 1024),
+        (c.req.header("Accept-Language") || "").slice(0, 256),
+        u.auth,
+        "",
+        c.req.path.slice(0, 255),
+        (c.req.header("CF-Ray") || "").slice(0, 80),
+        now(),
+      ),
+    );
+  }
+  return;
 });
-app.use('/api/v1/*',edgeCache);app.route('/api/v1',api);app.route('/',authRoutes);app.route('/',passkeys);app.route('/o',oauth);app.route('/moderation',moderation);
-app.get('/moderation/',async c=>{if(!c.get('user')||c.get('user')!.auth!=='session'||!c.get('user')!.role)throw new HttpError(403,'Staff required.');return dashboard(c);});
-app.get('/health/',async c=>{await one(c.env.DB,'SELECT 1 ok');return c.json({status:'ok'});});
-app.get('/robots.txt',c=>c.text('User-agent: *\nAllow: /\nDisallow: /account/\nDisallow: /accounts/\nDisallow: /moderation/\nDisallow: /api/\nDisallow: /upload/\nSitemap: '+c.env.PUBLIC_URL+'/sitemap.xml\n'));
-app.get('/.well-known/security.txt',c=>c.text("Contact: https://github.com/cyberbalsa/cpchub/security/advisories/new\nExpires: 2027-04-17T00:00:00Z\nPreferred-Languages: en\nCanonical: https://cpchub.net/.well-known/security.txt\nPolicy: https://github.com/cyberbalsa/cpchub/blob/main/SECURITY.md\n"));
-app.get('/security.txt',c=>c.redirect('/.well-known/security.txt',301));
-app.get('/sitemap.xml',async c=>{const items=await all(c.env.DB,`SELECT i.id,i.updated_at FROM hub_item i WHERE ${PUBLIC} ORDER BY i.id LIMIT 50000`);const {publicId}=await import('./env');return c.body('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>'+esc(c.env.PUBLIC_URL)+'/</loc></url>'+items.map(i=>'<url><loc>'+esc(c.env.PUBLIC_URL)+'/items/'+publicId(i.id)+'/</loc><lastmod>'+esc(i.updated_at)+'</lastmod></url>').join('')+'</urlset>',200,{'Content-Type':'application/xml'});});
-app.get('/sitemap-:page.xml',c=>c.redirect('/sitemap.xml'));
-app.get('/share/items/:id/:shot/image.webp',async c=>{const {getItem}=await import('./catalog');const {dbId}=await import('./env');const i=await getItem(c.env,c.req.param('id'),null);const s=await one(c.env.DB,'SELECT image FROM hub_screenshot WHERE item_id=? AND id=?',i.id,dbId(c.req.param('shot')));if(!s)throw new HttpError(404,'Not found.');if(/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}-[a-f0-9]{16}\.webp$/.test(s.image))return c.redirect(c.env.SCREENSHOT_URL+'/'+s.image);const o=await c.env.FILES.get(s.image);if(!o)throw new HttpError(404,'Not found.');return new Response(o.body,{headers:{'Content-Type':'image/webp'}});});
-app.get('/api/schema/',c=>c.env.ASSETS.fetch(new Request(new URL('/openapi.yaml',c.req.url))));
-app.get('/api/docs/',c=>render(c,'hub/api_docs.html'));app.get('/api/redoc/',c=>c.redirect('/api/docs/'));
-app.route('/admin/settings',settings);
-app.get('/admin/',c=>c.redirect(c.get('user')?'/admin/settings':'/admin/login/'));
-app.route('/',pages);
-app.notFound(c=>c.json({status:404,errors:{detail:'Not found.'}},404));
-app.onError(async(e,c)=>{const status=e instanceof HttpError?e.status:500;const message=e instanceof HttpError?e.message:'The request could not be completed.';if(status===500)console.error('Request failed',c.req.path,e instanceof Error?e.message:'unknown');if(c.req.header('Accept')?.includes('application/json')&&!c.req.path.startsWith('/api/'))return new Response(JSON.stringify({errors:[message]}),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});if(c.req.path.startsWith('/api/')||c.req.path.startsWith('/o/'))return new Response(JSON.stringify({status,errors:{detail:message}}),{status,headers:{'Content-Type':'application/json','Cache-Control':'private, no-store',...(status===429?{'Retry-After':'3600'}:{}),...(status===401?{'WWW-Authenticate':'Bearer realm="CPC Hub API"'}:{})}});if(status===401)return c.redirect('/accounts/login/');try{return await render(c,'hub/message.html',{heading:message,content:''},status);}catch{return new Response(message,{status});}});
-export default {fetch:app.fetch,async queue(batch:MessageBatch<{id:string}>,env:Env){for(const message of batch.messages){try{await processJob(env,message.body.id);message.ack();}catch{message.retry({delaySeconds:30});}}},async scheduled(_event:ScheduledController,env:Env,ctx:ExecutionContext){ctx.waitUntil(Promise.all([maintenance(env),refreshMonthlyCosts(env),refreshEstimates(env)]));}};
+app.use("/api/v1/*", edgeCache);
+app.route("/api/v1", api);
+app.route("/", authRoutes);
+app.route("/", passkeys);
+app.route("/o", oauth);
+app.route("/moderation", moderation);
+// Hono mounts the router's root at /moderation; retain the canonical trailing-slash URL.
+// The router's /moderation/* staff middleware also protects this alias.
+app.get("/moderation/", dashboard);
+app.get("/health/", async (c) => {
+  await one(c.env.DB, "SELECT 1 ok");
+  return c.json({ status: "ok" });
+});
+app.get("/robots.txt", (c) =>
+  c.text(
+    "User-agent: *\nAllow: /\nDisallow: /account/\nDisallow: /accounts/\nDisallow: /moderation/\nDisallow: /api/\nDisallow: /upload/\nSitemap: " +
+      c.env.PUBLIC_URL +
+      "/sitemap.xml\n",
+  ),
+);
+app.get("/.well-known/security.txt", (c) =>
+  c.text(
+    "Contact: https://github.com/cyberbalsa/cpchub/security/advisories/new\nExpires: 2027-04-17T00:00:00Z\nPreferred-Languages: en\nCanonical: https://cpchub.net/.well-known/security.txt\nPolicy: https://github.com/cyberbalsa/cpchub/blob/main/SECURITY.md\n",
+  ),
+);
+app.get("/security.txt", (c) => c.redirect("/.well-known/security.txt", 301));
+app.get("/sitemap.xml", async (c) => {
+  const items = await all<Pick<Table<"hub_item">, "id" | "updated_at">>(
+    c.env.DB,
+    `SELECT i.id,i.updated_at FROM hub_item i WHERE ${PUBLIC} ORDER BY i.id LIMIT 50000`,
+  );
+  return c.body(
+    '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>' +
+      esc(c.env.PUBLIC_URL) +
+      "/</loc></url>" +
+      items
+        .map(
+          (i) =>
+            "<url><loc>" +
+            esc(c.env.PUBLIC_URL) +
+            "/items/" +
+            publicId(i.id) +
+            "/</loc><lastmod>" +
+            esc(i.updated_at) +
+            "</lastmod></url>",
+        )
+        .join("") +
+      "</urlset>",
+    200,
+    { "Content-Type": "application/xml" },
+  );
+});
+app.get("/:sitemap{sitemap-[0-9]+\\.xml}", (c) => c.redirect("/sitemap.xml"));
+app.get("/share/items/:id/:shot/image.webp", async (c) => {
+  const i = await getItem(c.env, c.req.param("id"), null);
+  const s = await one<Pick<Table<"hub_screenshot">, "image">>(
+    c.env.DB,
+    "SELECT image FROM hub_screenshot WHERE item_id=? AND id=?",
+    i.id,
+    dbId(c.req.param("shot")),
+  );
+  if (!s) throw new HttpError(404, "Not found.");
+  if (
+    /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}-[a-f0-9]{16}\.webp$/.test(
+      s.image,
+    )
+  )
+    return c.redirect(c.env.SCREENSHOT_URL + "/" + s.image);
+  const o = await c.env.FILES.get(s.image);
+  if (!o) throw new HttpError(404, "Not found.");
+  return new Response(o.body, { headers: { "Content-Type": "image/webp" } });
+});
+app.get("/api/schema/", (c) =>
+  c.env.ASSETS.fetch(new Request(new URL("/openapi.yaml", c.req.url))),
+);
+app.get("/api/docs/", (c) => render(c, "hub/api_docs.html"));
+app.get("/api/redoc/", (c) => c.redirect("/api/docs/"));
+app.route("/admin/settings", settings);
+app.get("/admin/", (c) =>
+  c.redirect(c.get("user") ? "/admin/settings" : "/admin/login/"),
+);
+app.route("/", pages);
+app.notFound((c) =>
+  c.json({ status: 404, errors: { detail: "Not found." } }, 404),
+);
+app.onError(async (e, c) => {
+  const status = e instanceof HttpError ? e.status : 500;
+  const message =
+    e instanceof HttpError ? e.message : "The request could not be completed.";
+  if (status === 500) console.error("Request failed", c.req.path, e.message);
+  if (
+    c.req.header("Accept")?.includes("application/json") &&
+    !c.req.path.startsWith("/api/")
+  )
+    return new Response(JSON.stringify({ errors: [message] }), {
+      status,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      },
+    });
+  if (c.req.path.startsWith("/api/") || c.req.path.startsWith("/o/"))
+    return new Response(
+      JSON.stringify({ status, errors: { detail: message } }),
+      {
+        status,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "private, no-store",
+          ...(status === 429 ? { "Retry-After": "3600" } : {}),
+          ...(status === 401
+            ? { "WWW-Authenticate": 'Bearer realm="CPC Hub API"' }
+            : {}),
+        },
+      },
+    );
+  if (status === 401) return c.redirect("/accounts/login/");
+  try {
+    return await render(
+      c,
+      "hub/message.html",
+      { heading: message, content: "" },
+      status,
+    );
+  } catch {
+    return new Response(message, { status });
+  }
+});
+export default {
+  fetch: app.fetch,
+  async queue(batch: MessageBatch<{ id: string }>, env: Env) {
+    for (const message of batch.messages) {
+      try {
+        await processJob(env, message.body.id);
+        message.ack();
+      } catch {
+        message.retry({ delaySeconds: 30 });
+      }
+    }
+  },
+  async scheduled(
+    _event: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext,
+  ) {
+    ctx.waitUntil(
+      Promise.allSettled([
+        maintenance(env),
+        refreshMonthlyCosts(env),
+        refreshEstimates(env),
+      ]).then((results) => {
+        const errors = results
+          .filter((result) => result.status === "rejected")
+          .map((result) => result.reason as unknown);
+        if (errors.length)
+          throw new AggregateError(errors, "Scheduled tasks failed");
+      }),
+    );
+  },
+};

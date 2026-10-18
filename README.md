@@ -29,24 +29,33 @@ name. Existing users can add or remove passkeys in account settings. At least on
 or linked social account must remain. Add a backup sign-in method before losing access to
 a passkey; there is no email/password recovery.
 
-Apply migration `0012_passkeys.sql` to the target D1 database before deploying this feature.
-It adds public credential storage, an opaque user handle, and expiring, single-use challenges.
+Apply all migrations through `0013_durable_file_cleanup.sql` to the target D1 database before deploying.
+Migration 0012 adds public credential storage, an opaque user handle, and expiring, single-use challenges;
+0013 adds transactional storage deletion queues, retry tracking, and lease-aware cleanup.
 Passkey verification uses [SimpleWebAuthn](https://simplewebauthn.dev/docs/packages/server);
 browser helpers are copied locally during the build to respect the site's CSP.
 
-To check types, run tests, and build templates:
+To build, check strict types, lint, and enforce full runtime test coverage:
 
 ```sh
-npm run check && npm test && npm run build
+npm run verify
 ```
 
-[API docs](https://cpchub.net/api/docs/) · [Hosting costs](docs/costs.md) · [Migration notes](docs/deployment-status.md)
+[API docs](https://cpchub.net/api/docs/) · [Hosting costs](docs/costs.md) · [Migration notes](docs/deployment-status.md) · [Cleanup and input audit](docs/cleanup-audit.md)
 
-Tests require Node.js 22.13+ (Node.js 24 recommended) for the built-in SQLite test database.
-`npm test` rebuilds templates and the local API explorer, validates the OpenAPI 3.1 document,
+Tests require Node.js 24. `npm test` rebuilds templates, typed browser bundles and the local API explorer, validates the OpenAPI 3.1 document,
 checks every registered API/OAuth operation and schema datatype, and exercises the request
 handlers against all SQL migrations. R2, Queues, and cache use test doubles; these tests do
 not replace deployed Workers/service integration checks.
+
+CI runs `npm run verify` and requires 100% statements, branches, functions and lines **per file**
+for authored runtime code in `src/`, `browser/`, and both validation Workers. Generated declarations,
+compiled templates, and vendor bundles are excluded; rendered HTML and browser behavior are exercised
+through their callers. Reports are in `coverage/index.html` and uploaded as a CI artifact.
+Coverage suppression comments, explicit `any`, unsafe operations, and unhandled promises fail lint.
+The strict TypeScript checks include unchecked indexing, exact optional properties, exhaustive switches,
+and unused declarations. `npm run types:db` regenerates database types from the real SQLite migrations;
+CI rejects a stale generated schema.
 
 API clients should use `Authorization: Bearer <API_KEY_OR_ACCESS_TOKEN>`; the legacy
 `ApiKey` and `Api-Key` prefixes remain supported. Tokens are stored as SHA-256 digests;
