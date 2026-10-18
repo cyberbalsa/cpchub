@@ -22,7 +22,8 @@
     form.querySelectorAll('.errorlist').forEach(list => list.remove());
 
     try {
-      const response = await fetch(form.action, {
+      // The hidden input named "action" shadows form.action.
+      const response = await fetch(form.getAttribute('action') || window.location.href, {
         method: 'POST',
         body: new FormData(form),
         credentials: 'same-origin',
