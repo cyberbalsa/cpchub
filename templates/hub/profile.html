@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load socialaccount %}
 {% block title %}Account settings — CPC Hub{% endblock %}
+{% block extra_head %}{% include 'account/passkey_scripts.html' %}{% endblock %}
 {% block content %}
 <div class="page-content">
   <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="{% url 'catalog' %}">Community exchange</a><span aria-hidden="true">/</span><span>Account settings</span></nav>
@@ -38,10 +39,22 @@
         {% for account in linked_accounts %}
           <div class="manager-row linked-account">
             <div><strong>{{ account.provider }}</strong><span class="linked-account-name">{{ account.name }}</span></div>
-            <form method="post" action="{% url 'profile' %}">{% csrf_token %}<input type="hidden" name="action" value="unlink"><input type="hidden" name="account" value="{{ account.id }}"><button type="submit" {% if not can_disconnect %}disabled title="Link another account before removing this one"{% endif %}>Unlink</button></form>
+            <form method="post" action="{% url 'profile' %}">{% csrf_token %}<input type="hidden" name="action" value="unlink"><input type="hidden" name="account" value="{{ account.id }}"><button type="submit" {% if not can_disconnect %}disabled title="Add another sign-in method before removing this one"{% endif %}>Unlink</button></form>
           </div>
         {% empty %}<p>No accounts are linked yet.</p>{% endfor %}
-        <p class="muted small profile-help">Keep at least one account linked so you can sign in.</p>
+        <p class="muted small profile-help">Keep at least one passkey or linked account so you can sign in.</p>
+      </section>
+      <section class="paper-panel" id="passkeys" aria-labelledby="passkeys-title">
+        <h2 id="passkeys-title">Passkeys</h2>
+        <p>Sign in with your fingerprint, face, device PIN, or security key.</p>
+        {% if passkey_added %}<p class="notice" role="status">Passkey added.</p>{% endif %}
+        {% for passkey in passkeys %}
+          <div class="manager-row linked-account">
+            <div><strong>Passkey {{ loop.index }}</strong><span class="linked-account-name">Added {{ passkey.created_at|date:'M j, Y' }}{% if passkey.last_used_at %} · Last used {{ passkey.last_used_at|date:'M j, Y' }}{% endif %}</span></div>
+            <form method="post" action="{% url 'profile' %}">{% csrf_token %}<input type="hidden" name="action" value="remove-passkey"><input type="hidden" name="passkey" value="{{ passkey.id }}"><button type="submit" aria-label="Remove passkey {{ loop.index }}" {% if not can_disconnect %}disabled title="Add another sign-in method before removing this one"{% endif %}>Remove</button></form>
+          </div>
+        {% empty %}<p>No passkeys yet. Add one using the sign-in options.</p>{% endfor %}
+        <p class="muted small profile-help">Add a backup passkey or link Steam or Discord to keep access if you lose a device.</p>
       </section>
       <section class="paper-panel">
         <h2>Download warning</h2>
@@ -55,14 +68,17 @@
     </div>
     <aside class="col-12 col-lg-5">
       <section class="window form-window">
-        <div class="title-bar"><div class="title-bar-text">Link another account</div></div>
-        <div class="window-body">
-          <p>Connect Steam or Discord to use either account for the same uploads and API keys.</p>
+        <div class="title-bar"><div class="title-bar-text">Add a sign-in method</div></div>
+        <div class="window-body" data-passkey-panel data-csrf-token="{{ csrf_token }}">
+          <p>Add a passkey or connect Steam or Discord to sign in to this account.</p>
           {% url 'profile' as profile_url %}
           <div class="social-buttons social-signin-buttons">
+            <button type="button" class="provider-button provider-button-passkey" data-passkey-action="add">{% include 'hub/icon.html' with icon='key' %}<span>Add a passkey</span></button>
             {% if steam_enabled %}<form method="post" action="{% provider_login_url 'steam' process='connect' next=profile_url %}">{% csrf_token %}{% include 'socialaccount/provider_button.html' with provider='steam' label='Link Steam: sign in through Steam' %}</form>{% endif %}
             {% if discord_enabled %}<form method="post" action="{% provider_login_url 'discord' process='connect' next=profile_url %}">{% csrf_token %}{% include 'socialaccount/provider_button.html' with provider='discord' label='Link Discord' %}</form>{% endif %}
           </div>
+          <p data-passkey-status role="status" aria-live="polite" hidden></p>
+          <noscript><p class="notice">Enable JavaScript to add a passkey.</p></noscript>
         </div>
       </section>
     </aside>

@@ -4,7 +4,7 @@
 
 - Find creations by type, tag, or game-file statistics, and save your favorites.
 - Share versioned releases with screenshots, changelogs, and automatic file checks.
-- Sign in with Steam or Discord to manage uploads and your creator profile.
+- Sign in with a passkey, Steam, or Discord to manage uploads and your creator profile.
 - Connect mod managers through the API, scoped API keys, and OAuth with PKCE.
 
 Built with TypeScript, Hono, and Nunjucks on Cloudflare Workers. D1 stores the catalog, R2 stores files and screenshots, and Queues send uploads to private validation Workers.
@@ -16,10 +16,23 @@ Set `PUBLIC_URL=http://localhost:8787` in `.dev.vars`, then run:
 ```sh
 npm ci
 npm run db:local
-npm run dev -- --port 8787
+npm run dev -- --port 8787 --local-upstream localhost:8787
 ```
 
 Open [localhost:8787](http://localhost:8787).
+
+Passkeys work on HTTPS or localhost. `PUBLIC_URL` must match the browser's exact origin;
+its hostname is the WebAuthn relying party ID. Local and production passkeys are separate.
+The local upstream flag keeps Wrangler from rewriting the request origin to the production route.
+New users choose **Create an account with a passkey**, confirm creation, and enter a public
+name. Existing users can add or remove passkeys in account settings. At least one passkey
+or linked social account must remain. Add a backup sign-in method before losing access to
+a passkey; there is no email/password recovery.
+
+Apply migration `0012_passkeys.sql` to the target D1 database before deploying this feature.
+It adds public credential storage, an opaque user handle, and expiring, single-use challenges.
+Passkey verification uses [SimpleWebAuthn](https://simplewebauthn.dev/docs/packages/server);
+browser helpers are copied locally during the build to respect the site's CSP.
 
 To check types, run tests, and build templates:
 

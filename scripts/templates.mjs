@@ -32,3 +32,8 @@ const swaggerDir='public/static/vendor/swagger-ui';
 fs.mkdirSync(swaggerDir,{recursive:true});
 for(const name of ['swagger-ui.css','swagger-ui-bundle.js','LICENSE','NOTICE'])
  fs.copyFileSync('node_modules/swagger-ui-dist/'+name,swaggerDir+'/'+name);
+// Keep passkey browser helpers local so sign-in works with script-src 'self'.
+const passkeyDir='public/static/vendor/simplewebauthn';
+fs.mkdirSync(passkeyDir,{recursive:true});
+fs.copyFileSync('node_modules/@simplewebauthn/browser/dist/bundle/index.umd.min.js',passkeyDir+'/browser.js');
+fs.copyFileSync('node_modules/@simplewebauthn/browser/LICENSE.md',passkeyDir+'/LICENSE.md');

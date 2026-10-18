@@ -1,6 +1,7 @@
 import {Hono} from 'hono';
 import {App,Env,HttpError,one,all,run,now} from './env';
 import {authenticate,csrf,authRoutes} from './auth';
+import {passkeys} from './passkeys';
 import {api} from './api';
 import {pages} from './pages';
 import {moderation,dashboard} from './moderation';
@@ -31,7 +32,7 @@ app.use('*',async(c,next)=>{
  if(!c.req.path.startsWith('/api/v1/'))c.header('Cache-Control','private, no-store');
  const u=c.get('user');if(u&&c.req.method==='POST'&&c.res.status<400&&(/^\/upload\/$/.test(c.req.path)||/\/releases\/|\/screenshots\//.test(c.req.path))){c.executionCtx.waitUntil(run(c.env.DB,'INSERT INTO hub_accountactivity(user_id,item_id,item_title,action,ip_address,ip_source,user_agent,accept_language,auth_method,provider_uid,request_path,cf_ray,created_at) VALUES (?,NULL,?,?,?,?,?,?,?,?,?,?,?)',u.id,'',c.req.path.includes('screenshots')?'screenshot':c.req.path==='/upload/'?'create':'release',c.req.header('CF-Connecting-IP')||null,'proxy',(c.req.header('User-Agent')||'').slice(0,1024),(c.req.header('Accept-Language')||'').slice(0,256),u.auth,'',c.req.path.slice(0,255),(c.req.header('CF-Ray')||'').slice(0,80),now()));}
 });
-app.use('/api/v1/*',edgeCache);app.route('/api/v1',api);app.route('/',authRoutes);app.route('/o',oauth);app.route('/moderation',moderation);
+app.use('/api/v1/*',edgeCache);app.route('/api/v1',api);app.route('/',authRoutes);app.route('/',passkeys);app.route('/o',oauth);app.route('/moderation',moderation);
 app.get('/moderation/',async c=>{if(!c.get('user')||c.get('user')!.auth!=='session'||!c.get('user')!.role)throw new HttpError(403,'Staff required.');return dashboard(c);});
 app.get('/health/',async c=>{await one(c.env.DB,'SELECT 1 ok');return c.json({status:'ok'});});
 app.get('/robots.txt',c=>c.text('User-agent: *\nAllow: /\nDisallow: /account/\nDisallow: /accounts/\nDisallow: /moderation/\nDisallow: /api/\nDisallow: /upload/\nSitemap: '+c.env.PUBLIC_URL+'/sitemap.xml\n'));

@@ -432,6 +432,12 @@ dialog.external-warning-window::backdrop { background: #15251bd9; }
 .social-signin-buttons .provider-button-steam:hover { background: #252b36; }
 .social-signin-buttons .provider-button-discord { background: #5865f2; }
 .social-signin-buttons .provider-button-discord:hover { background: #4752c4; }
+.social-signin-buttons .provider-button-passkey { background: #315b46; border-color: #254735; display: flex; align-items: center; justify-content: center; }
+.social-signin-buttons .provider-button-passkey:hover { background: #254735; }
+.social-signin-buttons .provider-button-passkey:disabled { opacity: .65; cursor: wait; }
+.passkey-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+[data-passkey-status] { font-size: 13px; line-height: 1.5; }
+[data-passkey-register] { margin: 24px 0; padding-top: 20px; border-top: 1px solid #ab976a; }
 .social-signin-buttons .provider-button:active { box-shadow: inset 0 2px 4px #0005; text-shadow: none; }
 .social-signin-buttons .provider-button:focus-visible { outline: 3px solid #083e55; outline-offset: 3px; }
 .profile-panel { margin-top: 0; }

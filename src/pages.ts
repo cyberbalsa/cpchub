@@ -79,18 +79,25 @@ pages.on(['GET','POST'],'/account/profile/',async c=>{
    }
    if(nameError&&status===200)status=400;
   }else if(d.action==='unlink'||(!d.action&&d.account)){
-   await run(c.env.DB,'DELETE FROM socialaccount_socialaccount WHERE id=? AND user_id=? AND (SELECT COUNT(*) FROM socialaccount_socialaccount WHERE user_id=?)>1',Number(d.account),u.id,u.id);
+   await run(c.env.DB,`DELETE FROM socialaccount_socialaccount WHERE id=?1 AND user_id=?2
+    AND (SELECT COUNT(*) FROM socialaccount_socialaccount WHERE user_id=?2)+(SELECT COUNT(*) FROM worker_passkey WHERE user_id=?2)>1`,Number(d.account),u.id);
    return c.redirect('/account/profile/');
+  }else if(d.action==='remove-passkey'){
+   const removed=await run(c.env.DB,`DELETE FROM worker_passkey WHERE id=?1 AND user_id=?2
+    AND (SELECT COUNT(*) FROM worker_passkey WHERE user_id=?2)+(SELECT COUNT(*) FROM socialaccount_socialaccount WHERE user_id=?2)>1`,String(d.passkey||''),u.id);
+   if(!removed.meta.changes)throw new HttpError(409,'Keep at least one sign-in method on your account.');
+   return c.redirect('/account/profile/#passkeys',303);
   }else throw new HttpError(400,'Unknown action.');
  }
  const availableAt=u.username_changed_at==null?null:u.username_changed_at+NAME_CHANGE_INTERVAL;
  const canChangeName=availableAt===null||availableAt<=Date.now();
  const accounts=await all(c.env.DB,'SELECT id,provider,uid name FROM socialaccount_socialaccount WHERE user_id=?',u.id);
+ const keys=await all(c.env.DB,'SELECT id,created_at,last_used_at FROM worker_passkey WHERE user_id=? ORDER BY created_at,id',u.id);
  return render(c,'hub/profile.html',{
   profile_name:canChangeName?name:u.username,name_error:nameError,name_changed:c.req.query('name_changed')==='1',
   can_change_name:canChangeName,name_change_available_at:availableAt===null?null:new Date(availableAt).toISOString(),
   hidden_creations:(await all(c.env.DB,'SELECT id,title,hidden_reason FROM hub_item WHERE author_id=? AND is_hidden=1 AND deleted_at IS NULL',u.id)).map(i=>({...i,pk:publicId(i.id)})),
-  linked_accounts:accounts,can_disconnect:accounts.length>1,steam_enabled:true,discord_enabled:!!c.env.DISCORD_CLIENT_ID,site_role:u.role,
+  linked_accounts:accounts,passkeys:keys,passkey_added:c.req.query('passkey_added')==='1',can_disconnect:accounts.length+keys.length>1,steam_enabled:true,discord_enabled:!!c.env.DISCORD_CLIENT_ID,site_role:u.role,
   download_warning_acknowledged:!!await one(c.env.DB,'SELECT id FROM hub_userpreferences WHERE user_id=? AND ugc_warning_version=1',u.id)
  },status);
 });
