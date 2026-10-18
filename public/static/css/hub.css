@@ -435,6 +435,8 @@ dialog.external-warning-window::backdrop { background: #15251bd9; }
 .social-signin-buttons .provider-button-passkey { background: #315b46; border-color: #254735; display: flex; align-items: center; justify-content: center; }
 .social-signin-buttons .provider-button-passkey:hover { background: #254735; }
 .social-signin-buttons .provider-button-passkey:disabled { opacity: .65; cursor: wait; }
+.passkey-signup { text-align: center; margin-top: 24px; }
+.passkey-signup button { max-width: 100%; min-height: 44px; padding: 10px 20px; gap: 10px; font-size: 13px !important; line-height: 1.4; }
 .passkey-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 [data-passkey-status] { font-size: 13px; line-height: 1.5; }
 [data-passkey-register] { margin: 24px 0; padding-top: 20px; border-top: 1px solid #ab976a; }

@@ -15,7 +15,7 @@
       {% if discord_enabled %}<form method="post" action="{% provider_login_url 'discord' %}">{% csrf_token %}{% include 'socialaccount/provider_button.html' with provider='discord' label='Continue with Discord' %}</form>{% endif %}
     </div>
     <p data-passkey-status role="status" aria-live="polite" hidden></p>
-    <p><button type="button" data-passkey-action="show-register" aria-expanded="false" aria-controls="passkey-registration">Create an account with a passkey</button></p>
+    <p class="passkey-signup"><button type="button" class="primary-button" data-passkey-action="show-register" aria-expanded="false" aria-controls="passkey-registration">{% include 'hub/icon.html' with icon='key' %}<span>Create an account with a passkey</span></button></p>
     <p class="muted small">Your first sign-in with Steam or Discord creates a CPC Hub account automatically.</p>
     <form id="passkey-registration" data-passkey-register hidden>
       <h2>Create a CPC Hub account?</h2>
