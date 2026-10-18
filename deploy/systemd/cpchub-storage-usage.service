@@ -1,0 +1,11 @@
+[Unit]
+Description=Count CPC Hub storage for the donation page
+Requires=cpchub-app.service
+After=cpchub-app.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/podman exec cpchub-app python manage.py refresh_storage_usage
+Restart=on-failure
+RestartSec=5min
+UMask=0077

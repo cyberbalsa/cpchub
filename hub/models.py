@@ -398,3 +398,11 @@ class APIKey(models.Model):
     @property
     def active(self):
         return self.revoked_at is None and (self.expires_at is None or self.expires_at > timezone.now())
+
+
+class StorageUsage(models.Model):
+    """Latest complete inventory; no object names or credentials are stored."""
+    backend = models.CharField(max_length=20)
+    object_count = models.PositiveBigIntegerField()
+    size_bytes = models.PositiveBigIntegerField()
+    measured_at = models.DateTimeField()

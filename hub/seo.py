@@ -23,7 +23,7 @@ PUBLIC_ROBOTS = "index, follow, max-image-preview:large, max-snippet:-1"
 STATIC_PAGES = {
     "install": ("Install Car Park Capital blueprints and scenarios | CPC Hub", "Install Car Park Capital blueprints in assets/blueprints and scenarios in saves/scenarios. Find the folders on Windows and Linux."),
     "catalog": (SITE_TITLE, SITE_DESCRIPTION),
-    "donate": ("Support CPC Hub | Hosting and storage", "Help cover CPC Hub's $45 monthly hosting and storage costs with an optional Ko-fi tip."),
+    "donate": ("Support CPC Hub | Hosting and storage", "See CPC Hub's hosting, domain and storage costs, and leave an optional Ko-fi tip."),
     "developers": ("CPC Hub API | Mod manager developer guide", "Connect a mod manager to CPC Hub. Browse creations, download releases, and manage uploads with API keys or OAuth."),
 }
 

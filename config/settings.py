@@ -16,6 +16,9 @@ if not SECRET_KEY:
 PUBLIC_URL = os.getenv("PUBLIC_URL", "http://127.0.0.1:8000" if DEBUG else "https://cpchub.net").rstrip("/")
 # Public Ko-fi profile URL only; payment/API credentials never belong in templates.
 KOFI_PAGE_URL = os.getenv("KOFI_PAGE_URL", "https://ko-fi.com/cpchub")
+# Annual USD costs used by the public donation page. Blank domain cost stays unknown.
+SUPPORT_VPS_YEARLY_USD = os.getenv("SUPPORT_VPS_YEARLY_USD", "71.28")
+SUPPORT_DOMAIN_YEARLY_USD = os.getenv("SUPPORT_DOMAIN_YEARLY_USD", "11.86")
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost,cpchub.net").split(",")
 CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", PUBLIC_URL).split(",")
 INSTALLED_APPS = [

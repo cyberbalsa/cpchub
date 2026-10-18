@@ -11,7 +11,7 @@
 .support-checkout .window-body { padding: 26px 23px 0; margin: 0; }
 .support-checkout .eyebrow { font-size: 9px; color: #585f42; }
 .support-cost { display: flex; align-items: center; gap: 6px; margin: 12px 0 7px; color: #345b44; }
-.support-cost strong { font: bold 70px/.95 var(--pixel); letter-spacing: -4px; text-shadow: 2px 2px #ffefbf; }
+.support-cost strong { font: bold clamp(38px, 5vw, 60px)/.95 var(--pixel); letter-spacing: -4px; text-shadow: 2px 2px #ffefbf; }
 .support-dollar { font: 30px var(--pixel); align-self: flex-start; padding-top: 7px; }
 .support-period { margin-left: 13px; padding-left: 14px; border-left: 1px solid #9d936a; color: #4e5f43; font: 11px/1.8 var(--pixel); }
 .support-cost-caption { font-size: 11px; line-height: 1.7; color: #625a40; margin: 14px 0 20px; }
@@ -47,3 +47,8 @@
   .support-details { margin-top: 29px; }
   .support-page .breadcrumbs { font-size: 10px; gap: 7px; }
 }
+
+.support-receipt dt { color: #625b42; }
+.support-receipt dd { margin: 0; text-align: right; color: #364f39; }
+.support-receipt small { display: block; margin-top: 4px; }
+.support-storage { font-size: 11px; color: #625a40; }

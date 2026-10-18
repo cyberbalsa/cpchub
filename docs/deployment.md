@@ -27,7 +27,7 @@ Production uses `DEBUG=0`, `TRUST_PROXY=1`, `PUBLIC_URL=https://cpchub.net`, and
 
 The R2 bucket remains private, with its managed public domain disabled and no public custom domain. `R2_ENDPOINT_URL` uses the account's `r2.cloudflarestorage.com` endpoint. Download links expire after five minutes. See the [storage migration instructions](../README.md#cloudflare-r2-upload-storage) before switching providers; stop both the app and `cpchub-uploads.service`, plus the cleanup timer, for the final copy and verification. Do not switch back after accepting new uploads without copying those files back first.
 
-The Donate button opens `/donate/`, which shows the approximate $45 monthly hosting and storage cost. `KOFI_PAGE_URL` defaults to `https://ko-fi.com/cpchub`. The page links to Ko-fi for tips; Ko-fi controls payment options and handles checkout. No payment API key is needed.
+The Donate button opens `/donate/`, which shows VPS and domain costs plus an estimate based on the current R2 storage count. `KOFI_PAGE_URL` defaults to `https://ko-fi.com/cpchub`. The page links to Ko-fi for tips; Ko-fi controls payment options and handles checkout. No payment API key is needed.
 
 Uploads are limited to 90 MiB to leave room for multipart form data below [Cloudflare's 100 MB request limit on Free and Pro plans](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/4xx-client-error/error-413/). Nginx limits authentication POSTs to 10 per minute per IP and upload/edit requests to 30 per minute, each with a burst of 10. It replaces forwarded client-IP headers using Cloudflare's connecting IP. Keep its published listener on loopback.
 
@@ -127,3 +127,12 @@ The cleanup timer runs `python manage.py cleanup_deleted_files` every five minut
 ## Isolated upload worker
 
 Install the dedicated Firecracker worker before starting an app revision with queued validation. Follow [upload validation](upload-validation.md), including the separate service users, queue permissions, SELinux labels, and `cpchub-uploads.container`. The app accepts submissions only into the private queue and never falls back to local parsing.
+
+
+### Donation page cost breakdown
+
+Set `SUPPORT_VPS_YEARLY_USD` (default `71.28`) and `SUPPORT_DOMAIN_YEARLY_USD` (default `11.86`, owner-confirmed) to the annual USD bills. An unset domain price is shown as unknown and the total is marked partial. Wasabi and unrelated Cloudflare subscriptions are excluded.
+
+Run `python manage.py refresh_storage_usage` after migrating the database. Install `deploy/systemd/cpchub-storage-usage.{service,timer}` in the production user's `~/.config/systemd/user/`, reload systemd and enable the timer. It inventories the entire dedicated R2 bucket hourly using the existing bucket credentials, including files awaiting deletion. Pagination counts objects and bytes without downloading contents. Public page views read a database snapshot and never call R2. Failed inventories retain the last complete count; snapshots older than two hours are labelled delayed.
+
+The estimate applies [R2 Standard pricing](https://developers.cloudflare.com/r2/pricing/) checked 2026-10-17: first 10 decimal GB-month free per account, then $0.015 per GB-month rounded up to whole billing units. It assumes the current stored bytes persist for a month and this dedicated bucket uses the account's free storage allowance. Review this assumption if adding other buckets. Actual billing uses average daily peak storage; requests, unfinished multipart uploads and taxes are not included. Revisit the rates if Cloudflare changes pricing. This is a storage estimate, not a copy of the Cloudflare bill.

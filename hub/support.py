@@ -6,6 +6,8 @@ from django.shortcuts import render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_safe
 
+from hub.costs import running_costs
+
 
 def kofi_page_url():
     # Configuration is a public profile URL, never an API key or checkout URL.
@@ -19,4 +21,4 @@ def kofi_page_url():
 @require_safe
 def donate(request):
     # The shared site header can contain account details; keep this response private.
-    return render(request, "hub/donate.html", {"kofi_page_url": kofi_page_url()})
+    return render(request, "hub/donate.html", {"kofi_page_url": kofi_page_url(), "costs": running_costs()})
