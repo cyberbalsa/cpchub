@@ -1,4 +1,4 @@
-<section class="tag-categories" aria-labelledby="category-tags-title" aria-live="off">
+<section id="category-filters" class="tag-categories" aria-labelledby="category-tags-title" aria-live="off" {% if category_filters_oob %}hx-swap-oob="outerHTML"{% endif %}>
   <h2 id="category-tags-title">Browse by category</h2>
   <div class="tag-category-groups">
     {% for group in tag_groups %}

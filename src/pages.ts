@@ -90,6 +90,7 @@ pages.get("/", async (c) => {
       types_with_counts: types,
       catalog_types: types,
       tag_groups: tagGroups,
+      category_filters_oob: c.req.header("HX-Request") === "true",
       stats,
       featured_items: await viewItems(c.env, featured, u),
       catalog_view: params.get("view") || "all",
