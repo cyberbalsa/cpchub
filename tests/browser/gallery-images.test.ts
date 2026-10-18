@@ -12,6 +12,28 @@ function markup(two = true) {
     '<dialog id="screenshot-viewer"><div data-screenshot-stage></div><p data-screenshot-status></p><button data-screenshot-zoom>Zoom</button><span data-screenshot-position></span><span data-screenshot-caption></span><button data-close-screenshots>Close</button><button data-screenshot-previous>Previous</button><button data-screenshot-next>Next</button></dialog></section>'
   );
 }
+void test("gallery initializes after a detail fragment loads and binds each gallery only once", async (t) => {
+  const f = dom('<div id="item-content">Loading creation…</div>');
+  t.after(f.close);
+  gallery(f.window);
+  f.query("#item-content").innerHTML = markup();
+  for (const event of [
+    "htmx:afterSwap",
+    "htmx:afterSwap",
+    "htmx:historyRestore",
+  ])
+    f.custom(event, {});
+  f.click(f.query("[data-screenshot-preview]"));
+  f.click(f.query("[data-screenshot-next]"));
+  await flush();
+  assert.equal(f.query("[data-screenshot-position]").textContent, "2 / 2");
+  f.query<HTMLDialogElement>("dialog").close();
+  f.query("#item-content").innerHTML = markup();
+  f.custom("htmx:historyRestore", {});
+  f.click(f.query("[data-screenshot-preview]"));
+  await flush();
+  assert(f.query<HTMLDialogElement>("dialog").open);
+});
 void test("screenshot gallery supports preview, keyboard, zoom, modal controls and escaped captions", async (t) => {
   const absent = dom();
   t.after(absent.close);

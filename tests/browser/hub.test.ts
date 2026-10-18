@@ -168,7 +168,7 @@ void test("copy controls, HTMX parameter cleanup and error feedback use text-onl
   f.click(f.query("button"));
   await flush();
   assert.match(f.query("button").textContent, /Select & copy/);
-  const parameters = { q: "", page: "2" };
+  const parameters = { q: "", page: "2", render: "full" };
   f.custom("htmx:configRequest", { elt: f.query("form"), parameters });
   assert.deepEqual(parameters, { page: "2" });
   const other = { q: "" };
@@ -178,4 +178,9 @@ void test("copy controls, HTMX parameter cleanup and error feedback use text-onl
   assert.match(f.query("#results p").textContent, /Refresh the page/);
   f.query("#results").remove();
   f.custom("htmx:responseError", {});
+  const content = f.window.document.createElement("div");
+  content.id = "item-content";
+  f.window.document.body.append(content);
+  f.custom("htmx:sendError", {});
+  assert.match(f.query("#item-content p").textContent, /Refresh the page/);
 });

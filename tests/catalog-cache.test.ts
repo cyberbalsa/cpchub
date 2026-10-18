@@ -1,5 +1,4 @@
 import test from "node:test";
-import type { TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { Hono } from "hono";
 import { DomUtils, parseDocument } from "htmlparser2";
@@ -8,32 +7,7 @@ import { staffFixture } from "./helpers/staff";
 import { cachedCatalogFragment } from "../src/cache";
 import { hash, uuid, type App } from "../src/env";
 
-function fragmentCache(t: TestContext) {
-  let time = 0;
-  const entries = new Map<string, { response: Response; expires: number }>();
-  t.mock.method(caches.default, "match", async (key: Request) => {
-    const entry = entries.get(key.url);
-    return entry && entry.expires > time ? entry.response.clone() : undefined;
-  });
-  t.mock.method(
-    caches.default,
-    "put",
-    async (key: Request, response: Response) => {
-      assert.equal(response.headers.get("Cache-Control"), "public, max-age=60");
-      assert.equal(response.headers.get("Set-Cookie"), null);
-      entries.set(key.url, {
-        response: response.clone(),
-        expires: time + 60000,
-      });
-    },
-  );
-  return {
-    entries,
-    expire: () => {
-      time += 61000;
-    },
-  };
-}
+import { fragmentCache } from "./helpers/cache";
 
 void test("cached HTMX results isolate sessions, skip catalog queries and work inside the page wrapper", async (t) => {
   const f = await staffFixture();
@@ -114,7 +88,7 @@ void test("cached HTMX results isolate sessions, skip catalog queries and work i
     assert(!key.includes("another-session") && !key.includes("another-csrf"));
   }
   const inline = await f.request(
-    "/?sort=saved&type=blueprints&min_collection_count=0",
+    "/?sort=saved&type=blueprints&min_collection_count=0&render=full",
   );
   assert.equal(inline.headers.get("X-Catalog-Cache"), "MISS");
   const page = parseDocument(await inline.text());
@@ -132,14 +106,16 @@ void test("cached HTMX results isolate sessions, skip catalog queries and work i
   );
   assert.equal(
     (
-      await f.request("/?sort=saved&type=blueprints&min_collection_count=0")
+      await f.request(
+        "/?sort=saved&type=blueprints&min_collection_count=0&render=full",
+      )
     ).headers.get("X-Catalog-Cache"),
     "HIT",
   );
   assert.equal(
     (
       await f.rawRequest(
-        "/?sort=saved&type=blueprints&min_collection_count=0",
+        "/?sort=saved&type=blueprints&min_collection_count=0&render=full",
         {
           headers: { Cookie: "cpc_session=test-session", "HX-Request": "true" },
         },

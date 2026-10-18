@@ -12,7 +12,17 @@ import { marked } from "marked";
 import { readEstimate } from "./cost-estimates";
 import sanitize from "sanitize-html";
 import { getCookie, setCookie } from "hono/cookie";
-import { Env, Row, User, one, random, staff, manage, admin } from "./env";
+import {
+  Env,
+  Row,
+  User,
+  one,
+  random,
+  staff,
+  manage,
+  admin,
+  publicId,
+} from "./env";
 import { serialize, serializeMany, PUBLIC } from "./catalog";
 export const esc = (s: unknown) =>
   String(s ?? "").replace(
@@ -210,6 +220,32 @@ export function collection<T>(a: T[]) {
     exists: !!a.length,
   });
 }
+export function itemHeader(i: CatalogItem) {
+  const id = publicId(i.id);
+  return {
+    pk: id,
+    title: censorText(i.title),
+    summary: censorText(i.summary),
+    hidden_reason: censorText(i.hidden_reason),
+    author: {
+      id: i.author_id,
+      pk: i.author_id,
+      username: censorText(i.username),
+    },
+    content_type: { name: i.type_name, slug: i.type_slug },
+    get_absolute_url: "/items/" + id + "/",
+    status: i.status,
+    is_demo: !!i.is_demo,
+    is_hidden: !!i.is_hidden,
+    deleted_at: i.deleted_at,
+    updated_at: i.updated_at,
+    collection_count: i.collection_count,
+    can_restore: canRestore(i.deleted_at),
+    delete_after: i.deleted_at
+      ? new Date(Date.parse(i.deleted_at) + RETENTION_MS).toISOString()
+      : null,
+  };
+}
 export async function viewItem(
   env: Env,
   i: CatalogItem,
@@ -236,6 +272,7 @@ export async function viewItem(
   return {
     ...i,
     ...s,
+    ...itemHeader(i),
     upload_jobs: undefined as
       ReturnType<typeof collection<ReturnType<typeof jobJSON>>> | undefined,
     revisions: undefined as
@@ -248,32 +285,34 @@ export async function viewItem(
           }>
         >
       | undefined,
-    pk: s.id,
     get_status_display: i.status === "published" ? "Published" : "Draft",
-    author: { id: i.author_id, pk: i.author_id, username: s.author },
-    content_type: { name: i.type_name, slug: i.type_slug },
-    get_absolute_url: "/items/" + s.id + "/",
     artwork_path: "art/lot-" + i.artwork + ".svg",
     public_tag_list: s.tags.split(", ").filter(Boolean),
     releases,
     screenshots,
     latest_release: releases[0],
     needs_review: i.content_revision > i.reviewed_revision,
-    can_restore: canRestore(i.deleted_at),
-    delete_after: i.deleted_at
-      ? new Date(Date.parse(i.deleted_at) + RETENTION_MS).toISOString()
-      : null,
   };
 }
 export async function render(
   c: Context<App>,
   template: string,
-  data: Row & { item?: Awaited<ReturnType<typeof viewItem>> | undefined } = {},
+  data: Row & {
+    item?:
+      | (ReturnType<typeof itemHeader> & {
+          upload_jobs?: Awaited<ReturnType<typeof viewItem>>["upload_jobs"];
+        })
+      | undefined;
+  } = {},
   status: ContentfulStatusCode = 200,
 ) {
   const u = c.get("user");
   let csrf = u?.csrf || getCookie(c, "cpc_csrf");
-  const fragment = template === "hub/results.html";
+  const fragment = [
+    "hub/results.html",
+    "hub/detail_content.html",
+    "hub/bookmark.html",
+  ].includes(template);
   if (!csrf && !fragment) {
     csrf = random();
     setCookie(c, "cpc_csrf", csrf, {

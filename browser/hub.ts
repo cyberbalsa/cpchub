@@ -72,7 +72,7 @@ export function initialize(window: BrowserWindow) {
     }>;
     if (detail.elt.id !== "catalog-filter") return;
     for (const [name, value] of Object.entries(detail.parameters))
-      if (value === "") delete detail.parameters[name];
+      if (value === "" || name === "render") delete detail.parameters[name];
   });
   document.addEventListener("click", (event) => {
     if (!(event.target instanceof window.Element)) return;
@@ -164,8 +164,10 @@ export function initialize(window: BrowserWindow) {
       button.textContent = "Select & copy the key";
     }
   }
-  document.addEventListener("htmx:responseError", () => {
-    const results = document.getElementById("results");
+  function fragmentError() {
+    const results =
+      document.getElementById("results") ||
+      document.getElementById("item-content");
     if (results) {
       const message = document.createElement("p");
       message.className = "notice";
@@ -173,5 +175,7 @@ export function initialize(window: BrowserWindow) {
         "The request could not be completed. Refresh the page to try again.";
       results.prepend(message);
     }
-  });
+  }
+  document.addEventListener("htmx:responseError", fragmentError);
+  document.addEventListener("htmx:sendError", fragmentError);
 }

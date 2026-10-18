@@ -114,6 +114,22 @@ export async function categoryTagGroups(env: Env) {
     tags: tags.filter((tag) => tag.category_group === group.key),
   }));
 }
+export function screenshotURL(
+  env: Env,
+  itemId: string,
+  screenshot: Pick<Table<"hub_screenshot">, "id" | "image">,
+) {
+  return /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}-[a-f0-9]{16}\.webp$/.test(
+    screenshot.image,
+  )
+    ? env.SCREENSHOT_URL + "/" + screenshot.image
+    : env.PUBLIC_URL +
+        "/api/v1/items/" +
+        publicId(itemId) +
+        "/screenshots/" +
+        publicId(screenshot.id) +
+        "/image/";
+}
 export async function serialize(
   env: Env,
   i: CatalogItem,
@@ -185,12 +201,7 @@ export async function serialize(
       id: publicId(s.id),
       caption: censorText(s.caption),
       created_at: s.created_at,
-      image_url:
-        /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}-[a-f0-9]{16}\.webp$/.test(
-          s.image,
-        )
-          ? env.SCREENSHOT_URL + "/" + s.image
-          : base + "/screenshots/" + publicId(s.id) + "/image/",
+      image_url: screenshotURL(env, i.id, s),
     })),
   };
 }

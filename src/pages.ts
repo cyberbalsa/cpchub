@@ -33,12 +33,14 @@ import {
   NUMERIC_FILTERS,
   catalogSort,
   categoryTagGroups,
+  screenshotURL,
 } from "./catalog";
-import { cachedCatalogFragment } from "./cache";
+import { cachedCatalogFragment, cachedFragment } from "./cache";
 import {
   render,
   viewItem,
   viewItems,
+  itemHeader,
   form,
   input,
   area,
@@ -78,6 +80,11 @@ function catalogSearch(params: URLSearchParams) {
     },
   };
 }
+function catalogParams(c: Context<App>) {
+  const params = new URL(c.req.url).searchParams;
+  params.delete("render");
+  return normalizeSearch(params);
+}
 function catalogResults(
   c: Context<App>,
   params: URLSearchParams,
@@ -99,18 +106,21 @@ function catalogResults(
   });
 }
 pages.get("/catalog/results/", async (c) => {
-  const params = normalizeSearch(new URL(c.req.url).searchParams),
+  const params = catalogParams(c),
     response = await catalogResults(c, params, true);
-  response.headers.set("HX-Push-Url", "/?" + params);
+  response.headers.set(
+    "HX-Push-Url",
+    c.req.header("HX-Trigger") === "results" ? "false" : "/?" + params,
+  );
   return response;
 });
 pages.get("/", async (c) => {
-  const params = normalizeSearch(new URL(c.req.url).searchParams),
+  const params = catalogParams(c),
     u = c.get("user");
   if (c.req.header("HX-Request") === "true")
     return catalogResults(c, params, true);
   const [results, types, stats, featured, tagGroups] = await Promise.all([
-    catalogResults(c, params, false),
+    c.req.query("render") === "full" ? catalogResults(c, params, false) : null,
     all(
       c.env.DB,
       `SELECT t.*,(SELECT COUNT(*) FROM hub_item i WHERE i.content_type_id=t.id AND ${PUBLIC}) total FROM hub_contenttype t WHERE uploads_enabled=1 ORDER BY position,name`,
@@ -143,10 +153,13 @@ pages.get("/", async (c) => {
       ),
     };
   });
-  c.header("X-Catalog-Cache", results.headers.get("X-Cache")!);
+  c.header("X-Catalog-Cache", results?.headers.get("X-Cache") || "DEFERRED");
   return render(c, "hub/catalog.html", {
     ...search,
-    catalog_results: safe(await results.text()),
+    catalog_results: results ? safe(await results.text()) : null,
+    catalog_fragment_url: "/catalog/results/?" + params,
+    catalog_fallback_url:
+      "/?" + new URLSearchParams([...params, ["render", "full"]]),
     types_with_counts: types,
     catalog_types: types,
     tag_groups: tagGroups,
@@ -169,12 +182,35 @@ pages.get("/", async (c) => {
     },
   });
 });
+function itemContent(c: Context<App>, id: string, item?: CatalogItem) {
+  const url = new URL(`/items/${publicId(dbId(id))}/content/`, c.req.url);
+  url.searchParams.set("__fragment", "item-v1");
+  return cachedFragment(c, url, async () => {
+    const u = c.get("user"),
+      i = item || (await getItem(c.env, id, u));
+    return render(c, "hub/detail_content.html", {
+      item: await viewItem(c.env, i, u),
+    });
+  });
+}
+pages.get("/items/:id/content/", (c) => itemContent(c, c.req.param("id")));
 pages.get("/items/:id/", async (c) => {
   const u = c.get("user"),
     i = await getItem(c.env, c.req.param("id"), u),
-    item = await viewItem(c.env, i, u);
+    item = itemHeader(i);
+  const [content, screenshot, release] = await Promise.all([
+    c.req.query("render") === "full" ? itemContent(c, i.id, i) : null,
+    one<Pick<Table<"hub_screenshot">, "id" | "image">>(
+      c.env.DB,
+      "SELECT id,image FROM hub_screenshot WHERE item_id=? ORDER BY created_at,id LIMIT 1",
+      i.id,
+    ),
+    one(c.env.DB, "SELECT id FROM hub_release WHERE item_id=? LIMIT 1", i.id),
+  ]);
+  c.header("X-Item-Cache", content?.headers.get("X-Cache") || "DEFERRED");
   return render(c, "hub/detail.html", {
     item,
+    detail_content: content ? safe(await content.text()) : null,
     can_edit: editable(i, u),
     saved:
       !!u &&
@@ -185,6 +221,7 @@ pages.get("/items/:id/", async (c) => {
         i.id,
       )),
     show_download_warning:
+      !!release &&
       getCookie(c, "cpc_warning") !== "1" &&
       (!u ||
         !(await one(
@@ -206,9 +243,9 @@ pages.get("/items/:id/", async (c) => {
         i.status === "published" && !i.is_hidden && !i.deleted_at
           ? "index, follow"
           : "noindex, nofollow",
-      image:
-        item.screenshots[0]?.image_url ||
-        c.env.PUBLIC_URL + "/static/art/share-card.png",
+      image: screenshot
+        ? screenshotURL(c.env, i.id, screenshot)
+        : c.env.PUBLIC_URL + "/static/art/share-card.png",
       image_type: "image/webp",
       type: "website",
     },
@@ -408,11 +445,18 @@ pages.post("/items/:id/save/", async (c) => {
       i.id,
       now(),
     );
-  if (c.req.header("HX-Request"))
+  if (c.req.header("HX-Request")) {
+    const count = await one<{ collection_count: number; saved: number }>(
+      c.env.DB,
+      "SELECT COUNT(*) collection_count,COALESCE(MAX(user_id=?),0) saved FROM hub_bookmark WHERE item_id=?",
+      u.id,
+      i.id,
+    );
     return render(c, "hub/bookmark.html", {
-      item: await viewItem(c.env, i, u),
-      saved: !b,
+      item: { ...itemHeader(i), collection_count: count!.collection_count },
+      saved: !!count!.saved,
     });
+  }
   return c.redirect("/items/" + publicId(i.id) + "/");
 });
 for (const action of ["delete", "restore", "unpublish"] as const)

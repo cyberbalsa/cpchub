@@ -11,7 +11,8 @@
     {% if featured_items %}<section class="featured-section" aria-labelledby="featured-title"><div class="section-heading"><h2 id="featured-title">Highlighted creations</h2><span class="file-label">PICKED BY THE MODERATION TEAM</span></div><div class="row g-3 creation-grid">{% for item in featured_items %}<div class="col-12 col-md-6 col-xl-4">{% include 'hub/card.html' %}</div>{% endfor %}</div></section>{% endif %}
     <section id="browse" class="browse-section" aria-labelledby="browse-title">
       <div class="section-heading"><h1 id="browse-title">{% include 'hub/icon.html' with icon='catalog' %}{% if catalog_view == 'saved' %}Your saved creations{% elif catalog_view == 'mine' %}Your uploads{% else %}Available creations{% endif %}</h1><span class="file-label">CHOOSE A FILE FOR DETAILS</span></div>
-      <form id="catalog-filter" class="catalog-filter" action="/" method="get" hx-get="/catalog/results/" hx-target="#results" hx-swap="outerHTML" hx-push-url="true" hx-trigger="submit, input changed delay:350ms from:#search, change from:select, input changed delay:350ms from:#tag, input changed delay:500ms from:.stats-filter-input" hx-indicator="#search-indicator">
+      <form id="catalog-filter" class="catalog-filter" action="/" method="get" hx-get="/catalog/results/" hx-target="#results" hx-swap="outerHTML" hx-sync="#catalog-filter:replace" hx-push-url="true" hx-trigger="submit, input changed delay:350ms from:#search, change from:select, input changed delay:350ms from:#tag, input changed delay:500ms from:.stats-filter-input" hx-indicator="#search-indicator">
+        <input type="hidden" name="render" value="full">
         {% if catalog_view != 'all' %}<input type="hidden" name="view" value="{{ catalog_view }}">{% endif %}
         <label class="search-field" for="search">{% include 'hub/icon.html' with icon='search' %}<span class="visually-hidden">Search creations</span><input type="search" id="search" name="q" value="{{ q }}" placeholder="Search creations…"><span id="search-indicator" class="htmx-indicator">…</span></label>
         <label class="tag-filter" for="tag"><span class="visually-hidden">Filter by tag</span><input type="text" id="tag" name="tag" value="{{ tag }}" placeholder="Filter by tag…" maxlength="200" autocomplete="off" data-tag-input="{% url 'api-tag-list' %}"></label>
@@ -19,7 +20,11 @@
         <label class="visually-hidden" for="sort">Sort by</label><select id="sort" name="sort"><option value="popular" {% if sort == 'popular' %}selected{% endif %}>Most downloaded</option><option value="saved" {% if sort == 'saved' %}selected{% endif %}>Most saved</option><option value="updated" {% if sort == 'updated' %}selected{% endif %}>Recently updated</option><option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest first</option></select><button class="filter-submit" type="submit">Find</button>
         {% include 'hub/stats_filters.html' %}
       </form>
-      {{ catalog_results }}
+      {% if catalog_results %}{{ catalog_results }}{% else %}
+      <div id="results" hx-get="{{ catalog_fragment_url }}" hx-trigger="load" hx-swap="outerHTML" hx-sync="#catalog-filter:replace" hx-push-url="false" aria-live="polite">
+        <p class="notice" role="status">Loading creations… <a href="{{ catalog_fallback_url }}">Load creations</a></p>
+      </div>
+      {% endif %}
     </section>
   </section>
 </div>

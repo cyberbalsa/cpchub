@@ -222,7 +222,10 @@ void test("public HTML, metadata and APIs mask new and existing content; editing
   const path = "/items/" + created.id + "/";
   for (const route of [
     path,
-    "/",
+    path + "?render=full",
+    path + "content/",
+    "/?render=full",
+    "/catalog/results/",
     "/creators/1/",
     path + "releases/" + publicId(release.id) + "/download/",
   ]) {

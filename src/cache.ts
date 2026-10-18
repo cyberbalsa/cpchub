@@ -70,20 +70,15 @@ export const edgeCache: MiddlewareHandler<App> = async (c, next) => {
   } else c.header("Cache-Control", "private, no-store");
 };
 
-// The page wrapper stays request-specific. Only the bounded results fragment is
-// cached, with separate entries for each authenticated session and HTMX variant.
-export async function cachedCatalogFragment(
+// Page wrappers stay request-specific. Rendered fragments have separate entries
+// for each authenticated session, content/visibility revision and HTML variant.
+export async function cachedFragment(
   c: Context<App>,
-  params: URLSearchParams,
-  oob: boolean,
+  url: URL,
   load: () => Promise<Response>,
 ) {
   const user = c.get("user");
-  if (
-    params.toString().length > 1000 ||
-    [...params.keys()].some((k) => !allowed.has(k)) ||
-    (!user && getCookie(c, "cpc_session"))
-  ) {
+  if (!user && getCookie(c, "cpc_session")) {
     const response = await load();
     response.headers.set("X-Cache", "BYPASS");
     return response;
@@ -93,11 +88,8 @@ export async function cachedCatalogFragment(
     "SELECT revision,COALESCE((SELECT revision FROM worker_collection_revision WHERE user_id=?),0) collection_revision FROM worker_cache_revision WHERE id=1",
     user?.id || -1,
   );
-  const url = new URL("/catalog/results/", c.req.url);
-  url.search = params.toString();
   url.searchParams.sort();
   url.searchParams.set("__revision", String(revision?.revision || 0));
-  url.searchParams.set("__fragment", oob ? "oob-v1" : "inline-v1");
   if (user) {
     url.searchParams.set(
       "__session",
@@ -133,4 +125,24 @@ export async function cachedCatalogFragment(
   response.headers.set("Cache-Control", "private, no-store");
   response.headers.set("X-Cache", "MISS");
   return response;
+}
+
+export async function cachedCatalogFragment(
+  c: Context<App>,
+  params: URLSearchParams,
+  oob: boolean,
+  load: () => Promise<Response>,
+) {
+  if (
+    params.toString().length > 1000 ||
+    [...params.keys()].some((k) => !allowed.has(k))
+  ) {
+    const response = await load();
+    response.headers.set("X-Cache", "BYPASS");
+    return response;
+  }
+  const url = new URL("/catalog/results/", c.req.url);
+  url.search = params.toString();
+  url.searchParams.set("__fragment", oob ? "oob-v1" : "inline-v1");
+  return cachedFragment(c, url, load);
 }

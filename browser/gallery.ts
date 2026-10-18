@@ -2,11 +2,13 @@ import type { BrowserWindow } from "./types";
 export function initialize(window: BrowserWindow) {
   const { document, Image, HTMLImageElement } = window;
 
-  (() => {
+  const initialized = new WeakSet<HTMLElement>();
+  function setup() {
     const gallery = document.querySelector<HTMLElement>(
       "[data-screenshot-gallery]",
     );
-    if (!gallery) return;
+    if (!gallery || initialized.has(gallery)) return;
+    initialized.add(gallery);
     const links = [
       ...gallery.querySelectorAll<HTMLAnchorElement>("[data-screenshot]"),
     ];
@@ -195,5 +197,8 @@ export function initialize(window: BrowserWindow) {
       stage.replaceChildren();
       setZoom(false);
     });
-  })();
+  }
+  setup();
+  document.addEventListener("htmx:afterSwap", setup);
+  document.addEventListener("htmx:historyRestore", setup);
 }

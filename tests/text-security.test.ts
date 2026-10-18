@@ -172,6 +172,8 @@ void test("catalog, editor, search, profiles and moderation escape stored and re
     .run(attack);
   for (const path of [
     "/items/" + created.id + "/",
+    "/items/" + created.id + "/?render=full",
+    "/items/" + created.id + "/content/",
     "/items/" + created.id + "/edit/",
     "/?q=" + encodeURIComponent(attack),
     "/creators/1/",
