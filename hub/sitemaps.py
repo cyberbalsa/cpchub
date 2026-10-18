@@ -1,5 +1,6 @@
 """Daily discovery snapshots, with live visibility checks on every response."""
-from xml.etree.ElementTree import Element, SubElement, tostring
+from collections import defaultdict
+from xml.etree.ElementTree import Element, SubElement, register_namespace, tostring
 
 from django.conf import settings
 from django.core.paginator import EmptyPage, Paginator
@@ -12,10 +13,12 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_safe
 
-from .models import SitemapEntry, SitemapState
+from .models import Screenshot, SitemapEntry, SitemapState
 from .seo import absolute_url, published_items
 
 NAMESPACE = "http://www.sitemaps.org/schemas/sitemap/0.9"
+IMAGE_NAMESPACE = "http://www.google.com/schemas/sitemap-image/1.1"
+register_namespace("image", IMAGE_NAMESPACE)
 
 
 @transaction.atomic
@@ -84,9 +87,15 @@ def sitemap_page(request, page):
     except EmptyPage as exc:
         raise Http404 from exc
     root = Element("urlset", xmlns=NAMESPACE)
+    images = defaultdict(list)
+    for item_id, shot_id in Screenshot.objects.filter(item_id__in=[entry.item_id for entry in entries if entry.item_id]).order_by("created_at", "pk").values_list("item_id", "pk"):
+        images[item_id].append(absolute_url(reverse("share-image", args=[item_id, shot_id])))
     for entry in entries:
         node = SubElement(root, "url")
         SubElement(node, "loc").text = absolute_url(entry.path)
         if entry.last_modified:
             SubElement(node, "lastmod").text = entry.last_modified.isoformat()
+        for image_url in images[entry.item_id]:
+            image = SubElement(node, f"{{{IMAGE_NAMESPACE}}}image")
+            SubElement(image, f"{{{IMAGE_NAMESPACE}}}loc").text = image_url
     return _response(root)

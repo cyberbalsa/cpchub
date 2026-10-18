@@ -212,8 +212,14 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
     )
     @action(detail=True, methods=["get"], url_path=r"screenshots/(?P<screenshot_id>[0-9a-f-]+)/image")
     def screenshot_image(self, request, pk=None, screenshot_id=None):
-        screenshot = get_object_or_404(self.get_object().screenshots, pk=screenshot_id)
-        return file_response(screenshot.image, method=request.method, content_type="image/webp")
+        from .seo import PUBLIC_ROBOTS, published_items
+
+        item = self.get_object()
+        screenshot = get_object_or_404(item.screenshots, pk=screenshot_id)
+        response = file_response(screenshot.image, method=request.method, content_type="image/webp")
+        if published_items().filter(pk=item.pk).exists():
+            response["X-Robots-Tag"] = PUBLIC_ROBOTS
+        return response
 
     @extend_schema(responses={204: None, 400: ErrorSerializer, 403: ErrorSerializer, 404: ErrorSerializer}, description="Remove an owned screenshot, or use an Admin browser session to remove any screenshot. Published creations must keep at least one screenshot; add a replacement or save as a draft first.", parameters=[OpenApiParameter("screenshot_id", OpenApiTypes.UUID, OpenApiParameter.PATH)])
     @action(detail=True, methods=["delete"], url_path=r"screenshots/(?P<screenshot_id>[0-9a-f-]+)")

@@ -19,8 +19,9 @@ from .file_delivery import StorageUnavailable, file_response
 
 SITE_TITLE = "CPC Hub | Car Park Capital blueprints and scenarios"
 SITE_DESCRIPTION = "Share and download fan-made blueprints and scenarios for Car Park Capital. Browse screenshots, save creations, and find new builds for your game."
+PUBLIC_ROBOTS = "index, follow, max-image-preview:large, max-snippet:-1"
 STATIC_PAGES = {
-    "install": ("Install blueprints and scenarios | CPC Hub", "How to install Car Park Capital blueprints and scenarios on Windows and Linux."),
+    "install": ("Install Car Park Capital blueprints and scenarios | CPC Hub", "Install Car Park Capital blueprints in assets/blueprints and scenarios in saves/scenarios. Find the folders on Windows and Linux."),
     "catalog": (SITE_TITLE, SITE_DESCRIPTION),
     "donate": ("Support CPC Hub | Hosting and storage", "Help cover CPC Hub's $45 monthly hosting and storage costs with an optional Ko-fi tip."),
     "developers": ("CPC Hub API | Mod manager developer guide", "Connect a mod manager to CPC Hub. Browse creations, download releases, and manage uploads with API keys or OAuth."),
@@ -38,11 +39,38 @@ def published_items():
 def metadata(*, title=SITE_TITLE, description=SITE_DESCRIPTION, path="/", indexable=False):
     return {
         "title": title, "description": description, "canonical": absolute_url(path),
-        "robots": "index, follow, max-image-preview:large" if indexable else "noindex, follow",
+        "robots": PUBLIC_ROBOTS if indexable else "noindex, follow",
         "indexable": indexable, "image": absolute_url(static("art/share-card.png")),
+        "logo": absolute_url(static("art/logo.png")),
         "image_type": "image/png", "image_width": 1200, "image_height": 630,
         "image_alt": "CPC Hub: Car Park Capital blueprints and scenarios", "type": "website",
     }
+
+
+def site_entities():
+    return [
+        {"@type": "Organization", "@id": absolute_url("/#organization"), "name": "CPC Hub",
+         "url": absolute_url("/"), "description": "Fan-made Car Park Capital blueprint and scenario community.",
+         "logo": {"@type": "ImageObject", "url": absolute_url(static("art/logo.png")), "width": 512, "height": 512}},
+        {"@type": "WebSite", "@id": absolute_url("/#website"), "url": absolute_url("/"),
+         "name": "CPC Hub", "alternateName": "Car Park Capital Hub", "description": SITE_DESCRIPTION,
+         "inLanguage": "en", "publisher": {"@id": absolute_url("/#organization")}},
+    ]
+
+
+def webpage(seo, page_type="WebPage"):
+    return {"@type": page_type, "@id": seo["canonical"] + "#webpage", "url": seo["canonical"],
+            "name": seo["title"], "description": seo["description"], "inLanguage": "en",
+            "isPartOf": {"@id": absolute_url("/#website")}, "primaryImageOfPage": {
+                "@type": "ImageObject", "url": seo["image"], "caption": seo["image_alt"],
+            }}
+
+
+def has_content_query(request, allowed=()):
+    # Campaign tags do not change the content or its canonical URL.
+    tracking = {"gclid", "dclid", "fbclid", "msclkid"}
+    return any(key not in allowed and key not in tracking and not key.startswith("utm_")
+               for key, values in request.GET.lists() if any(values))
 
 
 def structured_data(*nodes):
@@ -55,9 +83,9 @@ def structured_data(*nodes):
 def context(request):
     name = getattr(request.resolver_match, "url_name", "")
     title, description = STATIC_PAGES.get(name, (SITE_TITLE, SITE_DESCRIPTION))
-    seo = metadata(title=title, description=description, path=request.path, indexable=name in STATIC_PAGES and not request.GET)
+    seo = metadata(title=title, description=description, path=request.path, indexable=name in STATIC_PAGES and not has_content_query(request))
     if seo["indexable"]:
-        seo["structured_data"] = structured_data({"@type": "WebPage", "name": title, "url": seo["canonical"], "description": description})
+        seo["structured_data"] = structured_data(webpage(seo), *site_entities())
     if not hasattr(request, "seo_indexable"):
         request.seo_indexable = seo["indexable"]
     return {"seo": seo}
@@ -74,14 +102,17 @@ def _page_path(path, page):
 
 def catalog_metadata(request, page):
     # Search/filter combinations remain crawlable, but do not compete with items.
-    filtered = any(values and not (key == "page" or key == "sort" and values == ["updated"] or key == "view" and values == ["all"]) for key, values in request.GET.lists() if any(values))
+    filtered = has_content_query(request, allowed=("page", "sort", "view")) or any(
+        values != [default] for key, default in (("sort", "updated"), ("view", "all"))
+        if any(values := request.GET.getlist(key))
+    )
     seo = metadata(path=_page_path("/", page), indexable=not filtered)
     if page.number > 1:
         seo["title"] = f"Car Park Capital creations, page {page.number} | CPC Hub"
+        seo["description"] = f"Browse page {page.number} of community blueprints and scenarios for Car Park Capital."
     if not filtered:
         seo["structured_data"] = structured_data(
-            {"@type": "WebSite", "@id": absolute_url("/#website"), "url": absolute_url("/"), "name": "CPC Hub", "alternateName": "Car Park Capital Hub", "description": SITE_DESCRIPTION},
-            {"@type": "CollectionPage", "name": seo["title"], "url": seo["canonical"], "isPartOf": {"@id": absolute_url("/#website")}},
+            *site_entities(), webpage(seo, "CollectionPage"),
         )
     return _apply(request, seo)
 
@@ -90,8 +121,10 @@ def item_metadata(request, item):
     visible = published_items().filter(pk=item.pk).exists()
     if not visible:
         return _apply(request, metadata(title="Private creation | CPC Hub", path=item.get_absolute_url()))
-    description = f"{item.summary.strip()} By {item.author.username}.".strip()
-    seo = metadata(title=f"{item.title} | Car Park Capital | CPC Hub", description=description, path=item.get_absolute_url(), indexable=True)
+    kind = {"blueprints": "blueprint", "scenarios": "scenario"}.get(item.content_type.slug, "creation")
+    description = f"{item.summary.strip() or f'Download this Car Park Capital {kind}.'} By {item.author.username}."
+    seo = metadata(title=f"{item.title} | Car Park Capital {kind} | CPC Hub", description=description, path=item.get_absolute_url(), indexable=True)
+    seo["author"] = item.author.username
     shot = item.screenshots.first()
     if shot:
         seo.update(image=absolute_url(reverse("share-image", args=[item.pk, shot.pk])), image_type="image/webp", image_alt=shot.caption or f"{item.title} by {item.author.username}", image_width=None, image_height=None)
@@ -102,6 +135,7 @@ def item_metadata(request, item):
         "author": {"@type": "Person", "name": item.author.username, "url": creator_url},
         "datePublished": item.created_at.isoformat(), "dateModified": max(item.updated_at, item.review_requested_at).isoformat(),
         "genre": item.content_type.name, "isAccessibleForFree": True,
+        "mainEntityOfPage": {"@id": seo["canonical"] + "#webpage"},
         "about": {"@type": "VideoGame", "name": "Car Park Capital"},
     }
     if item.latest_release:
@@ -110,16 +144,22 @@ def item_metadata(request, item):
         work, {"@type": "BreadcrumbList", "itemListElement": [
             {"@type": "ListItem", "position": 1, "name": "CPC Hub", "item": absolute_url("/")},
             {"@type": "ListItem", "position": 2, "name": item.title, "item": seo["canonical"]},
-        ]},
+        ]}, webpage(seo), *site_entities(),
     )
     return _apply(request, seo)
 
 
 def creator_metadata(request, creator, page):
     visible = published_items().filter(author=creator).exists()
-    seo = metadata(title=f"{creator.username}'s Car Park Capital creations | CPC Hub", description=f"Browse blueprints and scenarios shared by {creator.username} on CPC Hub.", path=_page_path(reverse("creator-profile", args=[creator.pk]), page), indexable=visible and not any(key != "page" for key in request.GET))
+    seo = metadata(title=f"{creator.username}'s Car Park Capital creations | CPC Hub", description=f"Browse blueprints and scenarios shared by {creator.username} on CPC Hub.", path=_page_path(reverse("creator-profile", args=[creator.pk]), page), indexable=visible and not has_content_query(request, allowed=("page",)))
+    if page.number > 1:
+        seo["title"] = f"{creator.username}'s creations, page {page.number} | CPC Hub"
+        seo["description"] = f"Page {page.number} of Car Park Capital blueprints and scenarios shared by {creator.username}."
     if seo["indexable"]:
-        seo["structured_data"] = structured_data({"@type": "ProfilePage", "url": seo["canonical"], "mainEntity": {"@type": "Person", "name": creator.username, "url": absolute_url(reverse("creator-profile", args=[creator.pk]))}})
+        seo.update(type="profile", username=creator.username)
+        profile = webpage(seo, "ProfilePage")
+        profile["mainEntity"] = {"@type": "Person", "name": creator.username, "url": absolute_url(reverse("creator-profile", args=[creator.pk]))}
+        seo["structured_data"] = structured_data(profile, *site_entities())
     return _apply(request, seo)
 
 
@@ -135,7 +175,7 @@ def share_image(request, pk, screenshot_id):
         raise Http404 from exc
     except StorageUnavailable:
         return HttpResponse("The screenshot is temporarily unavailable.", status=503)
-    response["X-Robots-Tag"] = "index, max-image-preview:large"
+    response["X-Robots-Tag"] = PUBLIC_ROBOTS
     return response
 
 
@@ -168,5 +208,5 @@ class SearchIndexMiddleware:
         if response.status_code >= 400 or not getattr(request, "seo_indexable", False):
             response.setdefault("X-Robots-Tag", "noindex, follow")
         else:
-            response.setdefault("X-Robots-Tag", "index, follow, max-image-preview:large")
+            response.setdefault("X-Robots-Tag", PUBLIC_ROBOTS)
         return response

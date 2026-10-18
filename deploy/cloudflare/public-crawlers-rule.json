@@ -4,7 +4,7 @@
   "action_parameters": {
     "products": ["bic", "securityLevel"]
   },
-  "expression": "(http.host in {\"cpchub.net\" \"www.cpchub.net\"}) and ((http.request.uri.path eq \"/api\" or starts_with(http.request.uri.path, \"/api/\")) or (cf.client.bot and cf.verified_bot_category in {\"Search Engine Crawler\" \"Page Preview\"} and http.request.method in {\"GET\" \"HEAD\"} and (http.request.uri.path in {\"/\" \"/donate/\" \"/developers/\" \"/robots.txt\" \"/security.txt\" \"/.well-known/security.txt\" \"/sitemap.xml\"} or (starts_with(http.request.uri.path, \"/sitemap-\") and ends_with(http.request.uri.path, \".xml\")) or starts_with(http.request.uri.path, \"/items/\") or starts_with(http.request.uri.path, \"/creators/\") or starts_with(http.request.uri.path, \"/share/\") or starts_with(http.request.uri.path, \"/static/\"))))",
+  "expression": "(http.host in {\"cpchub.net\" \"www.cpchub.net\"}) and ((http.request.uri.path eq \"/api\" or starts_with(http.request.uri.path, \"/api/\")) or (cf.client.bot and cf.verified_bot_category in {\"Search Engine Crawler\" \"Page Preview\"} and http.request.method in {\"GET\" \"HEAD\"} and (http.request.uri.path in {\"/\" \"/install/\" \"/donate/\" \"/developers/\" \"/robots.txt\" \"/security.txt\" \"/.well-known/security.txt\" \"/sitemap.xml\"} or (starts_with(http.request.uri.path, \"/sitemap-\") and ends_with(http.request.uri.path, \".xml\")) or starts_with(http.request.uri.path, \"/items/\") or starts_with(http.request.uri.path, \"/creators/\") or starts_with(http.request.uri.path, \"/share/\") or starts_with(http.request.uri.path, \"/static/\"))))",
   "enabled": true,
   "logging": {"enabled": true}
 }

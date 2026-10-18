@@ -10,6 +10,8 @@ Disallow: /accounts/
 Disallow: /admin/
 Disallow: /moderation/
 Disallow: /api/
+# Public screenshots are embedded in creation pages. The endpoint still checks visibility.
+Allow: /api/v1/items/*/screenshots/*/image/$
 Disallow: /o/
 Disallow: /upload/
 Disallow: /health/

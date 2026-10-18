@@ -1,15 +1,18 @@
 import json
 import re
 from html.parser import HTMLParser
+from pathlib import Path
 from unittest.mock import patch
 from xml.etree import ElementTree
 
 from django.contrib.auth import get_user_model
+from django.conf import settings
 from django.http import HttpResponseRedirect
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.exceptions import NotFound
+from PIL import Image
 
 from hub.file_delivery import StorageUnavailable
 from hub.models import ContentType, Item, Screenshot, SitemapEntry, SitemapState, UserModeration
@@ -70,7 +73,7 @@ class SearchTests(TestCase):
         self.assertEqual(data[1]["@type"], "BreadcrumbList")
 
     def test_general_pages_have_branded_cards_and_descriptions(self):
-        for path in ["/", "/donate/", "/developers/"]:
+        for path in ["/", "/install/", "/donate/", "/developers/"]:
             with self.subTest(path=path):
                 response, meta = self.metadata(path)
                 self.assertEqual(response.status_code, 200)
@@ -80,6 +83,43 @@ class SearchTests(TestCase):
                 self.assertEqual(meta.meta["og:image:width"], "1200")
                 self.assertEqual(meta.meta["og:image:height"], "630")
                 self.assertTrue(meta.meta["robots"].startswith("index,"))
+                self.assertEqual(meta.meta["robots"], response["X-Robots-Tag"])
+                self.assertEqual(meta.meta["og:logo"], "https://cpchub.net/static/art/logo.png")
+                self.assertEqual(meta.meta["og:image:secure_url"], meta.meta["og:image"])
+                self.assertEqual(meta.meta["twitter:image"], meta.meta["og:image"])
+                self.assertEqual(meta.meta["twitter:image:alt"], meta.meta["og:image:alt"])
+                graph = json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>', response.content.decode(), re.S).group(1))["@graph"]
+                organization = next(node for node in graph if node["@type"] == "Organization")
+                self.assertEqual(organization["logo"]["url"], meta.meta["og:logo"])
+                self.assertEqual(organization["logo"]["width"], 512)
+                website = next(node for node in graph if node["@type"] == "WebSite")
+                self.assertEqual(website["publisher"]["@id"], organization["@id"])
+
+    def test_logo_and_favicons_are_square_raster_assets(self):
+        for filename, size in [("logo.png", 512), ("favicon.png", 48), ("apple-touch-icon.png", 180)]:
+            with Image.open(Path(settings.BASE_DIR) / "static/art" / filename) as icon:
+                self.assertEqual(icon.format, "PNG")
+                self.assertEqual(icon.size, (size, size))
+
+    def test_tracking_parameters_preserve_public_canonical_and_indexability(self):
+        for path in ["/", "/install/", reverse("creator-profile", args=[self.author.pk])]:
+            with self.subTest(path=path):
+                response, meta = self.metadata(path + "?utm_source=discord&fbclid=example")
+                self.assertEqual(meta.canonical, "https://cpchub.net" + path)
+                self.assertTrue(meta.meta["robots"].startswith("index,"))
+                self.assertEqual(meta.meta["robots"], response["X-Robots-Tag"])
+        for query in ["q=parking&utm_source=discord", "sort=popular", "type=blueprints", "view=all&view=mine"]:
+            self.assertIn("noindex", self.client.get("/?" + query)["X-Robots-Tag"])
+
+    def test_item_author_type_and_empty_summary_fallback(self):
+        Item.objects.filter(pk=self.item.pk).update(summary="")
+        _, meta = self.metadata(self.item.get_absolute_url())
+        self.assertIn("Car Park Capital blueprint", meta.meta["og:title"])
+        self.assertIn("Download this Car Park Capital blueprint.", meta.meta["description"])
+        self.assertEqual(meta.meta["author"], self.author.username)
+        self.client.force_login(self.other)
+        _, private_meta = self.metadata(self.private.get_absolute_url())
+        self.assertNotIn("author", private_meta.meta)
 
     def test_private_items_and_account_filters_are_not_indexable(self):
         self.client.force_login(self.other)
@@ -103,8 +143,45 @@ class SearchTests(TestCase):
         response, meta = self.metadata(reverse("creator-profile", args=[self.author.pk]))
         self.assertTrue(meta.meta["robots"].startswith("index,"))
         self.assertContains(response, '"@type": "ProfilePage"')
+        self.assertEqual(meta.meta["og:type"], "profile")
+        self.assertEqual(meta.meta["profile:username"], self.author.username)
         _, meta = self.metadata(reverse("creator-profile", args=[self.other.pk]))
         self.assertTrue(meta.meta["robots"].startswith("noindex"))
+        self.assertNotIn("profile:username", meta.meta)
+
+    def test_creator_pagination_has_distinct_title_and_canonical(self):
+        Item.objects.bulk_create([Item(author=self.author, content_type=self.item.content_type, title=f"Extra {i}") for i in range(15)])
+        path = reverse("creator-profile", args=[self.author.pk])
+        _, meta = self.metadata(path + "?page=2&utm_source=discord")
+        self.assertEqual(meta.canonical, "https://cpchub.net" + path + "?page=2")
+        self.assertIn("page 2", meta.meta["og:title"])
+        self.assertIn("Page 2", meta.meta["description"])
+
+    @patch("hub.api.file_response")
+    def test_only_public_screenshot_responses_allow_image_indexing(self, deliver):
+        deliver.side_effect = lambda *args, **kwargs: HttpResponseRedirect("https://example.wasabisys.com/signed")
+        url = f"/api/v1/items/{self.item.pk}/screenshots/{self.shot.pk}/image/"
+        self.assertTrue(self.client.get(url)["X-Robots-Tag"].startswith("index,"))
+        self.client.force_login(self.author)
+        for changes in [{"status": "draft"}, {"is_demo": True}]:
+            with self.subTest(changes=changes):
+                Item.objects.filter(pk=self.item.pk).update(status="published", is_demo=False)
+                Item.objects.filter(pk=self.item.pk).update(**changes)
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 302)
+                self.assertIn("noindex", response["X-Robots-Tag"])
+
+    def test_sitemap_includes_only_current_public_screenshots(self):
+        private_shot = Screenshot.objects.create(item=self.private, image="private.webp")
+        build_snapshot()
+        ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9", "image": "http://www.google.com/schemas/sitemap-image/1.1"}
+        response = self.client.get("/sitemap-1.xml")
+        root = ElementTree.fromstring(response.content)
+        images = [node.text for node in root.findall("s:url/image:image/image:loc", ns)]
+        self.assertEqual(images, ["https://cpchub.net" + reverse("share-image", args=[self.item.pk, self.shot.pk])])
+        self.assertNotContains(response, str(private_shot.pk))
+        self.shot.delete()
+        self.assertNotContains(self.client.get("/sitemap-1.xml"), "image:loc")
 
     @patch("hub.seo.file_response")
     def test_share_image_checks_public_visibility_even_for_staff(self, deliver):
@@ -187,3 +264,5 @@ class SearchTests(TestCase):
         response = self.client.get("/robots.txt")
         self.assertContains(response, "Sitemap: https://cpchub.net/sitemap.xml")
         self.assertNotContains(response, "Disallow: /share/")
+        self.assertContains(response, "Allow: /api/v1/items/*/screenshots/*/image/$")
+        self.assertContains(response, "Disallow: /api/")

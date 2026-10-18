@@ -1,13 +1,15 @@
 {% load static django_htmx hub_text %}
 <!doctype html>
-<html lang="en">
+<html lang="en" prefix="og: https://ogp.me/ns# profile: https://ogp.me/ns/profile#">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   {% include 'hub/metadata.html' %}
   <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true}'>
   <title>{% block title %}{{ seo.title }}{% endblock %}</title>
-  <link rel="icon" href="{% static 'art/favicon.svg' %}" type="image/svg+xml">
+  <link rel="icon" href="{% static 'art/favicon.png' %}" type="image/png" sizes="48x48">
+  <link rel="icon" href="{% static 'art/favicon.svg' %}" type="image/svg+xml" sizes="any">
+  <link rel="apple-touch-icon" href="{% static 'art/apple-touch-icon.png' %}" sizes="180x180">
   <link rel="stylesheet" href="{% static 'vendor/bootstrap-grid.min.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/98.css' %}">
   <link rel="stylesheet" href="{% static 'css/hub.css' %}">
