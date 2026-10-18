@@ -1,5 +1,6 @@
 import type { Table } from "./env";
 import { normalizeText, normalizeSearch } from "./text-input";
+import { censorText, censorMarkdown } from "./text-filter";
 import { fileStatistics } from "./upload-schemas";
 import { canRestore, RETENTION_MS } from "./retention";
 import {
@@ -74,7 +75,10 @@ export async function getItem(
     if (!editable(i, u))
       throw new HttpError(403, "Only the author can edit this creation.");
   } else if (i.is_hidden && !staff(u))
-    throw new HttpError(403, "This creation is hidden. " + i.hidden_reason);
+    throw new HttpError(
+      403,
+      "This creation is hidden. " + censorText(i.hidden_reason),
+    );
   return i;
 }
 export async function publicTags(env: Env, q = "") {
@@ -113,23 +117,25 @@ export async function serialize(
   const base = env.PUBLIC_URL + "/api/v1/items/" + id;
   return {
     id,
-    title: i.title,
-    summary: i.summary,
-    description: i.description,
+    title: censorText(i.title),
+    summary: censorText(i.summary),
+    description: censorMarkdown(i.description),
     content_type: i.type_slug,
-    author: i.username,
-    tags: editable(i, u)
-      ? i.tags
-      : i.tags
-          .split(",")
-          .map((x: string) => x.trim())
-          .filter((x: string) => tags.some((t) => t.name === x))
-          .join(", "),
+    author: censorText(i.username),
+    tags: censorText(
+      editable(i, u)
+        ? i.tags
+        : i.tags
+            .split(",")
+            .map((x: string) => x.trim())
+            .filter((x: string) => tags.some((t) => t.name === x))
+            .join(", "),
+    ),
     status: i.status,
     publish_after_validation: !!i.publish_after_validation,
     is_demo: !!i.is_demo,
     is_hidden: !!i.is_hidden,
-    hidden_reason: i.hidden_reason,
+    hidden_reason: censorText(i.hidden_reason),
     deleted_at: i.deleted_at,
     featured_at: i.featured_at,
     downloads: i.downloads,
@@ -138,10 +144,10 @@ export async function serialize(
     updated_at: i.updated_at,
     releases: releases.map((r) => ({
       id: publicId(r.id),
-      version: r.version,
-      game_version: r.game_version,
-      changelog: r.changelog,
-      original_filename: r.original_filename,
+      version: censorText(r.version),
+      game_version: censorText(r.game_version),
+      changelog: censorMarkdown(r.changelog),
+      original_filename: censorText(r.original_filename),
       sha256: r.sha256,
       size: r.size,
       downloads: r.downloads,
@@ -151,7 +157,7 @@ export async function serialize(
     })),
     screenshots: screenshots.map((s) => ({
       id: publicId(s.id),
-      caption: s.caption,
+      caption: censorText(s.caption),
       created_at: s.created_at,
       image_url:
         /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}-[a-f0-9]{16}\.webp$/.test(
@@ -220,7 +226,22 @@ export async function listItems(
   }
   if (p.get("tag")) {
     const tag = p.get("tag")!.trim().toLowerCase().replace(/\s+/g, " ");
-    if (!mine && !(await publicTags(env)).some((t) => t.name === tag))
+    if (tag.includes("♥")) {
+      const candidates = mine
+        ? await all<Pick<Table<"hub_tag">, "name">>(
+            env.DB,
+            "SELECT DISTINCT t.name FROM hub_tag t JOIN hub_item_tag_index ti ON ti.tag_id=t.id JOIN hub_item i ON i.id=ti.item_id WHERE i.author_id=?",
+            u?.id || -1,
+          )
+        : await publicTags(env);
+      const matches = candidates.filter((t) => censorText(t.name) === tag);
+      filters.push(
+        matches.length
+          ? "EXISTS(SELECT 1 FROM hub_item_tag_index ti JOIN hub_tag tag ON tag.id=ti.tag_id WHERE ti.item_id=i.id AND tag.name IN (SELECT value FROM json_each(?)))"
+          : "0",
+      );
+      if (matches.length) args.push(JSON.stringify(matches.map((t) => t.name)));
+    } else if (!mine && !(await publicTags(env)).some((t) => t.name === tag))
       filters.push("0");
     else {
       filters.push(

@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import { z } from "zod";
 import type { Table, User } from "./env";
 import { normalizeText, normalizeTextFields } from "./text-input";
+import { censorText } from "./text-filter";
 import { Hono } from "hono";
 import { isUpload } from "./multipart";
 import {
@@ -73,23 +74,25 @@ api.get("/tags/", async (c) => {
     count: tags.length,
     next: null,
     previous: null,
-    results: tags,
+    results: tags.map((tag) => ({ ...tag, name: censorText(tag.name) })),
   });
 });
 api.get("/tags/suggest/", async (c) => {
   const u = c.get("user");
   requireUser(u);
   return c.json(
-    await all(
-      c.env.DB,
-      `SELECT DISTINCT t.name FROM hub_tag t JOIN hub_item_tag_index ti ON ti.tag_id=t.id JOIN hub_item i ON i.id=ti.item_id WHERE t.name LIKE ? AND (i.author_id=? OR (i.status='published' AND i.is_hidden=0 AND i.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM hub_usermoderation m WHERE m.user_id=i.author_id AND m.shadow_banned_at IS NOT NULL))) ORDER BY t.name LIMIT 20`,
-      "%" +
-        normalizeText(c.req.query("q") || "")
-          .slice(0, 200)
-          .toLowerCase() +
-        "%",
-      u.id,
-    ),
+    (
+      await all<Pick<Table<"hub_tag">, "name">>(
+        c.env.DB,
+        `SELECT DISTINCT t.name FROM hub_tag t JOIN hub_item_tag_index ti ON ti.tag_id=t.id JOIN hub_item i ON i.id=ti.item_id WHERE t.name LIKE ? AND (i.author_id=? OR (i.status='published' AND i.is_hidden=0 AND i.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM hub_usermoderation m WHERE m.user_id=i.author_id AND m.shadow_banned_at IS NOT NULL))) ORDER BY t.name LIMIT 20`,
+        "%" +
+          normalizeText(c.req.query("q") || "")
+            .slice(0, 200)
+            .toLowerCase() +
+          "%",
+        u.id,
+      )
+    ).map((tag) => ({ name: censorText(tag.name) })),
   );
 });
 api.get("/items/", async (c) => {
@@ -405,7 +408,7 @@ export async function deliver(c: Context<App>, image: boolean) {
   if ("file" in f) {
     headers.set(
       "Content-Disposition",
-      `attachment; filename*=UTF-8''${encodeURIComponent(f.original_filename)}`,
+      `attachment; filename*=UTF-8''${encodeURIComponent(censorText(f.original_filename))}`,
     );
     headers.set("X-Content-SHA256", f.sha256);
     if (c.req.method === "GET")

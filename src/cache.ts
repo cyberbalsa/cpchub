@@ -52,6 +52,8 @@ export const edgeCache: MiddlewareHandler<App> = async (c, next) => {
   );
   url.searchParams.sort();
   url.searchParams.set("__revision", String(revision?.revision || 0));
+  // A new presentation policy must never reuse an older unfiltered response.
+  url.searchParams.set("__text_filter", "hearts-v1");
   const key = new Request(url.href, { method: "GET" });
   const cache = caches.default;
   const hit = await cache.match(key);

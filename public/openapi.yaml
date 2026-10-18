@@ -11,7 +11,11 @@ info:
     against both allowances. Limits are approximate and local to a Cloudflare location. A rate limit
     returns HTTP 429 with JSON {"error":"rate_limited","retry_after":60}; wait at least 60 seconds
     before retrying. The separate quota of 16 release file uploads per hour per non-staff account
-    still applies.
+    still applies. Public catalog text is display-filtered: detected English profanity and slurs
+    are replaced with heart symbols. Original source text remains available in the web editor
+    and moderation tools. IDs, hashes, file bytes and link destinations are unchanged; use IDs
+    for release identity rather than display labels. Markdown destinations are preserved and
+    visible text is filtered again when the site renders Markdown.
 paths:
   /api/v1/items/:
     get:

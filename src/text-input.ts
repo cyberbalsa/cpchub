@@ -6,6 +6,7 @@ import type { Row } from "./env";
 export function normalizeText(value: string): string {
   return transliterate(
     value.normalize("NFKC").replace(/[\p{Cf}\p{Cs}]/gu, ""),
+    { ignore: ["♥"] },
   ).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "");
 }
 

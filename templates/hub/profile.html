@@ -14,7 +14,7 @@
     <div class="col-12 col-lg-7">
       <section class="paper-panel profile-panel" id="profile-name" aria-labelledby="profile-name-title">
         <h2 id="profile-name-title">Display name</h2>
-        <p>This name appears on your profile and creations.</p>
+        <p>This name appears on your profile and creations. Strong profanity and slurs are displayed as ♥.</p>
         {% if name_changed %}<p class="notice" role="status">Name updated.</p>{% endif %}
         {% if name_error %}<p class="notice" id="name-error" role="alert">{{ name_error }}</p>{% endif %}
         <form method="post" action="{% url 'profile' %}#profile-name" class="standard-form">

@@ -232,6 +232,24 @@ moderation.on(["GET", "POST"], "/items/:id/", async (c) => {
   const item = await viewItem(c.env, i, u);
   return render(c, "hub/moderation/item.html", {
     item,
+    original: {
+      ...i,
+      releases: await all<
+        Pick<
+          Table<"hub_release">,
+          "version" | "game_version" | "changelog" | "original_filename"
+        >
+      >(
+        c.env.DB,
+        "SELECT version,game_version,changelog,original_filename FROM hub_release WHERE item_id=? ORDER BY created_at DESC,id DESC",
+        i.id,
+      ),
+      screenshots: await all<Pick<Table<"hub_screenshot">, "caption">>(
+        c.env.DB,
+        "SELECT caption FROM hub_screenshot WHERE item_id=? ORDER BY created_at,id",
+        i.id,
+      ),
+    },
     can_manage: manage(u),
     can_highlight: i.status === "published" && !i.is_hidden && !i.deleted_at,
     form: {

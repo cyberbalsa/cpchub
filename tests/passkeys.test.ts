@@ -68,6 +68,36 @@ async function register(
 const count = (f: Fixture, table: string) =>
   Number(f.sqlite.prepare("SELECT COUNT(*) n FROM " + table).get()!.n);
 
+void test("a filtered display name does not prevent passkey registration or subsequent sign-in", async (t) => {
+  const f = await fixture();
+  t.after(f.close);
+  const { device } = await register(
+    f,
+    browser(f),
+    authenticator(),
+    "𝓯𝓾𝓬𝓴 Passkey",
+  );
+  const user = f.sqlite
+    .prepare("SELECT id,username FROM auth_user WHERE username='fuck Passkey'")
+    .get()!;
+  assert(user);
+  const page = await f.request(
+    "/creators/" + String(user.id) + "/",
+    "GET",
+    undefined,
+    "anonymous",
+  );
+  assert.equal(page.status, 200);
+  assert((await page.text()).includes("♥♥♥♥ Passkey"));
+  const client = browser(f);
+  const options = await client.post("login/options");
+  assert.equal(options.status, 200);
+  const credential = device.authenticate(
+    await options.json<PublicKeyCredentialRequestOptionsJSON>(),
+  );
+  assert.equal((await client.post("login/verify", { credential })).status, 200);
+});
+
 void test("a named passkey-only account registers, signs out and signs in without a username", async () => {
   const f = await fixture();
   try {

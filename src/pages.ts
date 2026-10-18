@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
 import { normalizeSearch, normalizeTextFields } from "./text-input";
+import { censorText } from "./text-filter";
 import type { Table } from "./env";
 import type { CatalogItem } from "./catalog";
 import { Hono } from "hono";
@@ -147,9 +148,9 @@ pages.get("/items/:id/", async (c) => {
       ),
     },
     seo: {
-      title: i.title + " — CPC Hub",
-      description: i.summary,
-      author: i.username,
+      title: item.title + " — CPC Hub",
+      description: item.summary,
+      author: item.author.username,
       canonical: c.env.PUBLIC_URL + item.get_absolute_url,
       robots:
         i.status === "published" && !i.is_hidden && !i.deleted_at
@@ -437,7 +438,11 @@ pages.on(["GET", "POST"], "/items/:id/releases/:file/download/", async (c) => {
     return deliver(c, false);
   return render(c, "hub/download_warning.html", {
     item: await viewItem(c.env, i, u),
-    release: { ...release, pk: publicId(release.id) },
+    release: {
+      ...release,
+      original_filename: censorText(release.original_filename),
+      pk: publicId(release.id),
+    },
     download_warning_url: c.req.path,
     download_warning_form: {
       remember: safe(
@@ -461,12 +466,16 @@ pages.get("/creators/:id/", async (c) => {
     showPrivate = staff(u) || u?.id === author.id;
   const r = await listItems(c.env, p, u, showPrivate ? author.id : undefined);
   return render(c, "hub/creator_profile.html", {
-    creator: { ...author, pk: author.id },
+    creator: {
+      ...author,
+      username: censorText(author.username),
+      pk: author.id,
+    },
     owns_profile: u?.id === author.id,
     show_private: showPrivate,
     seo: {
-      title: author.username + " — CPC Hub",
-      description: "Creations by " + author.username,
+      title: censorText(author.username) + " — CPC Hub",
+      description: "Creations by " + censorText(author.username),
       canonical: c.env.PUBLIC_URL + "/creators/" + author.id + "/",
       robots: showPrivate ? "noindex, nofollow" : "index, follow",
     },

@@ -41,9 +41,19 @@ First Discord login uses `global_name` when present, otherwise `username`; Steam
 
 Normalization does not replace output escaping. Nunjucks autoescaping protects text/attributes, custom HTML helpers escape their values, Markdown passes through an HTML allowlist sanitizer, and browser scripts render untrusted messages with `textContent`. Stored text stays unencoded for JSON and Markdown; blanket encoding at storage time would double-escape it. The shared message template no longer treats arbitrary content as safe HTML. Tests exercise HTML payloads in names, metadata, captions, forms, Markdown, and browser error responses.
 
+### Public text filtering
+
+Public creation text, author names, tags, release labels/changelogs, screenshot captions, download names and manager consent headings use [`allprofanity@2.4.0`](https://github.com/ayush-jadaun/AllProfanity), replacing matches with `♥` per character. This follows the replacement behavior described by [Steam](https://store.steampowered.com/news/posts/?enddate=1602613919&feed=steam_); it does not use Valve's private dictionary or implement Steam's per-user preferences.
+
+The filter runs on display, including existing rows and public API responses. Account identifiers, stored source text, file bytes, hashes and link destinations remain intact. Authors can edit their original text. Staff can inspect escaped originals on the moderation page, and private moderation notes retain quoted evidence. A cache format key prevents earlier unfiltered API responses from being reused after deployment. Masked tag filters resolve against only the tags visible to that user.
+
+English is loaded explicitly after clearing the library's default English-plus-Hindi dictionaries; this avoids false positives for names such as Randi, Lund and Kutta. A narrow ScunthorpeParking exception and a normalized Greek-upsilon spelling are regression-tested. Shared-isolate caching of submitted text is disabled. The suite covers decorative alphabets, malformed UTF-16, invisibles, spaced/punctuated/leet variants, slurs, allowlist bypass attempts, and 49 benign examples. This finite corpus is not an accuracy guarantee or a substitute for human moderation.
+
+Markdown filtering preserves destinations, sanitizes HTML, then uses the existing HTML parser/serializer dependencies to filter visible text across entity references and inline formatting. Block boundaries remain separate. HTML encoding remains the responsibility of the output renderer; hearts are preserved by normalization so displayed tags can be submitted and searched.
+
 ## Validation and operational observations
 
-`npm run verify` passes 162 tests with 100% lines, statements, functions and branches per authored runtime file, covering the whole site, seven browser modules, and both validators. Strict TypeScript and type-aware ESLint run in CI alongside the coverage gate. Tests use real SQLite migrations, transactional D1 fixtures, signed software-authenticator WebAuthn responses, and DOM interactions. Coverage is a regression gate, not proof that every possible behavior is correct.
+`npm run verify` passes 170 tests with 100% lines, statements, functions and branches per authored runtime file, covering the whole site, seven browser modules, and both validators. Strict TypeScript and type-aware ESLint run in CI alongside the coverage gate. Tests use real SQLite migrations, transactional D1 fixtures, signed software-authenticator WebAuthn responses, and DOM interactions. Coverage is a regression gate, not proof that every possible behavior is correct.
 
 A local multi-Worker integration run additionally exercised actual Workerd service bindings, queues, D1, R2, native blueprint/scenario validation, image transformation, escaped page rendering, byte-identical downloads, self-delete/restore, account cascades, and scheduled storage cleanup. Temporary local accounts and artifacts were removed; the deletion queue and foreign-key checks were clean. Wrangler deployment dry runs passed for all three Workers. `npm audit` reported no known vulnerabilities at verification time.
 

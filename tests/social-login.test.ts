@@ -55,6 +55,46 @@ const social = (f: Fixture, uid: string) =>
     uid,
   );
 
+void test("Steam and Discord names remain stable login identities while their public profiles use hearts", async (t) => {
+  const f = await fixture();
+  t.after(f.close);
+  for (const [provider, uid, raw, normalized] of [
+    ["steam", "76561198000000000", "𝓯𝓾𝓬𝓴 Steam", "fuck Steam"],
+    ["discord", "123456789012345678", "fυck Discord", "fyck Discord"],
+  ] as const) {
+    t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL) => {
+      if (String(input) === "https://steamcommunity.com/openid/login")
+        return new Response("is_valid:true\n");
+      if (provider === "steam")
+        return Response.json({
+          response: { players: [{ steamid: uid, personaname: raw }] },
+        });
+      return discordFetch({ id: uid, username: "handle", global_name: raw })(
+        input,
+      );
+    });
+    assert.equal((await callback(f, provider).request()).status, 302);
+    const user = await social(f, uid);
+    assert(user);
+    assert.equal(user.username, normalized);
+    const profile = await f.request(
+      "/creators/" + user.id + "/",
+      "GET",
+      undefined,
+      "anonymous",
+    );
+    assert.equal(profile.status, 200);
+    const html = await profile.text();
+    assert(
+      html.includes("♥♥♥♥ " + (provider === "steam" ? "Steam" : "Discord")),
+    );
+    assert(!html.includes(normalized));
+    assert.equal((await callback(f, provider).request()).status, 302);
+    assert.equal((await social(f, uid))!.id, user.id);
+    assert.equal((await social(f, uid))!.username, normalized);
+  }
+});
+
 void test("decorative, accented, non-Latin, malformed UTF-16 and empty names become bounded readable usernames", () => {
   for (const [raw, want] of [
     ["𝓑𝓪𝓵𝓼𝓪", "Balsa"],

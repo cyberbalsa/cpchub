@@ -4,6 +4,7 @@ import type { CatalogItem, SerializedItem } from "./catalog";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { jobJSON } from "./uploads";
 import { canRestore, RETENTION_MS } from "./retention";
+import { censorText, censorHTML } from "./text-filter";
 // Templates are compiled at build time; the Worker never evaluates template source.
 import nunjucks from "nunjucks/browser/nunjucks-slim.js";
 import compiled from "./templates.generated.js";
@@ -80,6 +81,7 @@ export const environment = new nunjucks.Environment(
   { autoescape: true },
 );
 environment.addGlobal("url", url);
+environment.addFilter("censor", censorText);
 environment.addGlobal("static_url", (p: string) => "/static/" + p);
 environment.addGlobal(
   "provider_login_url",
@@ -160,39 +162,44 @@ environment.addFilter(
   "outbound_url",
   (v: string) => "/out/?url=" + encodeURIComponent(v),
 );
+const markdownPolicy: sanitize.IOptions = {
+  allowedTags: [
+    "p",
+    "br",
+    "strong",
+    "em",
+    "del",
+    "ul",
+    "ol",
+    "li",
+    "blockquote",
+    "pre",
+    "code",
+    "h2",
+    "h3",
+    "h4",
+    "a",
+    "hr",
+  ],
+  allowedAttributes: { a: ["href", "rel"] },
+  allowedSchemes: ["https", "http"],
+};
 environment.addFilter("basic_markdown", (v: string) =>
   safe(
-    sanitize(marked.parse(v || "", { async: false }) as string, {
-      allowedTags: [
-        "p",
-        "br",
-        "strong",
-        "em",
-        "del",
-        "ul",
-        "ol",
-        "li",
-        "blockquote",
-        "pre",
-        "code",
-        "h2",
-        "h3",
-        "h4",
-        "a",
-        "hr",
-      ],
-      allowedAttributes: { a: ["href", "rel"] },
-      allowedSchemes: ["https", "http"],
-      transformTags: {
-        a: (_tag, a) => ({
-          tagName: "a",
-          attribs: {
-            href: "/out/?url=" + encodeURIComponent(a.href || ""),
-            rel: "nofollow ugc noopener",
-          },
-        }),
-      },
-    }),
+    censorHTML(
+      sanitize(marked.parse(v || "", { async: false }) as string, {
+        ...markdownPolicy,
+        transformTags: {
+          a: (_tag, a) => ({
+            tagName: "a",
+            attribs: {
+              href: "/out/?url=" + encodeURIComponent(a.href || ""),
+              rel: "nofollow ugc noopener",
+            },
+          }),
+        },
+      }),
+    ),
   ),
 );
 export function collection<T>(a: T[]) {
@@ -243,7 +250,7 @@ export async function viewItem(
       | undefined,
     pk: s.id,
     get_status_display: i.status === "published" ? "Published" : "Draft",
-    author: { id: i.author_id, pk: i.author_id, username: i.username },
+    author: { id: i.author_id, pk: i.author_id, username: s.author },
     content_type: { name: i.type_name, slug: i.type_slug },
     get_absolute_url: "/items/" + s.id + "/",
     artwork_path: "art/lot-" + i.artwork + ".svg",

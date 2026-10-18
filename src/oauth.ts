@@ -13,6 +13,7 @@ import {
 } from "./env";
 import { render, safe, esc } from "./render";
 import { body } from "./api";
+import { censorText } from "./text-filter";
 export const oauth = new Hono<App>();
 const textParam = (d: Row, key: string) =>
   typeof d[key] === "string" ? d[key] : "";
@@ -50,7 +51,7 @@ oauth.get("/authorize/", async (c) => {
     throw new HttpError(400, "S256 PKCE is required.");
   const scope = scopes(d.scope);
   return render(c, "hub/message.html", {
-    heading: "Connect " + app.name,
+    heading: "Connect " + censorText(app.name),
     content: safe(
       `<p>This manager requests: ${esc(scope)}.</p><form method="post">${Object.entries(
         d,
