@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}Sign out · CPC Hub{% endblock %}
+{% block content %}
+<div class="account-container"><section class="window account-window" aria-labelledby="logout-title">
+  <div class="title-bar"><div class="title-bar-text">CPC Hub · Sign out</div></div>
+  <div class="window-body standard-form">
+    <span class="parking-icon account-icon" aria-hidden="true">P</span>
+    <h1 id="logout-title">Sign out of CPC Hub?</h1>
+    <p>You can still browse and download creations after signing out.</p>
+    <form method="post" action="{% url 'account_logout' %}">
+      {% csrf_token %}
+      <div class="form-actions">
+        <button type="submit">Sign out</button>
+        <a class="win-button" href="{% url 'catalog' %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+</section></div>
+{% endblock %}
