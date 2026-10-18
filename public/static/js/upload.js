@@ -2,6 +2,17 @@
   const form = document.querySelector('[data-creation-upload]');
   if (!form || !window.fetch || !window.FormData) return;
 
+  const contentType = form.querySelector('[name="content_type"]');
+  const gameFile = form.querySelector('[name="file"]');
+  function updateFileType() {
+    gameFile.accept = contentType.value === 'blueprints' ? '.cpbp' : '.cpcs';
+  }
+  updateFileType();
+  contentType.addEventListener('change', () => {
+    gameFile.value = '';
+    updateFileType();
+  });
+
   const notice = document.createElement('div');
   notice.setAttribute('role', 'alert');
   notice.tabIndex = -1;
