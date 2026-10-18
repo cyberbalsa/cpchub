@@ -342,8 +342,8 @@ void test("masked tags remain usable as filters without exposing private tags or
   const tags = await (
     await f.request("/api/v1/tags/", "GET", undefined, "anonymous")
   ).json<{ results: { name: string }[] }>();
-  assert(tags.results.every((tag) => tag.name === "♥♥♥♥"));
-  assert.equal(tags.results.length, 2);
+  assert.equal(tags.results.filter((tag) => tag.name === "♥♥♥♥").length, 2);
+  assert(!tags.results.some((tag) => /fuck|shit/.test(tag.name)));
   const suggestions = await (
     await f.request("/api/v1/tags/suggest/?q=fuck")
   ).json<{ name: string }[]>();

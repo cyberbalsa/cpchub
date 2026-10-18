@@ -4,7 +4,7 @@
 <div class="page-content">
   {% include 'hub/moderation/nav.html' %}
   <h1>Tag settings</h1>
-  <p>{{ public_tag_count }} tag{{ public_tag_count|pluralize }} currently meet{{ public_tag_count|pluralize:"s," }} the public threshold.</p>
+  <p>Curated category tags are always public and suggested, even with no creations. This threshold applies only to community-created tags.</p>
   <form method="post" class="standard-form">{% csrf_token %}{{ form.as_p }}<button type="submit">Save settings</button></form>
   <p>Each creation counts once. Drafts, hidden or deleted creations, shadow-banned authors, and demo files do not count.</p>
   <p>Authors can still add and reuse tags below this threshold. They appear in editing suggestions, but stay off public listings and search until enough creations use them.</p>

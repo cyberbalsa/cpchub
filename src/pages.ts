@@ -31,6 +31,7 @@ import {
   PUBLIC,
   SELECT,
   METRICS,
+  categoryTagGroups,
 } from "./catalog";
 import {
   render,
@@ -60,7 +61,7 @@ pages.get("/", async (c) => {
   const params = normalizeSearch(new URL(c.req.url).searchParams),
     u = c.get("user"),
     r = await listItems(c.env, params, u);
-  const [items, types, stats, featured] = await Promise.all([
+  const [items, types, stats, featured, tagGroups] = await Promise.all([
     viewItems(c.env, r.items, u),
     all(
       c.env.DB,
@@ -77,6 +78,7 @@ pages.get("/", async (c) => {
           SELECT +
             ` WHERE ${PUBLIC} AND i.featured_at IS NOT NULL ORDER BY i.featured_at DESC LIMIT 6`,
         ),
+    categoryTagGroups(c.env),
   ]);
   return render(
     c,
@@ -87,6 +89,7 @@ pages.get("/", async (c) => {
       page_obj: paginate(items, r.count, r.page, r.pages),
       types_with_counts: types,
       catalog_types: types,
+      tag_groups: tagGroups,
       stats,
       featured_items: await viewItems(c.env, featured, u),
       catalog_view: params.get("view") || "all",
@@ -253,6 +256,7 @@ async function editor(c: Context<App>, id?: string) {
   return render(c, "hub/editor.html", {
     creating: !id,
     item,
+    tag_groups: await categoryTagGroups(c.env),
     can_remove_screenshots: !i || u.id === i.author_id || admin(u),
     min_screenshots: 1,
     max_screenshots: 8,

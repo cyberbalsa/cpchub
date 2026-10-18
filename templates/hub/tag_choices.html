@@ -1,0 +1,16 @@
+<section class="tag-categories tag-picker" data-tag-target="id_tags" aria-labelledby="tag-choices-title">
+  <h2 id="tag-choices-title">Suggested categories</h2>
+  <p>Choose tags that fit your creation, or type your own above. Click a selected tag to remove it. Tags can use up to 200 characters in total.</p>
+  <div class="tag-category-groups">
+    {% for group in tag_groups %}
+    <div class="tag-category-group">
+      <h3>{{ group.title }}</h3>
+      <div class="category-choices">
+        {% for choice in group.tags %}
+        <button type="button" class="category-chip" data-tag-value="{{ choice.name }}" aria-pressed="false">{{ choice.name }}</button>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>

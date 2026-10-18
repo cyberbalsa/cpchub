@@ -1,0 +1,15 @@
+<section class="tag-categories" aria-labelledby="category-tags-title" aria-live="off">
+  <h2 id="category-tags-title">Browse by category</h2>
+  <div class="tag-category-groups">
+    {% for group in tag_groups %}
+    <div class="tag-category-group">
+      <h3>{{ group.title }}</h3>
+      <div class="category-choices">
+        {% for choice in group.tags %}
+        <a class="category-chip" {% if tag == choice.name %}aria-current="true"{% endif %} href="{% if group.type %}{% querystring tag=choice.name, page=1, type=group.type %}{% else %}{% querystring tag=choice.name, page=1 %}{% endif %}">{{ choice.name }}</a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>

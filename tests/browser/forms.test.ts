@@ -177,3 +177,58 @@ void test("API explorer pins schema and rewrites only the production API origin"
     "https://example.test/api/",
   );
 });
+
+void test("category choices toggle tags, respect the character limit, and survive history restoration", async (t) => {
+  const f = dom(`
+    <input id="tags" data-tag-input="/api/v1/tags/suggest/" data-tag-multiple="true" maxlength="200" value="Parking, custom, PARKING">
+    <section data-tag-target="tags">
+      <button type="button" data-tag-value="parking"></button>
+      <button type="button" data-tag-value="gas stations"></button>
+    </section>`);
+  t.after(f.close);
+  f.window.fetch = async () =>
+    Response.json(
+      Array.from({ length: 48 }, (_, i) => ({ name: "category " + i })),
+    );
+  tags(f.window);
+  const input = f.query<HTMLInputElement>("#tags");
+  const parking = f.query<HTMLButtonElement>('[data-tag-value="parking"]');
+  const gas = f.query<HTMLButtonElement>('[data-tag-value="gas stations"]');
+  assert.equal(parking.getAttribute("aria-pressed"), "true");
+  parking.click();
+  assert.equal(input.value, "custom");
+  assert.equal(parking.getAttribute("aria-pressed"), "false");
+  gas.click();
+  assert.equal(input.value, "custom, gas stations");
+  assert.equal(gas.getAttribute("aria-pressed"), "true");
+  input.value = "gas stations, " + "x".repeat(185);
+  input.dispatchEvent(new f.window.Event("input"));
+  assert.equal(parking.disabled, true);
+  assert.equal(gas.disabled, false);
+  parking.click();
+  assert.equal(input.value.length, 199);
+  gas.click();
+  assert.equal(input.value.length, 185);
+  assert.equal(parking.disabled, false);
+
+  input.value = "";
+  input.dispatchEvent(new f.window.Event("input"));
+  input.dispatchEvent(new f.window.Event("focus"));
+  await flush();
+  assert.equal(
+    f.window.document.querySelectorAll("datalist option").length,
+    48,
+  );
+  f.custom("htmx:afterSwap", {});
+  f.custom("htmx:historyRestore", {});
+  parking.click();
+  assert.equal(input.value, "parking");
+  assert.equal(parking.getAttribute("aria-pressed"), "true");
+  assert.equal(f.window.document.querySelectorAll("datalist").length, 1);
+  // A restore can happen before any request; canceling that binding must be safe too.
+  f.custom("htmx:historyRestore", {});
+  input.removeAttribute("maxlength");
+  input.value = "x".repeat(200);
+  input.dispatchEvent(new f.window.Event("input"));
+  assert.equal(parking.disabled, false);
+});

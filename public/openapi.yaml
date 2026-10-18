@@ -1133,9 +1133,10 @@ paths:
   /api/v1/tags/:
     get:
       operationId: v1_tags_list
-      description: Public tags with counts of visible, published creations. Tags need 11 creations by
-        default; Admins can change this threshold. Drafts, hidden, deleted, shadow-banned and demo
-        creations do not count.
+      description: Public tags with counts of visible, published creations. Curated category tags are always
+        included, even at zero uses, and sort before community tags. Other tags need 11 creations
+        by default; Admins can change this threshold. Drafts, hidden, deleted, shadow-banned and
+        demo creations do not count. Returns up to 200 tags.
       parameters:
         - in: query
           name: q
@@ -1186,9 +1187,10 @@ paths:
   /api/v1/tags/suggest/:
     get:
       operationId: v1_tags_suggest_list
-      description: Existing tag suggestions for signed-in editors, including uncommon tags on public
-        creations and tags on their own private creations. Other users' private tags are excluded.
-        Returns up to 20 names; accepts the q substring filter.
+      description: Tag suggestions for signed-in editors. Curated category tags are always eligible and sort
+        first, including unused categories. Also includes uncommon tags on public creations and
+        tags on the editor's own private creations. Other users' private tags are excluded.
+        Returns up to 200 names; accepts the q substring filter.
       parameters:
         - in: query
           name: q
@@ -1663,7 +1665,7 @@ components:
           readOnly: true
         tags:
           type: string
-          description: Comma-separated tags. Public responses include only tags meeting the configurable
+          description: Comma-separated tags. Public responses include curated categories and tags meeting the configurable
             publication threshold (11 visible creations by default). Authors and staff browser
             sessions can read all assigned tags. Use /api/v1/tags/suggest/ for editing suggestions.
           maxLength: 200
@@ -1769,7 +1771,7 @@ components:
             disabled."
         tags:
           type: string
-          description: Comma-separated tags. Public responses include only tags meeting the configurable
+          description: Comma-separated tags. Public responses include curated categories and tags meeting the configurable
             publication threshold (11 visible creations by default). Authors and staff browser
             sessions can read all assigned tags. Use /api/v1/tags/suggest/ for editing suggestions.
           maxLength: 200
@@ -1957,7 +1959,7 @@ components:
             disabled."
         tags:
           type: string
-          description: Comma-separated tags. Public responses include only tags meeting the configurable
+          description: Comma-separated tags. Public responses include curated categories and tags meeting the configurable
             publication threshold (11 visible creations by default). Authors and staff browser
             sessions can read all assigned tags. Use /api/v1/tags/suggest/ for editing suggestions.
           maxLength: 200
@@ -2089,7 +2091,7 @@ components:
                 disabled."
             tags:
               type: string
-              description: Comma-separated tags. Public responses include only tags meeting the configurable
+              description: Comma-separated tags. Public responses include curated categories and tags meeting the configurable
                 publication threshold (11 visible creations by default). Authors and staff browser
                 sessions can read all assigned tags. Use /api/v1/tags/suggest/ for editing
                 suggestions.

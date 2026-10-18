@@ -30,6 +30,7 @@ void test("public cache hits use canonical revision keys and never cache private
     new URL(keys[0]!).searchParams.get("__text_filter"),
     "hearts-v1",
   );
+  assert.equal(new URL(keys[0]!).searchParams.get("__tag_categories"), "v1");
   f.sqlite.exec("DELETE FROM worker_cache_revision");
   await f.request("/api/v1/types/", "GET", undefined, "anonymous");
   assert.equal(new URL(keys[1]!).searchParams.get("__revision"), "0");

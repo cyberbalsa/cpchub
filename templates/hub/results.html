@@ -1,5 +1,6 @@
 {% load static %}
 <div id="results" aria-live="polite">
+  {% include 'hub/category_filters.html' %}
   {% if stats_form.errors %}<div class="notice" role="alert"><strong>Check the file filters.</strong>{% for field in stats_form %}{{ field.errors }}{% endfor %}</div>{% endif %}
   <div class="results-meta"><span>{{ page_obj.paginator.count }} file{{ page_obj.paginator.count|pluralize }} found{% if q %} for “{{ q }}”{% endif %}{% if tag %} tagged “{{ tag }}”{% endif %}{% if stats_form.active %} · File filters applied{% endif %}</span>{% if has_demo %}<span class="demo-label">DEMO FILES · Sample data only</span>{% endif %}</div>
   <div class="row g-3 creation-grid">

@@ -84,9 +84,23 @@ export async function getItem(
 export async function publicTags(env: Env, q = "") {
   return all<PublicTag>(
     env.DB,
-    `SELECT t.name,COUNT(*) item_count FROM hub_tag t JOIN hub_item_tag_index it ON it.tag_id=t.id JOIN hub_item i ON i.id=it.item_id WHERE ${PUBLIC} AND i.is_demo=0 AND t.name LIKE ? GROUP BY t.id HAVING COUNT(*) >= COALESCE((SELECT minimum_items FROM hub_tagsettings WHERE id=1),11) ORDER BY item_count DESC,t.name LIMIT 200`,
-    "%" + normalizeText(q).slice(0, 200).toLowerCase() + "%",
+    `SELECT t.name,COUNT(DISTINCT i.id) item_count FROM hub_tag t LEFT JOIN hub_item_tag_index it ON it.tag_id=t.id LEFT JOIN hub_item i ON i.id=it.item_id AND ${PUBLIC} AND i.is_demo=0 WHERE t.name LIKE ? GROUP BY t.id HAVING t.category_group<>'' OR COUNT(DISTINCT i.id) >= COALESCE((SELECT minimum_items FROM hub_tagsettings WHERE id=1),11) ORDER BY (t.category_group<>'') DESC,item_count DESC,t.name LIMIT 200`,
+    "%" + normalizeText(q).trim().slice(0, 200).toLowerCase() + "%",
   );
+}
+export async function categoryTagGroups(env: Env) {
+  const tags = await all<Pick<Table<"hub_tag">, "name" | "category_group">>(
+    env.DB,
+    "SELECT name,category_group FROM hub_tag WHERE category_group<>'' ORDER BY name",
+  );
+  return [
+    { key: "blueprints", title: "Blueprints", type: "blueprints" },
+    { key: "scenarios", title: "Scenarios", type: "scenarios" },
+    { key: "themes", title: "Themes & materials", type: "" },
+  ].map((group) => ({
+    ...group,
+    tags: tags.filter((tag) => tag.category_group === group.key),
+  }));
 }
 export async function serialize(
   env: Env,

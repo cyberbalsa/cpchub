@@ -244,6 +244,7 @@ export interface DatabaseTables {
   hub_tag: {
     id: number;
     name: string;
+    category_group: string;
   };
   hub_tagsettings: {
     id: number;

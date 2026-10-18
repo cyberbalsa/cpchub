@@ -84,9 +84,10 @@ api.get("/tags/suggest/", async (c) => {
     (
       await all<Pick<Table<"hub_tag">, "name">>(
         c.env.DB,
-        `SELECT DISTINCT t.name FROM hub_tag t JOIN hub_item_tag_index ti ON ti.tag_id=t.id JOIN hub_item i ON i.id=ti.item_id WHERE t.name LIKE ? AND (i.author_id=? OR (i.status='published' AND i.is_hidden=0 AND i.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM hub_usermoderation m WHERE m.user_id=i.author_id AND m.shadow_banned_at IS NOT NULL))) ORDER BY t.name LIMIT 20`,
+        `SELECT t.name FROM hub_tag t WHERE t.name LIKE ? AND (t.category_group<>'' OR EXISTS(SELECT 1 FROM hub_item_tag_index ti JOIN hub_item i ON i.id=ti.item_id WHERE ti.tag_id=t.id AND (i.author_id=? OR (i.status='published' AND i.is_hidden=0 AND i.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM hub_usermoderation m WHERE m.user_id=i.author_id AND m.shadow_banned_at IS NOT NULL))))) ORDER BY (t.category_group<>'') DESC,t.name LIMIT 200`,
         "%" +
           normalizeText(c.req.query("q") || "")
+            .trim()
             .slice(0, 200)
             .toLowerCase() +
           "%",
