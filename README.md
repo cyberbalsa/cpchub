@@ -65,9 +65,32 @@ podman-compose -f compose.yaml -f compose.podman.yaml up --build --force-recreat
 
 This replaces the application containers and keeps the database and upload volumes.
 
-## Wasabi upload storage
+## Cloudflare R2 upload storage
 
-Only user-generated content goes to Wasabi: release files, ZIP packs, and screenshots. The app validates uploads and converts screenshots to WebP before storing them under `ugc/releases/` and `ugc/screenshots/`. Site assets continue to use WhiteNoise.
+Production stores release files and screenshots in a private R2 bucket. Objects keep the same `ugc/releases/` and `ugc/screenshots/` names used by Wasabi. Site assets stay in the application image and use WhiteNoise.
+
+Set `R2_BUCKET_NAME`, `R2_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY`. Use R2 Object Read & Write credentials scoped to this bucket. The application uses S3 Signature V4 with region `auto`. `R2_SIGNED_URL_SECONDS` defaults to 300 and accepts 60–900 seconds. Jurisdiction-specific R2 endpoints are also supported.
+
+Keep `r2.dev` access disabled and do not attach a public custom domain to this bucket. Downloads and screenshots need permission checks so drafts, hidden creations and deleted files stay private. Application URLs issue short-lived signed R2 URLs after those checks. A branded hostname such as `dl.cpchub.net` would require an authenticated proxy; a direct R2 custom-domain connection would expose the bucket.
+
+For an existing installation, configure both storage backends and leave `MEDIA_STORAGE=wasabi` until copying and verification succeed. Stop the app, upload collector and cleanup jobs during the final migration so the source cannot change:
+
+```bash
+python manage.py migrate_upload_storage --source wasabi --target r2
+python manage.py migrate_upload_storage --source wasabi --target r2 --apply
+python manage.py migrate_upload_storage --source wasabi --target r2 --verify-only
+# Set MEDIA_STORAGE=r2, then restart the app and upload collector.
+```
+
+The command checks every referenced release and screenshot, including drafts. It validates release sizes and hashes against the database, compares source and destination SHA-256 hashes, refuses conflicting destination files, and never removes source objects. Re-running it skips matching copies. `--verify-only` fails if any destination file is missing. For local-to-R2 migration, use `--source local`; the source directory is `MEDIA_ROOT`.
+
+Before allowing uploads after a cutover, a rollback can restore `MEDIA_STORAGE=wasabi`. After R2 has accepted new files, stop writers and copy back with `--source r2 --target wasabi --apply`, then verify before switching. Keep the Wasabi originals until a separate retention decision is made.
+
+References: [R2 credentials and bucket scopes](https://developers.cloudflare.com/r2/api/tokens/), [boto3 configuration](https://developers.cloudflare.com/r2/examples/aws/boto3/), and [presigned URLs](https://developers.cloudflare.com/r2/api/s3/presigned-urls/).
+
+## Legacy Wasabi upload storage
+
+Wasabi remains supported as a migration source or alternative backend. The app validates uploads and converts screenshots to WebP before storing them under `ugc/releases/` and `ugc/screenshots/`. Site assets continue to use WhiteNoise.
 
 Create a private bucket in Wasabi. Use `deploy/wasabi-ugc-policy.json` as the application user's policy, replacing `__BUCKET__` with the bucket name. It allows listing that bucket and reading, writing, and deleting objects in those two prefixes. It grants no IAM, ACL, or bucket-configuration permissions.
 
@@ -92,9 +115,9 @@ podman-compose -f compose.yaml up --force-recreate --no-deps -d web
 
 The migration verifies SHA-256 checksums, preserves object names and releases, refuses to overwrite conflicting remote content, and keeps the local originals. It can be rerun. If it fails, leave `MEDIA_STORAGE=local` and restart the web service. New installations with no uploads can enable Wasabi directly.
 
-API and HTML links keep their application URLs. Each request checks item visibility and token permissions, then returns a non-cacheable 302 redirect to a signed Wasabi URL. Screenshots load inline; releases download with their original filename. HEAD requests get a HEAD signature and do not increment download counts. Successful GETs count download links issued, not completed transfers. Both creation and release counters deduplicate by account and IP; a match on either suppresses the count. A new release can receive its first count without increasing the creation’s count again. Account markers persist until the account or creation is purged. IPv4 uses one address; IPv6 uses the /32 subnet, so visitors sharing that subnet share its IP allowance. IP markers expire 14 days after their last download and are removed by the cleanup service. Existing totals stay in place; deduplication starts when this feature is deployed. Repeated downloads still receive fresh signed URLs.
+API and HTML links keep their application URLs. Each request checks item visibility and token permissions, then returns a non-cacheable 302 redirect to a signed object-storage URL. Screenshots load inline; releases download with their original filename. HEAD requests get a HEAD signature and do not increment download counts. Successful GETs count download links issued, not completed transfers. Both creation and release counters deduplicate by account and IP; a match on either suppresses the count. A new release can receive its first count without increasing the creation’s count again. Account markers persist until the account or creation is purged. IPv4 uses one address; IPv6 uses the /32 subnet, so visitors sharing that subnet share its IP allowance. IP markers expire 14 days after their last download and are removed by the cleanup service. Existing totals stay in place; deduplication starts when this feature is deployed. Repeated downloads still receive fresh signed URLs.
 
-Clients should keep the application URL, follow redirects, and avoid forwarding CPC Hub Authorization headers to Wasabi. A signed URL grants access to its holder until expiry, so hiding an item or revoking a key stops new links but does not cancel a link already issued. Request the application URL again when a signed link expires. The secret access key stays on the server.
+Clients should keep the application URL, follow redirects, and avoid forwarding CPC Hub Authorization headers to the storage provider. A signed URL grants access to its holder until expiry, so hiding an item or revoking a key stops new links but does not cancel a link already issued. Request the application URL again when a signed link expires. The secret access key stays on the server.
 
 ## Local Python development
 

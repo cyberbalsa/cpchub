@@ -1,10 +1,10 @@
-"""Private Wasabi storage for uploaded releases and screenshots."""
+"""Private S3-compatible storage for uploaded releases and screenshots."""
 from botocore.config import Config
 from django.utils.http import content_disposition_header
 from storages.backends.s3 import S3Storage
 
 
-class WasabiMediaStorage(S3Storage):
+class PrivateS3MediaStorage(S3Storage):
     def __init__(self, **kwargs):
         # These constraints are part of the storage contract, not operator options.
         kwargs.update(
@@ -32,3 +32,13 @@ class WasabiMediaStorage(S3Storage):
             "ResponseContentType": content_type,
             "ResponseCacheControl": "private, no-store",
         })
+
+
+class WasabiMediaStorage(PrivateS3MediaStorage):
+    """Retained for existing Wasabi installs and migration sources."""
+
+
+class R2MediaStorage(PrivateS3MediaStorage):
+    def __init__(self, **kwargs):
+        kwargs["region_name"] = "auto"
+        super().__init__(**kwargs)

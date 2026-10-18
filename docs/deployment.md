@@ -9,7 +9,7 @@ Cloudflared remains a host service. It sends requests to Nginx at `127.0.0.1:808
 | Path or service | Purpose |
 | --- | --- |
 | `/home/cpchub/app` | Deployed application source |
-| `/home/cpchub/config/app.env` | Production Django and restricted Wasabi credentials, mode 0600 |
+| `/home/cpchub/config/app.env` | Production Django and bucket-scoped R2 credentials, mode 0600 |
 | `/home/cpchub/config/db.env` | PostgreSQL credentials, mode 0600 |
 | `/home/cpchub/config/revision` | Deployed Git commit |
 | `/home/cpchub/backups` | Local database dumps; never uploaded to the UGC bucket |
@@ -21,9 +21,11 @@ Cloudflared remains a host service. It sends requests to Nginx at `127.0.0.1:808
 
 The [Quadlet files](../deploy/quadlet) install in `/home/cpchub/.config/containers/systemd/`. The backup service and timer install in `/home/cpchub/.config/systemd/user/`. [Podman's Quadlet documentation](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html) describes service generation and health checks.
 
-Only release files and screenshots use Wasabi. CSS, JavaScript, fonts, and site artwork come from the application image. No root Wasabi credentials are installed on this host.
+Only release files and screenshots use R2. CSS, JavaScript, fonts, and site artwork come from the application image. The app's R2 credential has object read/write access to the `cpchub` bucket only. The Cloudflare management token stays off the production host. Wasabi originals and its restricted application credentials are retained for migration verification and rollback.
 
-Production uses `DEBUG=0`, `TRUST_PROXY=1`, `PUBLIC_URL=https://cpchub.net`, and `MEDIA_STORAGE=wasabi`. Set `ALLOWED_HOSTS=cpchub.net,www.cpchub.net,127.0.0.1` and `CSRF_TRUSTED_ORIGINS=https://cpchub.net`. `DATABASE_URL` points to `db:5432/cpchub` with the password from `db.env`.
+Production uses `DEBUG=0`, `TRUST_PROXY=1`, `PUBLIC_URL=https://cpchub.net`, and `MEDIA_STORAGE=r2`. Set `ALLOWED_HOSTS=cpchub.net,www.cpchub.net,127.0.0.1` and `CSRF_TRUSTED_ORIGINS=https://cpchub.net`. `DATABASE_URL` points to `db:5432/cpchub` with the password from `db.env`.
+
+The R2 bucket remains private, with its managed public domain disabled and no public custom domain. `R2_ENDPOINT_URL` uses the account's `r2.cloudflarestorage.com` endpoint. Download links expire after five minutes. See the [storage migration instructions](../README.md#cloudflare-r2-upload-storage) before switching providers; stop both the app and `cpchub-uploads.service`, plus the cleanup timer, for the final copy and verification. Do not switch back after accepting new uploads without copying those files back first.
 
 The Donate button opens `/donate/`, which shows the approximate $45 monthly hosting and storage cost. `KOFI_PAGE_URL` defaults to `https://ko-fi.com/cpchub`. The page links to Ko-fi for tips; Ko-fi controls payment options and handles checkout. No payment API key is needed.
 
@@ -120,7 +122,7 @@ user.save(update_fields=["is_staff", "is_superuser"])
 
 They can then open `/moderation/` and `/admin/` using the same social login. Use the moderation panel’s User management page for subsequent role assignments. New users receive no staff permissions automatically.
 
-The cleanup timer runs `python manage.py cleanup_deleted_files` every five minutes. It deletes expired login/upload activity, download IP records and upload quota events, permanently removes creations whose 14-day self-deletion period has ended, then retries pending file deletions. Check pending counts in the moderation panel and service logs with `cpc journalctl --user -u cpchub-cleanup.service`. Hiding or shadow banning blocks new signed URLs; already issued Wasabi URLs retain their original expiry, up to five minutes on this deployment.
+The cleanup timer runs `python manage.py cleanup_deleted_files` every five minutes. It deletes expired login/upload activity, download IP records and upload quota events, permanently removes creations whose 14-day self-deletion period has ended, then retries pending file deletions. Check pending counts in the moderation panel and service logs with `cpc journalctl --user -u cpchub-cleanup.service`. Hiding or shadow banning blocks new signed URLs; already issued R2 URLs retain their original expiry, up to five minutes on this deployment.
 
 ## Isolated upload worker
 

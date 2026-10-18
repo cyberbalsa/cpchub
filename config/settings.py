@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -80,10 +81,10 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STORAGES = {"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"}}
-# Only UGC uses Wasabi. Static files continue to use WhiteNoise.
+# Only UGC uses object storage. Static files continue to use WhiteNoise.
 MEDIA_STORAGE = os.getenv("MEDIA_STORAGE", "local")
-if MEDIA_STORAGE not in {"local", "wasabi"}:
-    raise ImproperlyConfigured("MEDIA_STORAGE must be local or wasabi.")
+if MEDIA_STORAGE not in {"local", "wasabi", "r2"}:
+    raise ImproperlyConfigured("MEDIA_STORAGE must be local, wasabi or r2.")
 WASABI_BUCKET_NAME = os.getenv("WASABI_BUCKET_NAME", "")
 WASABI_REGION = os.getenv("WASABI_REGION", "us-east-1")
 WASABI_ENDPOINT_URL = os.getenv("WASABI_ENDPOINT_URL", f"https://s3.{WASABI_REGION}.wasabisys.com")
@@ -105,6 +106,23 @@ if MEDIA_STORAGE == "wasabi" or any(_wasabi_keys.values()) or WASABI_BUCKET_NAME
     }}
     if MEDIA_STORAGE == "wasabi":
         STORAGES["default"] = STORAGES["wasabi"]
+R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME", "")
+R2_ENDPOINT_URL = os.getenv("R2_ENDPOINT_URL", "")
+R2_SIGNED_URL_SECONDS = int(os.getenv("R2_SIGNED_URL_SECONDS", "300"))
+if not 60 <= R2_SIGNED_URL_SECONDS <= 900:
+    raise ImproperlyConfigured("R2_SIGNED_URL_SECONDS must be between 60 and 900.")
+_r2_keys = {"access_key": os.getenv("R2_ACCESS_KEY_ID", ""), "secret_key": os.getenv("R2_SECRET_ACCESS_KEY", "")}
+if MEDIA_STORAGE == "r2" or any(_r2_keys.values()) or R2_BUCKET_NAME:
+    if not all(_r2_keys.values()) or not R2_BUCKET_NAME:
+        raise ImproperlyConfigured("Set R2_BUCKET_NAME, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY together.")
+    if not re.fullmatch(r"https://[a-f0-9]{32}(?:\.(?:eu|us|fedramp))?\.r2\.cloudflarestorage\.com/?", R2_ENDPOINT_URL):
+        raise ImproperlyConfigured("R2_ENDPOINT_URL must be an HTTPS Cloudflare R2 account endpoint.")
+    STORAGES["r2"] = {"BACKEND": "hub.storage.R2MediaStorage", "OPTIONS": {
+        **_r2_keys, "bucket_name": R2_BUCKET_NAME, "region_name": "auto",
+        "endpoint_url": R2_ENDPOINT_URL, "querystring_expire": R2_SIGNED_URL_SECONDS,
+    }}
+    if MEDIA_STORAGE == "r2":
+        STORAGES["default"] = STORAGES["r2"]
 # Application URLs check permissions, then stream local files or redirect to signed URLs.
 MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", str(BASE_DIR / "media")))
 MEDIA_URL = "/private-media/"

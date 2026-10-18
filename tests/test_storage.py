@@ -1,5 +1,8 @@
 import hashlib
 import io
+import os
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -11,7 +14,7 @@ from django.contrib.auth import get_user_model
 from django.core.files.storage import storages
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from rest_framework.test import APIClient
 
 from hub.models import APIKey, ContentType, Item, Release, Screenshot
@@ -30,6 +33,7 @@ TEST_STORAGES = {
 
 @override_settings(ASYNC_UPLOAD_VALIDATION=False, DEBUG=True, SECURE_SSL_REDIRECT=False, STORAGES=TEST_STORAGES)
 class WasabiDeliveryTests(TestCase):
+    endpoint_host = "s3.us-east-1.wasabisys.com"
     @classmethod
     def setUpTestData(cls):
         cls.author = get_user_model().objects.create_user("storage-author")
@@ -59,7 +63,7 @@ class WasabiDeliveryTests(TestCase):
         target = urlsplit(result["Location"])
         params = parse_qs(target.query)
         self.assertEqual(target.scheme, "https")
-        self.assertEqual(target.netloc, "s3.us-east-1.wasabisys.com")
+        self.assertEqual(target.netloc, self.endpoint_host)
         self.assertEqual(target.path, "/test-cpchub/ugc/releases/item/test.cpbp")
         self.assertEqual(params["X-Amz-Algorithm"], ["AWS4-HMAC-SHA256"])
         self.assertEqual(params["X-Amz-Expires"], ["300"])
@@ -146,6 +150,40 @@ class WasabiDeliveryTests(TestCase):
         self.assertFalse(self.item.releases.filter(version="2").exists())
 
 
+R2_OPTIONS = {**WASABI_OPTIONS, "endpoint_url": "https://" + "a" * 32 + ".r2.cloudflarestorage.com", "region_name": "auto"}
+
+
+class R2ConfigurationTests(SimpleTestCase):
+    def test_r2_configuration_rejects_partial_keys_and_untrusted_endpoints(self):
+        env = {key: value for key, value in os.environ.items() if not key.startswith(("WASABI_", "R2_"))}
+        env.update(DEBUG="1", MEDIA_STORAGE="r2", R2_BUCKET_NAME="test", R2_ACCESS_KEY_ID="test", R2_SECRET_ACCESS_KEY="test", R2_ENDPOINT_URL=R2_OPTIONS["endpoint_url"])
+        code = "from config.settings import STORAGES; assert STORAGES['default']['BACKEND'] == 'hub.storage.R2MediaStorage'"
+        result = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+        for changes in [
+            {"R2_SECRET_ACCESS_KEY": ""}, {"R2_SIGNED_URL_SECONDS": "3600"},
+            {"R2_ENDPOINT_URL": "https://evil.example"},
+            {"R2_ENDPOINT_URL": R2_OPTIONS["endpoint_url"] + ".evil.example"},
+            {"R2_ENDPOINT_URL": R2_OPTIONS["endpoint_url"] + "/path"},
+        ]:
+            with self.subTest(changes=changes):
+                result = subprocess.run([sys.executable, "-c", code], env={**env, **changes}, capture_output=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(b"ImproperlyConfigured", result.stderr)
+
+
+@override_settings(STORAGES={**TEST_STORAGES, "default": {"BACKEND": "hub.storage.R2MediaStorage", "OPTIONS": R2_OPTIONS}})
+class R2DeliveryTests(WasabiDeliveryTests):
+    endpoint_host = "a" * 32 + ".r2.cloudflarestorage.com"
+
+    def test_r2_uses_auto_region_and_private_s3_options(self):
+        self.assertEqual(self.storage.connection.meta.client.meta.region_name, "auto")
+        self.assertIsNone(self.storage.default_acl)
+        self.assertIsNone(self.storage.custom_domain)
+        self.assertFalse(self.storage.file_overwrite)
+        self.assertEqual(self.storage.client_config.request_checksum_calculation, "when_required")
+
+
 @override_settings(ASYNC_UPLOAD_VALIDATION=False, DEBUG=True, SECURE_SSL_REDIRECT=False)
 class UploadMigrationTests(TestCase):
     def test_dry_run_copy_restart_and_conflicting_remote_file(self):
@@ -171,3 +209,41 @@ class UploadMigrationTests(TestCase):
                 with self.assertRaises(CommandError):
                     call_command("migrate_uploads_to_wasabi", source=local, apply=True, stdout=io.StringIO())
                 self.assertEqual(destination.read_bytes(), b"different remote content")
+
+    def test_cross_provider_copy_verifies_releases_and_screenshots_and_keeps_source(self):
+        user = get_user_model().objects.create_user("r2-migration-author")
+        item = Item.objects.create(author=user, content_type=ContentType.objects.get(slug="blueprints"), title="Migrate", status="draft")
+        data = b"original blueprint"
+        release = Release.objects.create(item=item, version="1", file="releases/test.cpbp", original_filename="test.cpbp", size=len(data), sha256=hashlib.sha256(data).hexdigest())
+        Screenshot.objects.create(item=item, image="screenshots/test.webp")
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as target_dir:
+            files = {"releases/test.cpbp": data, "screenshots/test.webp": b"screenshot bytes"}
+            for name, content in files.items():
+                source = Path(source_dir) / name
+                source.parent.mkdir(exist_ok=True)
+                source.write_bytes(content)
+            with override_settings(STORAGES={
+                "wasabi": {"BACKEND": "django.core.files.storage.FileSystemStorage", "OPTIONS": {"location": source_dir}},
+                "r2": {"BACKEND": "django.core.files.storage.FileSystemStorage", "OPTIONS": {"location": target_dir}},
+            }):
+                def migrate(**kwargs):
+                    call_command("migrate_upload_storage", source="wasabi", target="r2", stdout=io.StringIO(), **kwargs)
+                migrate()
+                self.assertEqual(list(Path(target_dir).iterdir()), [])
+                with self.assertRaisesMessage(CommandError, "Missing target upload"):
+                    migrate(verify_only=True)
+                migrate(apply=True)
+                migrate(verify_only=True)
+                migrate(apply=True)
+                for name, content in files.items():
+                    self.assertEqual((Path(source_dir) / name).read_bytes(), content)
+                    self.assertEqual((Path(target_dir) / name).read_bytes(), content)
+                self.assertEqual(len(list(Path(target_dir).rglob("*.*"))), 2)
+                release.refresh_from_db()
+                self.assertEqual(release.file.name, "releases/test.cpbp")
+                (Path(target_dir) / "screenshots/test.webp").write_bytes(b"conflicting target")
+                with self.assertRaisesMessage(CommandError, "refusing to overwrite"):
+                    migrate(apply=True)
+                (Path(source_dir) / "releases/test.cpbp").write_bytes(b"corrupt source")
+                with self.assertRaisesMessage(CommandError, "Source content does not match"):
+                    migrate(apply=True)
