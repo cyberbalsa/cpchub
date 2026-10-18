@@ -1,0 +1,62 @@
+import {Env,User,Row,one,all,run,now,uuid,publicId,dbId,HttpError,requireUser,manage,staff,write} from './env';
+export const METRICS=['width','depth','height','footprint_tiles','objects','object_types','parking_spaces','golf_cart_spaces','entrances','exits','maps','entities','format_version'];
+export const PUBLIC="i.status='published' AND i.is_hidden=0 AND i.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM hub_usermoderation m WHERE m.user_id=i.author_id AND m.shadow_banned_at IS NOT NULL)";
+export const SELECT=`SELECT i.*,u.username,t.slug type_slug,t.name type_name,(SELECT COUNT(*) FROM hub_bookmark b WHERE b.item_id=i.id) collection_count FROM hub_item i JOIN auth_user u ON u.id=i.author_id JOIN hub_contenttype t ON t.id=i.content_type_id`;
+export function editable(item:Row,u:User|null){return !!u&&(item.author_id===u.id||manage(u));}
+export async function getItem(env:Env,id:string,u:User|null,edit=false){
+ const i=await one(env.DB,SELECT+' WHERE i.id=?',dbId(id));if(!i)throw new HttpError(404,'Creation not found.');
+ const shadow=await one(env.DB,'SELECT 1 FROM hub_usermoderation WHERE user_id=? AND shadow_banned_at IS NOT NULL',i.author_id);
+ if(!staff(u)&&u?.id!==i.author_id&&(i.deleted_at||shadow||i.status!=='published'&&!i.is_hidden))throw new HttpError(404,'Creation not found.');
+ if(edit){write(u);if(!editable(i,u))throw new HttpError(403,'Only the author can edit this creation.');}
+ else if(i.is_hidden&&!staff(u))throw new HttpError(403,'This creation is hidden. '+i.hidden_reason);
+ return i;
+}
+export async function publicTags(env:Env,q=''){
+ return all(env.DB,`SELECT t.name,COUNT(*) item_count FROM hub_tag t JOIN hub_item_tag_index it ON it.tag_id=t.id JOIN hub_item i ON i.id=it.item_id WHERE ${PUBLIC} AND i.is_demo=0 AND t.name LIKE ? GROUP BY t.id HAVING COUNT(*) >= COALESCE((SELECT minimum_items FROM hub_tagsettings WHERE id=1),11) ORDER BY item_count DESC,t.name LIMIT 200`,'%'+q.slice(0,200).toLowerCase()+'%');
+}
+export async function serialize(env:Env,i:Row,u:User|null,loaded?:{releases:Row[];screenshots:Row[];tags:Row[]}){
+ const [releases,screenshots,tags]=loaded?[loaded.releases,loaded.screenshots,loaded.tags]:await Promise.all([all(env.DB,'SELECT * FROM hub_release WHERE item_id=? ORDER BY created_at DESC,id DESC',i.id),all(env.DB,'SELECT * FROM hub_screenshot WHERE item_id=? ORDER BY created_at,id',i.id),publicTags(env)]);
+ const id=publicId(i.id);const base=env.PUBLIC_URL+'/api/v1/items/'+id;
+ return {id,title:i.title,summary:i.summary,description:i.description,content_type:i.type_slug,author:i.username,tags:editable(i,u)?i.tags:i.tags.split(',').map((x:string)=>x.trim()).filter((x:string)=>tags.some(t=>t.name===x)).join(', '),status:i.status,publish_after_validation:!!i.publish_after_validation,is_demo:!!i.is_demo,is_hidden:!!i.is_hidden,hidden_reason:i.hidden_reason,deleted_at:i.deleted_at,featured_at:i.featured_at,downloads:i.downloads,collection_count:i.collection_count,created_at:i.created_at,updated_at:i.updated_at,
+ releases:releases.map(r=>({id:publicId(r.id),version:r.version,game_version:r.game_version,changelog:r.changelog,original_filename:r.original_filename,sha256:r.sha256,size:r.size,downloads:r.downloads,created_at:r.created_at,file_stats:JSON.parse(r.file_stats),download_url:base+'/releases/'+publicId(r.id)+'/download/'})),screenshots:screenshots.map(s=>({id:publicId(s.id),caption:s.caption,created_at:s.created_at,image_url:/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}-[a-f0-9]{16}\.webp$/.test(s.image)?env.SCREENSHOT_URL+'/'+s.image:base+'/screenshots/'+publicId(s.id)+'/image/'}))};
+}
+export async function listItems(env:Env,p:URLSearchParams,u:User|null,privateAuthor?:number){
+ const args:any[]=[];const filters:string[]=[];const mine=p.get('mine')==='true'||p.get('view')==='mine';
+ if(privateAuthor&&(staff(u)||u?.id===privateAuthor)){filters.push('i.author_id=?');args.push(privateAuthor);}else if(mine){filters.push('i.author_id=?');args.push(u?.id||-1);}else {filters.push(`((${PUBLIC}) OR (i.author_id=? AND i.is_hidden=0 AND i.deleted_at IS NULL))`);args.push(u?.id||-1);}
+ if(p.get('view')==='saved'){filters.push('EXISTS(SELECT 1 FROM hub_bookmark b WHERE b.item_id=i.id AND b.user_id=?)');args.push(u?.id||-1);}
+ if(p.get('author')){filters.push('i.author_id=?');args.push(Number(p.get('author'))||-1);}
+ if(p.get('type')){filters.push('t.slug=?');args.push(p.get('type'));}
+ const q=p.get('q')?.trim().slice(0,200);if(q){const matching=mine?null:(await publicTags(env,q)).map(t=>t.name);filters.push('(i.title LIKE ? OR i.description LIKE ? OR EXISTS(SELECT 1 FROM hub_item_tag_index qi JOIN hub_tag qt ON qt.id=qi.tag_id WHERE qi.item_id=i.id AND '+(matching===null?'qt.name LIKE ?':matching.length?'qt.name IN ('+matching.map(()=>'?').join(',')+')':'0')+'))');args.push('%'+q+'%','%'+q+'%',...(matching===null?['%'+q.toLowerCase()+'%']:matching));}
+ if(p.get('tag')){const tag=p.get('tag')!.trim().toLowerCase().replace(/\s+/g,' ');if(!mine&&!(await publicTags(env)).some(t=>t.name===tag))filters.push('0');else{filters.push('EXISTS(SELECT 1 FROM hub_item_tag_index ti JOIN hub_tag tag ON tag.id=ti.tag_id WHERE ti.item_id=i.id AND tag.name=?)');args.push(tag);}}
+ for(const name of METRICS)for(const bound of ['min','max']){const value=p.get(bound+'_'+name);if(value!==null&&value!==''){const n=Number(value);if(!Number.isSafeInteger(n)||n<0)throw new HttpError(400,'Invalid file statistics filter.');filters.push(`json_extract((SELECT r.file_stats FROM hub_release r WHERE r.item_id=i.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1),'$.${name}') ${bound==='min'?'>=':'<='} ?`);args.push(n);}}
+ const where=' WHERE '+filters.join(' AND '),sort=({newest:'i.created_at',popular:'i.downloads'} as Row)[p.get('sort')||'']||'i.updated_at';
+ const count=(await one(env.DB,'SELECT COUNT(*) n FROM hub_item i JOIN hub_contenttype t ON t.id=i.content_type_id'+where,...args))!.n;
+ const page=Math.max(1,Math.min(1000000,Math.floor(Number(p.get('page'))||1))),limit=24;const items=await all(env.DB,SELECT+where+` ORDER BY ${sort} DESC,i.id LIMIT ? OFFSET ?`,...args,limit,(page-1)*limit);
+ return {count,page,items,pages:Math.max(1,Math.ceil(count/limit))};
+}
+function field(d:Row,k:string,max:number,required=false){const s=String(d[k]??'').trim();if(s.length>max||required&&!s)throw new HttpError(400,`${k} must contain ${required?'1–':'at most '}${max} characters.`);return s;}
+export async function saveItem(env:Env,u:User,d:Row,existing?:Row){
+ write(u);if(existing&&!editable(existing,u))throw new HttpError(403,'Not allowed.');
+ const next={...existing,...d};const title=field(next,'title',100,true),summary=field(next,'summary',180,true),description=field(next,'description',20000,true),tags=[...new Set(field(next,'tags',200).split(',').map(t=>t.toLowerCase().replace(/\s+/g,' ').trim()).filter(Boolean))].join(', ');
+ const type=await one(env.DB,'SELECT * FROM hub_contenttype WHERE (slug=? OR id=?) AND uploads_enabled=1',String(d.content_type??existing?.type_slug??''),Number(d.content_type)||0);if(!type||!['blueprints','scenarios'].includes(type.slug))throw new HttpError(400,'Choose blueprints or scenarios.');
+ const id=existing?.id||uuid();if(existing&&type.id!==existing.content_type_id){const files=await one(env.DB,"SELECT (SELECT COUNT(*) FROM hub_release WHERE item_id=?) + (SELECT COUNT(*) FROM hub_uploadjob WHERE item_id=? AND status='pending') n",id,id);if(files!.n)throw new HttpError(400,'Cannot change file type while releases or pending checks exist.');}
+ const desired=d.status??existing?.status??'draft';if(!['draft','published'].includes(desired))throw new HttpError(400,'Invalid status.');let status='draft',publish=0;
+ if(existing&&desired==='published'){
+  const pending=await one(env.DB,"SELECT COUNT(*) n FROM hub_uploadjob WHERE item_id=? AND status='pending'",id);if(pending!.n)publish=1;
+  else{const ok=await one(env.DB,'SELECT EXISTS(SELECT 1 FROM hub_release WHERE item_id=?) AND EXISTS(SELECT 1 FROM hub_screenshot WHERE item_id=?) ok',id,id);if(!ok!.ok)throw new HttpError(400,'Publishing requires a validated release and screenshot.');status='published';}
+ }
+ const t=now();const statements=[];
+ if(existing)statements.push(env.DB.prepare('UPDATE hub_item SET title=?,summary=?,description=?,tags=?,content_type_id=?,status=?,publish_after_validation=?,updated_at=?,content_revision=content_revision+1,review_requested_at=? WHERE id=?').bind(title,summary,description,tags,type.id,status,publish,t,t,id));
+ else statements.push(env.DB.prepare(`INSERT INTO hub_item(id,title,summary,description,tags,status,is_demo,artwork,downloads,created_at,updated_at,author_id,content_type_id,is_hidden,hidden_reason,hidden_at,hidden_by_id,featured_at,featured_by_id,deleted_at,content_revision,reviewed_revision,review_requested_at,publish_after_validation) VALUES (?,?,?,?,?,'draft',0,0,0,?,?,?,?,0,'',NULL,NULL,NULL,NULL,NULL,1,0,?,0)`).bind(id,title,summary,description,tags,t,t,u.id,type.id,t));
+ statements.push(env.DB.prepare('INSERT INTO hub_revision(snapshot,created_at,editor_id,item_id) VALUES (?,?,?,?)').bind(JSON.stringify({title,summary,description,tags,content_type:type.slug,status}),t,u.id,id));
+ statements.push(env.DB.prepare('DELETE FROM hub_item_tag_index WHERE item_id=?').bind(id));
+ for(const tag of tags.split(', ').filter(Boolean)){statements.push(env.DB.prepare('INSERT OR IGNORE INTO hub_tag(name) VALUES (?)').bind(tag));statements.push(env.DB.prepare('INSERT INTO hub_item_tag_index(item_id,tag_id) SELECT ?,id FROM hub_tag WHERE name=?').bind(id,tag));}
+ await env.DB.batch(statements);return getItem(env,id,u,true);
+}
+export async function selfAction(env:Env,u:User,item:Row,action:string){write(u);if(u.id!==item.author_id)throw new HttpError(403,'Only the author can do this.');if(action==='delete')await run(env.DB,'UPDATE hub_item SET deleted_at=?,publish_after_validation=0 WHERE id=?',now(),item.id);else if(action==='restore'){if(!item.deleted_at||Date.now()-Date.parse(item.deleted_at)>14*86400000)throw new HttpError(400,'Restoration period expired.');await run(env.DB,'UPDATE hub_item SET deleted_at=NULL WHERE id=?',item.id);}else if(action==='unpublish')await run(env.DB,"UPDATE hub_item SET status='draft',publish_after_validation=0 WHERE id=?",item.id);}
+
+export async function serializeMany(env:Env,items:Row[],u:User|null){
+ if(!items.length)return [];const ids=items.map(i=>i.id),marks=ids.map(()=>'?').join(',');
+ const [releases,screenshots,tags]=await Promise.all([all(env.DB,`SELECT * FROM hub_release WHERE item_id IN (${marks}) ORDER BY created_at DESC,id DESC`,...ids),all(env.DB,`SELECT * FROM hub_screenshot WHERE item_id IN (${marks}) ORDER BY created_at,id`,...ids),publicTags(env)]);
+ return Promise.all(items.map(i=>serialize(env,i,u,{releases:releases.filter(r=>r.item_id===i.id),screenshots:screenshots.filter(s=>s.item_id===i.id),tags})));
+}

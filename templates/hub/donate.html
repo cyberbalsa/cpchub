@@ -15,18 +15,8 @@
     <aside class="window support-checkout" aria-labelledby="support-checkout-title">
       <div class="title-bar"><div class="title-bar-text">{% include 'hub/icon.html' with icon='parking' %} Hosting and storage</div></div>
       <div class="window-body">
-        <span class="eyebrow">ESTIMATED MONTHLY COST{% if not costs.complete %} · PARTIAL{% endif %}</span>
-        <div class="support-cost"><span class="support-dollar">$</span><strong>{{ costs.monthly|floatformat:2 }}</strong><span class="support-period">USD<br>per month</span></div>
-        <p class="support-cost-caption">${{ costs.yearly|floatformat:2 }} a year at this storage level. Annual bills are spread across 12 months.</p>
-        <dl class="support-receipt">
-          <dt>VPS <small>${{ costs.vps_yearly|floatformat:2 }}/year</small></dt><dd>${{ costs.vps_monthly|floatformat:2 }}/mo</dd>
-          <dt>cpchub.net{% if costs.domain_yearly != None %} <small>${{ costs.domain_yearly|floatformat:2 }}/year</small>{% endif %}</dt><dd>{% if costs.domain_monthly != None %}${{ costs.domain_monthly|floatformat:2 }}/mo{% else %}Awaiting price{% endif %}</dd>
-          <dt>R2 storage</dt><dd>{% if costs.storage_monthly != None %}${{ costs.storage_monthly|floatformat:2 }}/mo{% else %}Awaiting count{% endif %}</dd>
-        </dl>
-        {% if costs.usage %}
-        <p class="support-storage"><strong>{{ costs.usage.object_count }} files · {{ costs.usage.size_bytes|filesizeformat }}</strong><br>Counted {{ costs.usage.measured_at|date:"M j, Y, H:i T" }}. {% if costs.stale %}The update is delayed; this is the last successful count.{% else %}Updated hourly.{% endif %}</p>
-        {% endif %}
-        <p class="support-cost-caption">Storage assumes this amount stays in R2 for a full month, with the account’s first 10 GB free, then $0.015/GB-month. Request charges and taxes are excluded. Actual bills depend on daily usage. <a href="https://developers.cloudflare.com/r2/pricing/" rel="noopener noreferrer">R2 pricing</a>.</p>
+        <span class="eyebrow">Monthly Costs</span>
+        <div class="support-cost" title="Cloudflare invoices issued in {{ monthly_cost_period }}"><strong>{% if monthly_cost %}{{ monthly_cost }}{% else %}Unavailable{% endif %}</strong></div>
         <h2 id="support-checkout-title">Leave a tip on Ko-fi</h2>
         <p>Choose an amount on Ko-fi.</p>
         {% if kofi_page_url %}

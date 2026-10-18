@@ -1,0 +1,94 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cpc-hub-serverless",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-16",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": false,
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": false
+  },
+  "vars": {
+    "PUBLIC_URL": "https://cpchub.net",
+    "KOFI_PAGE_URL": "https://ko-fi.com/cpchub",
+    "DISCORD_CLIENT_ID": "1560747155483009085",
+    "SCREENSHOT_URL": "https://screenshots.cpchub.net",
+    "CF_ACCOUNT_ID": "bc09e18d583e5e982894e35a5185592a"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cpc-hub-catalog",
+      "database_id": "d2452248-2897-48fb-be6c-29a381dadb30",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "PUBLIC_IMAGES",
+      "bucket_name": "cpc-hub-public-screenshots"
+    },
+    {
+      "binding": "FILES",
+      "bucket_name": "cpc-hub-files"
+    },
+    {
+      "binding": "QUARANTINE",
+      "bucket_name": "cpc-hub-quarantine"
+    }
+  ],
+  "services": [
+    {
+      "binding": "VALIDATOR",
+      "service": "cpc-hub-validator"
+    },
+    {
+      "binding": "IMAGE_VALIDATOR",
+      "service": "cpc-hub-image-validator"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "UPLOADS",
+        "queue": "cpc-hub-uploads"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "cpc-hub-uploads",
+        "max_batch_size": 1,
+        "max_retries": 3,
+        "dead_letter_queue": "cpc-hub-upload-failures"
+      }
+    ]
+  },
+  "triggers": {
+    "crons": [
+      "*/5 * * * *"
+    ]
+  },
+  "limits": {
+    "cpu_ms": 1000
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1,
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.01
+    }
+  },
+  "account_id": "bc09e18d583e5e982894e35a5185592a",
+  "routes": [
+    {
+      "pattern": "cpchub.net/*",
+      "zone_name": "cpchub.net"
+    }
+  ],
+  "preview_urls": false
+}

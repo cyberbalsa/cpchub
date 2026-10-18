@@ -1,0 +1,30 @@
+{
+  "name": "cpc-hub-workers",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/templates.mjs",
+    "check": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "dev": "npm run build && wrangler dev -c wrangler.jsonc -c workers/validator/wrangler.jsonc -c workers/images/wrangler.jsonc",
+    "deploy": "npm run build && wrangler deploy",
+    "db:local": "wrangler d1 migrations apply cpc-hub-catalog --local"
+  },
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "hono": "^4.10.0",
+    "marked": "^16.4.0",
+    "nunjucks": "^3.2.4",
+    "sanitize-html": "^2.17.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest",
+    "@types/busboy": "^1.5.5",
+    "@types/node": "^24.0.0",
+    "@types/nunjucks": "^3.2.6",
+    "@types/sanitize-html": "^2.16.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.45.0"
+  }
+}

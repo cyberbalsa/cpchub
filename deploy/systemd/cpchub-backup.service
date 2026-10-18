@@ -1,9 +1,0 @@
-[Unit]
-Description=Back up CPC Hub PostgreSQL
-Requires=cpchub-db.service
-After=cpchub-db.service
-
-[Service]
-Type=oneshot
-ExecStart=/bin/sh %h/app/deploy/backup-database.sh
-UMask=0077

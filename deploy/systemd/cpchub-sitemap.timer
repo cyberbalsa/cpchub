@@ -1,9 +1,0 @@
-[Unit]
-Description=Rebuild CPC Hub sitemap daily
-
-[Timer]
-OnCalendar=*-*-* 04:15:00 UTC
-Persistent=true
-
-[Install]
-WantedBy=timers.target

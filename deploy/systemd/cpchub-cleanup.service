@@ -1,9 +1,0 @@
-[Unit]
-Description=Retry deleted CPC Hub upload cleanup
-Requires=cpchub-app.service
-After=cpchub-app.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/podman exec cpchub-app python manage.py cleanup_deleted_files
-UMask=0077

@@ -1,8 +1,0 @@
-# Map the image's app user to the host account that owns the submission directory.
-services:
-  web:
-    userns_mode: "keep-id:uid=10001,gid=10001"
-  uploads:
-    userns_mode: "keep-id:uid=10001,gid=10001"
-  cleanup:
-    userns_mode: "keep-id:uid=10001,gid=10001"

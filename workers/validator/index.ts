@@ -1,0 +1,2 @@
+import {validate,Invalid} from './parser';
+export default {async fetch(request:Request){if(request.method!=='POST'||!request.body)return new Response(null,{status:405});try{const result=await validate(request.headers.get('x-kind')||'',request.body,Number(request.headers.get('x-size')));const {_resources,...stats}=result;return Response.json(stats);}catch(e){return Response.json({error:e instanceof Invalid?e.message:'invalid_file'},{status:422});}}};

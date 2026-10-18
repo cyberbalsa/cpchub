@@ -1,33 +1,21 @@
-name: Checks
-on: [push, pull_request]
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
 jobs:
-  test:
+  verify:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: cpchub
-          POSTGRES_USER: cpchub
-          POSTGRES_PASSWORD: ci-only-password
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U cpchub"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-    env:
-      DEBUG: "1"
-      DATABASE_URL: postgres://cpchub:ci-only-password@127.0.0.1:5432/cpchub
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: "3.14"
-          cache: pip
-      - run: pip install -r requirements.txt
-      - run: python manage.py check
-      - run: python manage.py makemigrations --check --dry-run
-      - run: python manage.py collectstatic --noinput
-      - run: python manage.py test tests --noinput
-      - run: python manage.py spectacular --file /tmp/openapi.yaml --validate --fail-on-warn
-      - run: diff -u docs/openapi.yaml /tmp/openapi.yaml
-      - run: docker build -t cpchub:test .
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run check
+      - run: npm test

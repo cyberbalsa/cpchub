@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+const base='http://localhost:8787';
+const cookie='cpc_session=local-e2e-session-90002';
+async function form(path:string,data:Record<string,string>,auth=true){return fetch(base+path,{method:'POST',headers:{...(auth?{Cookie:cookie,'X-CSRFToken':'local-e2e-csrf'}:{})},body:new URLSearchParams(data),redirect:'manual'});}
+let r=await fetch(base+'/api/v1/items/',{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json'},body:'{}'});assert.equal(r.status,403,'missing CSRF rejects JSON gracefully');
+r=await fetch(base+'/api/v1/items/',{method:'POST',headers:{Cookie:cookie,'X-CSRFToken':'local-e2e-csrf',Origin:'https://attacker.example','Content-Type':'application/json'},body:'{}'});assert.equal(r.status,403);
+assert.equal((await fetch(base+'/admin/settings',{headers:{Cookie:'cpc_session=local-e2e-session-90001'}})).status,403);
+r=await form('/admin/settings',{action:'client',name:'Local OAuth Test '+Date.now(),redirect_uris:'http://127.0.0.1:9876/callback'});assert.equal(r.status,302,await r.text());
+const html=await (await fetch(base+'/admin/settings',{headers:{Cookie:cookie}})).text();const clients=[...html.matchAll(/Client ID: <code>([^<]+)<\/code>/g)];const client=clients.at(-1)![1];assert(client);
+const verifier='v'.repeat(64),challenge=createHash('sha256').update(verifier).digest('base64url');const params={client_id:client,redirect_uri:'http://127.0.0.1:9876/callback',response_type:'code',code_challenge_method:'S256',code_challenge:challenge,scope:'read write',state:'test-state'};
+r=await form('/o/authorize/',{...params,approve:'yes'});assert.equal(r.status,302,await r.text());const redirect=new URL(r.headers.get('Location')!);assert.equal(redirect.searchParams.get('state'),'test-state');const code=redirect.searchParams.get('code')!;
+const grant={grant_type:'authorization_code',client_id:client,redirect_uri:params.redirect_uri,code,code_verifier:verifier};
+r=await form('/o/token/',{...grant,code_verifier:'x'.repeat(64)},false);assert.equal(r.status,400);
+r=await form('/o/token/',grant,false);assert.equal(r.status,200,await r.clone().text());let tokens=await r.json() as any;assert(tokens.access_token);assert.equal((await form('/o/token/',grant,false)).status,400,'code cannot be reused');
+r=await fetch(base+'/api/v1/me/',{headers:{Authorization:'Bearer '+tokens.access_token}});assert.equal(r.status,200);
+const old=tokens;r=await form('/o/token/',{grant_type:'refresh_token',client_id:client,refresh_token:tokens.refresh_token},false);assert.equal(r.status,200);tokens=await r.json();assert.equal((await fetch(base+'/api/v1/me/',{headers:{Authorization:'Bearer '+old.access_token}})).status,401);
+assert.equal((await form('/o/token/',{grant_type:'refresh_token',client_id:client,refresh_token:old.refresh_token},false)).status,400);
+assert.equal((await form('/o/revoke_token/',{client_id:client,token:tokens.access_token},false)).status,200);assert.equal((await fetch(base+'/api/v1/me/',{headers:{Authorization:'Bearer '+tokens.access_token}})).status,401);
+r=await fetch(base+'/api/v1/keys/',{method:'POST',headers:{Cookie:cookie,'X-CSRFToken':'local-e2e-csrf','Content-Type':'application/json'},body:JSON.stringify({name:'Browser boundary',scopes:['read','write']})});assert.equal(r.status,201);const browserKey:any=await r.json();
+r=await fetch(base+'/accounts/discord/login/',{method:'POST',headers:{Authorization:'Bearer '+browserKey.key},redirect:'manual'});assert.equal(r.status,403,'API keys must not link sign-in identities');
+assert.equal((await form('/admin/login/',{username:'admin',password:'unused'},false)).status,403);
+console.log('PASS: CSRF, cross-origin protection, staff access, PKCE verifier/code replay, refresh rotation/revocation.');
