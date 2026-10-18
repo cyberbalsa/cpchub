@@ -23,7 +23,7 @@ document.querySelectorAll("[data-passkey-panel]").forEach((panel) => {
     });
     const result = await response.json();
     if (!response.ok) {
-      const error = new Error(response.status === 429 ? "Too many attempts. Please wait a minute and try again." : result.errors?.[0] || "The request could not be completed. Please try again.");
+      const error = new Error(response.status === 429 ? "Too many attempts. Wait a minute and try again." : result.errors?.[0] || "We couldn’t complete that request. Try again.");
       error.registrationRequired = result.registration_required === true;
       throw error;
     }
@@ -31,7 +31,7 @@ document.querySelectorAll("[data-passkey-panel]").forEach((panel) => {
   }
   if (!window.SimpleWebAuthnBrowser || !window.isSecureContext || !SimpleWebAuthnBrowser.browserSupportsWebAuthn()) {
     controls.forEach((control) => { control.disabled = true; });
-    message("Passkeys aren’t available in this browser. Try a current browser, or use Steam or Discord.");
+    message("Passkeys aren’t available in this browser. Try another browser, or sign in with Steam or Discord.");
     return;
   }
   async function run(action, data) {
@@ -39,7 +39,7 @@ document.querySelectorAll("[data-passkey-panel]").forEach((panel) => {
     busy = true;
     controls.forEach((control) => { control.disabled = true; });
     panel.setAttribute("aria-busy", "true");
-    message(action === "login" ? "Choose your passkey to sign in…" : "Follow your device’s prompt to save a passkey…");
+    message(action === "login" ? "Choose your passkey to sign in…" : "Follow your device’s instructions to save a passkey…");
     let offerRegistration = false;
     try {
       const kind = action === "login" ? "login" : "register";
@@ -54,13 +54,13 @@ document.querySelectorAll("[data-passkey-panel]").forEach((panel) => {
       if (error.name === "NotAllowedError") {
         offerRegistration = action === "login";
         message(action === "login"
-          ? "Sign-in was canceled or no matching passkey was available. Try again, or create an account below."
-          : "Passkey creation was canceled or timed out. No passkey was added. Please try again.");
+          ? "Passkey sign-in didn’t finish. Try again, use Steam or Discord, or create an account below."
+          : "No passkey was added. Try again to finish setting it up.");
       } else if (error.name === "InvalidStateError") {
         message("This device already has a passkey for your account. Use it to sign in, or choose another device.");
       } else {
         offerRegistration = error.registrationRequired === true;
-        message(error instanceof TypeError ? "Could not connect. Please check your connection and try again." : error.message || "Passkey sign-in failed. Please try again.");
+        message(error instanceof TypeError ? "Couldn’t connect to CPC Hub. Check your connection and try again." : error.message || "We couldn’t complete that request. Try again.");
       }
     } finally {
       busy = false;

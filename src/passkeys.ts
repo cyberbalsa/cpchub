@@ -61,7 +61,7 @@ passkeys.post(PATH+'login/verify/',async c=>{
  const saved=await takeChallenge(c,'login'),response=credential((await json(c)).credential);
  const key=await one(c.env.DB,'SELECT * FROM worker_passkey WHERE id=?',response.id);
  // An unknown assertion has no stored public key to verify. Offer enrollment, never a session.
- if(!key)return c.json({registration_required:true,errors:['This passkey is not linked to a CPC Hub account. Create an account with a new passkey, or use another sign-in method.']},404);
+ if(!key)return c.json({registration_required:true,errors:['We couldn’t find a CPC Hub account for this passkey. Try another passkey, sign in with Steam or Discord, or create an account below.']},404);
  const user=await userById(c.env,key.user_id);
  if(!user)throw new HttpError(403,'This account is inactive.');
  let verification;
@@ -70,8 +70,8 @@ passkeys.post(PATH+'login/verify/',async c=>{
   if(response.response?.userHandle!==user.passkey_user_handle)throw new Error('Invalid user handle');
   verification=await verifyAuthenticationResponse({response,expectedChallenge:saved.challenge,expectedOrigin:rp(c).origin,expectedRPID:rp(c).hostname,
    credential:{id:key.id,publicKey:new Uint8Array(Buffer.from(key.public_key,'base64url')),counter:key.counter},requireUserVerification:true});
- }catch{throw new HttpError(400,'The passkey could not be verified. Please try again.');}
- if(!verification.verified)throw new HttpError(400,'The passkey could not be verified. Please try again.');
+ }catch{throw new HttpError(400,'We couldn’t verify this passkey. Try again.');}
+ if(!verification.verified)throw new HttpError(400,'We couldn’t verify this passkey. Try again.');
  const info=verification.authenticationInfo;
  // Compare and update together so concurrent assertions cannot reuse an older counter.
  const updated=await run(c.env.DB,`UPDATE worker_passkey SET counter=?,backed_up=?,last_used_at=?
@@ -117,8 +117,8 @@ passkeys.post(PATH+'register/verify/',async c=>{
   if(response.clientExtensionResults?.credProps?.rk===false)throw new Error('Discoverable passkey required');
   verification=await verifyRegistrationResponse({response,expectedChallenge:saved.challenge,expectedOrigin:rp(c).origin,expectedRPID:rp(c).hostname,
    requireUserVerification:true,requireUserPresence:true,supportedAlgorithmIDs:ALGORITHMS});
- }catch{throw new HttpError(400,'The passkey could not be created. Please try again.');}
- if(!verification.verified)throw new HttpError(400,'The passkey could not be created. Please try again.');
+ }catch{throw new HttpError(400,'We couldn’t add this passkey. Try again.');}
+ if(!verification.verified)throw new HttpError(400,'We couldn’t add this passkey. Try again.');
  const {credential:key,credentialDeviceType,credentialBackedUp}=verification.registrationInfo;
  if(key.id!==response.id)throw new HttpError(400,'Invalid passkey response.');
  if(await one(c.env.DB,'SELECT id FROM worker_passkey WHERE id=?',key.id))throw new HttpError(409,'This passkey is already registered. Sign in with it instead.');
@@ -135,7 +135,7 @@ passkeys.post(PATH+'register/verify/',async c=>{
   key.id,Buffer.from(key.publicKey).toString('base64url'),key.counter,JSON.stringify(key.transports||[]),credentialDeviceType,Number(credentialBackedUp),at,saved.user_handle));
  let results;
  try{results=await c.env.DB.batch(statements);}catch(error){
-  if(/UNIQUE constraint failed: auth_user.username/.test(String(error)))throw new HttpError(409,'That name was just taken. Please choose another name.');
+  if(/UNIQUE constraint failed: auth_user.username/.test(String(error)))throw new HttpError(409,'Someone else chose that name. Choose another name.');
   if(/UNIQUE constraint failed: worker_passkey.id/.test(String(error)))throw new HttpError(409,'This passkey is already registered. Sign in with it instead.');
   throw error;
  }

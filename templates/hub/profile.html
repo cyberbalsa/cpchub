@@ -53,7 +53,7 @@
             <div><strong>Passkey {{ loop.index }}</strong><span class="linked-account-name">Added {{ passkey.created_at|date:'M j, Y' }}{% if passkey.last_used_at %} · Last used {{ passkey.last_used_at|date:'M j, Y' }}{% endif %}</span></div>
             <form method="post" action="{% url 'profile' %}">{% csrf_token %}<input type="hidden" name="action" value="remove-passkey"><input type="hidden" name="passkey" value="{{ passkey.id }}"><button type="submit" aria-label="Remove passkey {{ loop.index }}" {% if not can_disconnect %}disabled title="Add another sign-in method before removing this one"{% endif %}>Remove</button></form>
           </div>
-        {% empty %}<p>No passkeys yet. Add one using the sign-in options.</p>{% endfor %}
+        {% empty %}<p>No passkeys yet. Choose “Add a passkey” to set one up.</p>{% endfor %}
         <p class="muted small profile-help">Add a backup passkey or link Steam or Discord to keep access if you lose a device.</p>
       </section>
       <section class="paper-panel">
@@ -70,7 +70,7 @@
       <section class="window form-window">
         <div class="title-bar"><div class="title-bar-text">Add a sign-in method</div></div>
         <div class="window-body" data-passkey-panel data-csrf-token="{{ csrf_token }}">
-          <p>Add a passkey or connect Steam or Discord to sign in to this account.</p>
+          <p>Add a passkey, or link your Steam or Discord account.</p>
           {% url 'profile' as profile_url %}
           <div class="social-buttons social-signin-buttons">
             <button type="button" class="provider-button provider-button-passkey" data-passkey-action="add">{% include 'hub/icon.html' with icon='key' %}<span>Add a passkey</span></button>

@@ -8,23 +8,23 @@
   <div class="window-body standard-form" data-passkey-panel data-csrf-token="{{ csrf_token }}">
     <span class="parking-icon account-icon">P</span>
     <h1>Sign in to CPC Hub</h1>
-    <p>Use a passkey, Steam, or Discord to upload creations, save files, and connect a mod manager.</p>
+    <p>Sign in with a saved passkey, Steam, or Discord to upload creations, save favorites, and connect a mod manager.</p>
     <div class="social-buttons social-signin-buttons">
       <button type="button" class="provider-button provider-button-passkey" data-passkey-action="login">{% include 'hub/icon.html' with icon='key' %}<span>Sign in with a passkey</span></button>
       {% if steam_enabled %}<form method="post" action="{% provider_login_url 'steam' %}">{% csrf_token %}{% include 'socialaccount/provider_button.html' with provider='steam' label='Sign in through Steam' %}</form>{% endif %}
       {% if discord_enabled %}<form method="post" action="{% provider_login_url 'discord' %}">{% csrf_token %}{% include 'socialaccount/provider_button.html' with provider='discord' label='Continue with Discord' %}</form>{% endif %}
     </div>
     <p data-passkey-status role="status" aria-live="polite" hidden></p>
-    <p><button type="button" data-passkey-action="show-register" aria-expanded="false" aria-controls="passkey-registration">New here? Create an account with a passkey</button></p>
+    <p><button type="button" data-passkey-action="show-register" aria-expanded="false" aria-controls="passkey-registration">Create an account with a passkey</button></p>
+    <p class="muted small">Your first sign-in with Steam or Discord creates a CPC Hub account automatically.</p>
     <form id="passkey-registration" data-passkey-register hidden>
       <h2>Create a CPC Hub account?</h2>
-      <p>Choose your public name, then save a passkey. No password or email is needed.</p>
-      <p><label for="passkey-name">Name</label><input type="text" id="passkey-name" name="username" required maxlength="150" autocomplete="nickname" aria-describedby="passkey-name-help"><span class="helptext" id="passkey-name-help">Use letters, numbers, spaces, periods, hyphens, or underscores.</span></p>
-      <p class="muted small">Already have an account? Sign in first, then add a passkey in your account settings.</p>
-      <div class="passkey-actions"><button type="submit">Create account and passkey</button><button type="button" data-passkey-action="cancel-register">Cancel</button></div>
+      <p>Choose a public name, then follow your device’s instructions to save a passkey. You won’t need an email address or password.</p>
+      <p><label for="passkey-name">Display name</label><input type="text" id="passkey-name" name="username" required maxlength="150" autocomplete="nickname" aria-describedby="passkey-name-help"><span class="helptext" id="passkey-name-help">Shown on your profile and creations. Use up to 150 letters, numbers, spaces, periods, hyphens, or underscores.</span></p>
+      <p class="muted small">If you already have a CPC Hub account, sign in first and add a passkey in account settings.</p>
+      <div class="passkey-actions"><button type="submit">Create account and save passkey</button><button type="button" data-passkey-action="cancel-register">Cancel</button></div>
     </form>
     <noscript><p class="notice">Enable JavaScript to use a passkey, or sign in with Steam or Discord.</p></noscript>
-    <p class="muted small">Your first Steam or Discord sign-in creates an account. You can add sign-in methods from your profile.</p>
     <p class="muted small">We record your IP address and browser details when you sign in or upload, for moderation.</p>
   </div>
 </section></div>
