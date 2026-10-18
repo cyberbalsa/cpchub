@@ -22,6 +22,10 @@ export async function fixture(){
  const objects=new Map<string,Uint8Array>();
  const bucket={async createMultipartUpload(key:string){const chunks:Uint8Array[]=[];return {async uploadPart(partNumber:number,bytes:Uint8Array){chunks[partNumber-1]=bytes.slice();return {partNumber,etag:'test'};},async complete(){const merged=new Uint8Array(chunks.reduce((n,b)=>n+b.length,0));let at=0;for(const chunk of chunks){merged.set(chunk,at);at+=chunk.length;}objects.set(key,merged);},async abort(){objects.delete(key);}};},async put(key:string,value:any){objects.set(key,new Uint8Array(await new Response(value).arrayBuffer()));},async get(key:string){const bytes=objects.get(key);return bytes?{size:bytes.length,httpEtag:'"test"',body:new Response(bytes).body}:null;},async delete(key:string){objects.delete(key);}};
  const env={DB:db,PUBLIC_URL:'https://cpchub.net',SCREENSHOT_URL:'https://screenshots.cpchub.net',KOFI_PAGE_URL:'https://ko-fi.com/cpchub',FILES:bucket,QUARANTINE:bucket,PUBLIC_IMAGES:bucket,UPLOADS:{async send(){}},ASSETS:{async fetch(request:Request){return new Response(readFileSync('public'+new URL(request.url).pathname),{headers:{'Content-Type':'application/yaml'}});}}} as any as Env;
+ for(const binding of JSON.parse(readFileSync('wrangler.jsonc','utf8')).ratelimits){
+  const counts=new Map<string,number>();
+  Object.assign(env,{[binding.name]:{async limit({key}:{key:string}){const count=(counts.get(key)||0)+1;counts.set(key,count);return {success:count<=binding.simple.limit};}}});
+ }
  const background:Promise<any>[]=[];
  const context={waitUntil(p:Promise<any>){background.push(p);},passThroughOnException(){}} as ExecutionContext;
  Object.defineProperty(globalThis,'caches',{configurable:true,value:{default:{async match(){},async put(){}}}});

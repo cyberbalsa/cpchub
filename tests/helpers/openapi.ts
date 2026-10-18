@@ -12,7 +12,8 @@ export function check(name:string,data:any){const validate=validator({$ref:'#/co
 export const covered=new Set<string>();
 export async function checkResponse(path:string,method:string,response:Response):Promise<any>{
  const op=spec.paths[path]?.[method.toLowerCase()];assert(op,`Undocumented operation ${method} ${path}`);covered.add(method.toUpperCase()+' '+path);
- const contract=op.responses[response.status];assert(contract,`Undocumented status ${response.status} on ${method} ${path}: ${await response.clone().text()}`);
+ const responseSpec=op.responses[response.status];assert(responseSpec,`Undocumented status ${response.status} on ${method} ${path}: ${await response.clone().text()}`);
+ const contract=responseSpec.$ref?spec.components.responses[responseSpec.$ref.split('/').at(-1)]:responseSpec;
  const contentType=response.headers.get('content-type')?.split(';')[0];
  if(contract.content){assert(contentType);const schema=contract.content[contentType]?.schema;assert(schema,`Undocumented media type ${contentType}`);if(contentType==='application/json'){const data=await response.clone().json();const validate=validator(schema);assert(validate(data),`${method} ${path}: ${JSON.stringify(validate.errors)}`);return data;}}
  else assert.equal(await response.clone().text(),'');

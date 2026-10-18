@@ -13,9 +13,15 @@ import {refreshMonthlyCosts} from './billing';
 import {refreshEstimates} from './cost-estimates';
 import {multipart} from './multipart';
 import {settings} from './settings';
+import {requestRateLimit} from './rate-limits';
 const app=new Hono<App>({strict:true});
 app.use('*',async(c,next)=>{
- c.set('user',await authenticate(c));
+ try{c.set('user',await authenticate(c));}catch(error){
+  // Invalid credentials get the anonymous allowance, never the 3x allowance.
+  if(error instanceof HttpError&&error.status===401){const limited=await requestRateLimit(c,null);if(limited)return limited;}
+  throw error;
+ }
+ const limited=await requestRateLimit(c,c.get('user'));if(limited)return limited;
  if(c.get('user')&&c.get('user')!.auth!=='session'&&!c.req.path.startsWith('/api/v1/'))throw new HttpError(403,'Browser session required.');
  if(c.get('user')?.auth!=='session'&&c.get('user')&&!c.get('user')!.scopes.includes(c.req.method==='GET'||c.req.method==='HEAD'?'read':'write')&&!c.req.path.includes('/keys/'))throw new HttpError(403,'Required scope is missing.');
  if(!['GET','HEAD','OPTIONS'].includes(c.req.method)){const size=Number(c.req.header('Content-Length')||0);if(size>100*1024*1024)throw new HttpError(413,'Request too large.');if(!c.req.header('Content-Type')?.startsWith('multipart/form-data')&&c.req.raw.body){const reader=c.req.raw.clone().body!.getReader();let bytes=0;while(true){const part=await reader.read();if(part.done)break;bytes+=part.value.length;if(bytes>65536){void reader.cancel();throw new HttpError(413,'Request metadata exceeds 64 KiB.');}}}if(c.req.header('Content-Type')?.startsWith('multipart/form-data')&&c.req.path!=='/accounts/login/'){if(!c.get('user'))throw new HttpError(401,'Sign in to upload.');const origin=c.req.header('Origin');if(origin&&origin!==new URL(c.env.PUBLIC_URL).origin)throw new HttpError(403,'Invalid origin.');const parsed=await multipart(c.req.raw,c.env);c.set('uploadBody',parsed.data);try{await csrf(c);}catch(e){await Promise.all(parsed.files.map(f=>c.env.QUARANTINE.delete(f.key)));throw e;}}else await csrf(c);}

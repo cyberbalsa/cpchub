@@ -2,8 +2,16 @@ openapi: 3.1.0
 info:
   title: CPC Hub API
   version: 1.0.0
-  description: Versioned community catalog for Car Park Capital. OAuth authorization code + S256 PKCE
-    for mod managers; scoped personal API keys for scripts.
+  description: >-
+    Versioned community catalog for Car Park Capital. OAuth authorization code + S256 PKCE for mod
+    managers; scoped personal API keys for scripts. API requests are limited per client IP to 300
+    per minute anonymously or 900 per minute with a validated session, API key or OAuth access
+    token. Upload, screenshot, download, login and token routes have a separate shared allowance of
+    60 per minute anonymously or 180 per minute authenticated. API upload/download requests count
+    against both allowances. Limits are approximate and local to a Cloudflare location. A rate limit
+    returns HTTP 429 with JSON {"error":"rate_limited","retry_after":60}; wait at least 60 seconds
+    before retrying. The separate quota of 16 release file uploads per hour per non-staff account
+    still applies.
 paths:
   /api/v1/items/:
     get:
@@ -276,11 +284,7 @@ paths:
                 $ref: "#/components/schemas/Error"
           description: ""
         "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-          description: ""
+          $ref: "#/components/responses/TooManyRequests"
     post:
       operationId: v1_items_create
       description: Create metadata for a blueprint or scenario. Pack and mod uploads are disabled. API
@@ -330,6 +334,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
           description: ""
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/items/{id}/:
     get:
       operationId: v1_items_retrieve
@@ -377,6 +383,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
           description: ""
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
     patch:
       operationId: v1_items_partial_update
       description: Authors can edit their own metadata. Admin and Moderator browser sessions may edit any
@@ -441,6 +449,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
           description: ""
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
     delete:
       operationId: v1_items_destroy
       description: Author-only soft deletion. Immediately private to the creator and staff; recoverable
@@ -488,6 +498,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
           description: ""
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/items/{id}/history/:
     get:
       operationId: v1_items_history_list
@@ -527,6 +539,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/items/{id}/releases/:
     post:
       operationId: v1_items_releases_create
@@ -585,16 +599,7 @@ paths:
                 $ref: "#/components/schemas/Error"
           description: ""
         "429":
-          headers:
-            Retry-After:
-              schema:
-                type: integer
-              description: Seconds until an upload slot becomes available.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-          description: ""
+          $ref: "#/components/responses/TooManyRequests"
         "503":
           content:
             application/json:
@@ -667,6 +672,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
           description: ""
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/items/{id}/restore/:
     post:
       operationId: v1_items_restore_create
@@ -718,6 +725,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
           description: ""
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/items/{id}/screenshots/:
     post:
       operationId: v1_items_screenshots_create
@@ -773,6 +782,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
           description: ""
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/items/{id}/screenshots/{screenshot_id}/:
     delete:
       operationId: v1_items_screenshots_destroy
@@ -827,6 +838,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
           description: ""
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/items/{id}/screenshots/{screenshot_id}/image/:
     get:
       operationId: v1_items_screenshots_image_retrieve
@@ -893,6 +906,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
           description: ""
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/items/{id}/upload-jobs/:
     get:
       operationId: v1_items_upload_jobs_list
@@ -936,6 +951,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/keys/:
     get:
       operationId: v1_keys_list
@@ -978,11 +995,7 @@ paths:
                 $ref: "#/components/schemas/Error"
           description: ""
         "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-          description: ""
+          $ref: "#/components/responses/TooManyRequests"
     post:
       operationId: v1_keys_create
       description: Session or OAuth keys:write scope required. OAuth clients may mint only read/write
@@ -1032,6 +1045,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
           description: ""
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/keys/{id}/:
     delete:
       operationId: v1_keys_destroy
@@ -1077,6 +1092,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
           description: ""
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/me/:
     get:
       operationId: v1_me_retrieve
@@ -1107,6 +1124,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
           description: ""
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/tags/:
     get:
       operationId: v1_tags_list
@@ -1159,11 +1178,7 @@ paths:
                 $ref: "#/components/schemas/Error"
           description: ""
         "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-          description: ""
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/tags/suggest/:
     get:
       operationId: v1_tags_suggest_list
@@ -1203,6 +1218,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/types/:
     get:
       operationId: v1_types_list
@@ -1249,11 +1266,7 @@ paths:
                 $ref: "#/components/schemas/Error"
           description: ""
         "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-          description: ""
+          $ref: "#/components/responses/TooManyRequests"
   /api/v1/types/{slug}/:
     get:
       operationId: v1_types_retrieve
@@ -1304,11 +1317,7 @@ paths:
                 $ref: "#/components/schemas/Error"
           description: ""
         "429":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-          description: ""
+          $ref: "#/components/responses/TooManyRequests"
   /o/token/:
     post:
       operationId: oauth_token
@@ -1336,6 +1345,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OAuthError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /o/revoke_token/:
     post:
       operationId: oauth_revoke
@@ -1353,6 +1364,8 @@ paths:
         "200":
           description: Token family revoked, or token already absent.
         "400": *a1
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /o/authorize/:
     get:
       operationId: oauth_authorize
@@ -2328,6 +2341,20 @@ components:
         - code_challenge
         - approve
         - csrfmiddlewaretoken
+    RateLimitError:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+        - retry_after
+      properties:
+        error:
+          type: string
+          enum:
+            - rate_limited
+        retry_after:
+          type: integer
+          minimum: 1
   securitySchemes:
     PersonalAPIKey:
       type: http
@@ -2348,6 +2375,22 @@ components:
             read: Read your profile and catalog
             write: Publish and edit your uploads
             keys:write: Create and revoke API keys for this manager
+  responses:
+    TooManyRequests:
+      description: Request rate limit or release upload quota exceeded. Retry after the indicated delay;
+        use 60 seconds if the header is absent.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+          description: Seconds to wait. Request limits use 60; the separate release upload quota uses 3600.
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: "#/components/schemas/RateLimitError"
+              - $ref: "#/components/schemas/Error"
 servers:
   - url: https://cpchub.net
     description: Production

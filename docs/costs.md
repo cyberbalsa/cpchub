@@ -2,6 +2,8 @@
 
 Checked 17 October 2026. Prices are USD before tax. Allowances are shared with the rest of the Cloudflare account.
 
+The [18 October Pro audit](cloudflare-pro.md) records the applied WAF, bot, cache and authenticated rate-limit changes, their cost implications and rollback instructions.
+
 | Feature | Choice and reason | Billing basis |
 |---|---|---|
 | Pages, API, authentication, moderation | Workers with precompiled templates and bundled static assets; no always-on VM | Workers Paid: $5/month account minimum, 10 million requests and 30 million CPU-ms included; then $0.30/million requests and $0.02/million CPU-ms. Static-asset requests are free. [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) |

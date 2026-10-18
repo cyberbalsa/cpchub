@@ -6,6 +6,8 @@ Main Worker version: `c4a77ce9-7750-4095-b17a-102d86740d9f`.
 Native validator version: `84f7cd07-1bdb-4c44-b94c-f59b84668869`.
 Image validator version: `87cec68b-0d17-4b27-a12a-2fdb174cbefc`.
 
+These versions and checks describe the migration baseline. The subsequent [Pro hardening and authenticated rate-limit rollout](cloudflare-pro.md) deployed main Worker version `b117ef83-38d2-4ed4-b29e-bf214e3a5db2` and records the later zone policy.
+
 The production database, exported over SSH from `cpchub-app`, supplied four accounts, four creations, four release files, and eight screenshots. Balsa (ID 4) retains Admin and both social-provider links. No development admin or synthetic test accounts remain in production. Usable passwords were stripped during export and password authentication code was removed.
 
 Verification completed:
