@@ -41,7 +41,7 @@ void test("moderation dashboards, reviews and users paginate and filter records"
     item_id: f.item.id,
     item_title: f.item.title,
   });
-  for (let i = 3; i < 35; i++)
+  for (let i = 3; i < 55; i++)
     f.insert("auth_user", { id: i, username: "Member" + i, is_active: 1 });
   for (const path of [
     "/moderation/",
@@ -57,6 +57,16 @@ void test("moderation dashboards, reviews and users paginate and filter records"
     `/moderation/items/${f.item.id}/`,
   ])
     assert.equal((await f.request(path)).status, 200, path);
+  for (const [page, expected] of [
+    [1, 50],
+    [2, 4],
+  ] as const) {
+    const html = await (
+      await f.request("/moderation/users/?page=" + page)
+    ).text();
+    assert.equal((html.match(/>Manage<\/a>/g) || []).length, expected);
+    assert(html.includes(`Page ${page} of 2`));
+  }
   const path = `/moderation/items/${f.item.id}/`;
   assert.equal(
     (await f.request(path, "POST", { action: "review", content_revision: 1 }))

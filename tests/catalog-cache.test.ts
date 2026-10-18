@@ -84,6 +84,7 @@ void test("cached HTMX results isolate sessions, skip catalog queries and work i
   assert.equal(anotherSession.headers.get("X-Cache"), "MISS");
   assert((await anotherSession.text()).includes(draft.title));
   for (const key of entries.keys()) {
+    assert.equal(new URL(key).searchParams.get("__page_size"), "50");
     assert(!key.includes("test-session") && !key.includes("test-csrf"));
     assert(!key.includes("another-session") && !key.includes("another-csrf"));
   }

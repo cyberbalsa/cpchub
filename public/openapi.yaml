@@ -226,9 +226,10 @@ paths:
         - name: page
           required: false
           in: query
-          description: A page number within the paginated result set.
+          description: A page number within the paginated result set. Each page contains up to 50 items.
           schema:
             type: integer
+            default: 1
         - in: query
           name: q
           schema:

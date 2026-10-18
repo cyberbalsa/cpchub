@@ -3,6 +3,7 @@ import { normalizeText, normalizeSearch } from "./text-input";
 import { censorText, censorMarkdown } from "./text-filter";
 import { fileStatistics } from "./upload-schemas";
 import { canRestore, RETENTION_MS } from "./retention";
+import { PAGE_SIZE } from "./pagination";
 import {
   Env,
   User,
@@ -316,18 +317,22 @@ export async function listItems(
     ...args,
   ))!.n;
   const page = Math.max(
-      1,
-      Math.min(1000000, Math.floor(Number(p.get("page")) || 1)),
-    ),
-    limit = 24;
+    1,
+    Math.min(1000000, Math.floor(Number(p.get("page")) || 1)),
+  );
   const items = await all<CatalogItem>(
     env.DB,
     SELECT + where + ` ORDER BY ${sort} DESC,i.id LIMIT ? OFFSET ?`,
     ...args,
-    limit,
-    (page - 1) * limit,
+    PAGE_SIZE,
+    (page - 1) * PAGE_SIZE,
   );
-  return { count, page, items, pages: Math.max(1, Math.ceil(count / limit)) };
+  return {
+    count,
+    page,
+    items,
+    pages: Math.max(1, Math.ceil(count / PAGE_SIZE)),
+  };
 }
 function field(d: Row, k: string, max: number, required = false) {
   const raw = d[k];

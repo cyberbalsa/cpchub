@@ -167,7 +167,7 @@ void test("catalog search, tag visibility, saved views and numeric filters enfor
   );
   assert.equal(result.tags, "public");
   assert(result.screenshots[0]!.image_url.startsWith(f.env.SCREENSHOT_URL));
-  for (let n = 0; n < 25; n++)
+  for (let n = 0; n < 51; n++)
     f.insert("hub_item", {
       id: uuid(),
       title: "Page " + n,
@@ -177,15 +177,55 @@ void test("catalog search, tag visibility, saved views and numeric filters enfor
     });
   const first = await (
     await f.request("/api/v1/items/", "GET", undefined, "anonymous")
-  ).json<{ next: string; previous: null; count: number }>();
+  ).json<{
+    next: string;
+    previous: null;
+    count: number;
+    results: { id: string }[];
+  }>();
   assert(first.next.endsWith("page=2"));
   assert.equal(first.previous, null);
-  assert.equal(first.count, 26);
+  assert.equal(first.count, 52);
+  assert.equal(first.results.length, 50);
   const second = await (
     await f.request("/api/v1/items/?page=2", "GET", undefined, "anonymous")
-  ).json<{ previous: string; next: null }>();
+  ).json<{ previous: string; next: null; results: { id: string }[] }>();
   assert(second.previous.endsWith("page=1"));
   assert.equal(second.next, null);
+  assert.equal(second.results.length, 2);
+  assert.equal(
+    new Set([...first.results, ...second.results].map((item) => item.id)).size,
+    52,
+  );
+  for (const path of [
+    "/catalog/results/?type=blueprints",
+    "/?type=blueprints&render=full",
+    "/creators/2/",
+  ]) {
+    const firstPage = await (
+      await f.request(path, "GET", undefined, "anonymous")
+    ).text();
+    assert.equal(
+      (firstPage.match(/class="creation-card"/g) || []).length,
+      50,
+      path,
+    );
+    assert(firstPage.includes("Page 1 of 2"), path);
+    const secondPage = await (
+      await f.request(
+        path + (path.includes("?") ? "&" : "?") + "page=2",
+        "GET",
+        undefined,
+        "anonymous",
+      )
+    ).text();
+    assert.equal(
+      (secondPage.match(/class="creation-card"/g) || []).length,
+      2,
+      path,
+    );
+    assert(secondPage.includes("Page 2 of 2"), path);
+  }
   assert.equal((await f.request("/api/v1/types/missing/")).status, 404);
   f.sqlite.exec("DELETE FROM hub_uploadsettings");
   assert.equal((await f.request("/api/v1/types/")).status, 200);

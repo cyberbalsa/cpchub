@@ -2,6 +2,7 @@ import type { Context, MiddlewareHandler } from "hono";
 import { getCookie } from "hono/cookie";
 import { NUMERIC_FILTERS } from "./catalog";
 import { App, hash, one } from "./env";
+import { PAGE_SIZE } from "./pagination";
 const publicPath =
   /^\/api\/v1\/(?:items\/(?:[0-9a-f-]+\/)?|types\/(?:[a-z-]+\/)?|tags\/)$/;
 const allowed = new Set([
@@ -44,6 +45,7 @@ export const edgeCache: MiddlewareHandler<App> = async (c, next) => {
   url.searchParams.set("__text_filter", "hearts-v1");
   url.searchParams.set("__tag_categories", "v1");
   url.searchParams.set("__catalog", "popularity-v1");
+  url.searchParams.set("__page_size", String(PAGE_SIZE));
   const key = new Request(url.href, { method: "GET" });
   const cache = caches.default;
   const hit = await cache.match(key);
@@ -144,5 +146,6 @@ export async function cachedCatalogFragment(
   const url = new URL("/catalog/results/", c.req.url);
   url.search = params.toString();
   url.searchParams.set("__fragment", oob ? "oob-v1" : "inline-v1");
+  url.searchParams.set("__page_size", String(PAGE_SIZE));
   return cachedFragment(c, url, load);
 }

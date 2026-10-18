@@ -2,6 +2,7 @@ import type { Table } from "./env";
 import type { CatalogItem } from "./catalog";
 import { normalizeText, normalizeSearch } from "./text-input";
 import { canRestore, RETENTION_MS } from "./retention";
+import { PAGE_SIZE } from "./pagination";
 import { Hono, Context } from "hono";
 import {
   App,
@@ -52,15 +53,16 @@ async function paged<T = Row>(
     ))!.n;
   const rows = await all<T>(
     c.env.DB,
-    sql + " LIMIT 30 OFFSET ?",
+    sql + " LIMIT ? OFFSET ?",
     ...args,
-    (n - 1) * 30,
+    PAGE_SIZE,
+    (n - 1) * PAGE_SIZE,
   );
   return Object.assign(rows, {
-    paginator: { count, num_pages: Math.max(1, Math.ceil(count / 30)) },
+    paginator: { count, num_pages: Math.max(1, Math.ceil(count / PAGE_SIZE)) },
     number: n,
     has_previous: n > 1,
-    has_next: n * 30 < count,
+    has_next: n * PAGE_SIZE < count,
     previous_page_number: n - 1,
     next_page_number: n + 1,
   });
@@ -510,9 +512,10 @@ moderation.get("/activity/", async (c) => {
       c.env.DB,
       "SELECT a.*,u.username" +
         where +
-        " ORDER BY a.created_at DESC LIMIT 50 OFFSET ?",
+        " ORDER BY a.created_at DESC LIMIT ? OFFSET ?",
       ...args,
-      (n - 1) * 50,
+      PAGE_SIZE,
+      (n - 1) * PAGE_SIZE,
     )
   ).map((a) => ({
     ...a,
@@ -521,10 +524,13 @@ moderation.get("/activity/", async (c) => {
   }));
   return render(c, "hub/moderation/account_activity.html", {
     page_obj: Object.assign(rows, {
-      paginator: { count, num_pages: Math.max(1, Math.ceil(count / 50)) },
+      paginator: {
+        count,
+        num_pages: Math.max(1, Math.ceil(count / PAGE_SIZE)),
+      },
       number: n,
       has_previous: n > 1,
-      has_next: n * 50 < count,
+      has_next: n * PAGE_SIZE < count,
       previous_page_number: n - 1,
       next_page_number: n + 1,
     }),
