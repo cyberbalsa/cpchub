@@ -35,9 +35,10 @@ import {
   categoryTagGroups,
   screenshotURL,
 } from "./catalog";
-import { cachedCatalogFragment, cachedFragment } from "./cache";
+import { cachedCatalogHTML, cachedHTML } from "./cache";
 import {
   render,
+  csrfToken,
   viewItem,
   viewItems,
   itemHeader,
@@ -52,6 +53,7 @@ import {
 import { submit, jobJSON } from "./uploads";
 import { body, issueKey, keyJSON, removeScreenshot, deliver } from "./api";
 export const pages = new Hono<App>();
+pages.get("/accounts/csrf/", (c) => c.json({ csrf_token: csrfToken(c) }));
 const paginate = <T>(items: T[], count: number, page = 1, pages = 1) =>
   Object.assign(items, {
     paginator: { count, num_pages: pages },
@@ -72,6 +74,12 @@ function catalogSearch(params: URLSearchParams) {
     q: params.get("q") || "",
     tag: params.get("tag") || "",
     sort: catalogSort(params.get("sort")),
+    querystring: (values: Row) => {
+      const query = new URLSearchParams(params);
+      for (const [key, value] of Object.entries(values))
+        query.set(key, String(value));
+      return "?" + query;
+    },
     clear_stats_url: "/?" + clear,
     stats_form: {
       active: NUMERIC_FILTERS.some(
@@ -90,7 +98,7 @@ function catalogResults(
   params: URLSearchParams,
   oob: boolean,
 ) {
-  return cachedCatalogFragment(c, params, oob, async () => {
+  return cachedCatalogHTML(c, params, oob ? "oob" : "inline", async () => {
     const u = c.get("user"),
       r = await listItems(c.env, params, u);
     const [items, tagGroups] = await Promise.all([
@@ -119,73 +127,89 @@ pages.get("/", async (c) => {
     u = c.get("user");
   if (c.req.header("HX-Request") === "true")
     return catalogResults(c, params, true);
-  const [results, types, stats, featured, tagGroups] = await Promise.all([
-    c.req.query("render") === "full" ? catalogResults(c, params, false) : null,
-    all(
-      c.env.DB,
-      `SELECT t.*,(SELECT COUNT(*) FROM hub_item i WHERE i.content_type_id=t.id AND ${PUBLIC}) total FROM hub_contenttype t WHERE uploads_enabled=1 ORDER BY position,name`,
-    ),
-    one(
-      c.env.DB,
-      `SELECT COUNT(*) items,COALESCE(SUM(downloads),0) downloads,COUNT(DISTINCT author_id) authors FROM hub_item i WHERE ${PUBLIC}`,
-    ),
-    params.size
-      ? Promise.resolve([])
-      : all<CatalogItem>(
+  const full = c.req.query("render") === "full";
+  const response = await cachedCatalogHTML(
+    c,
+    params,
+    full ? "page-full" : "page",
+    async () => {
+      const [results, types, stats, featured, tagGroups] = await Promise.all([
+        full ? catalogResults(c, params, false) : null,
+        all(
           c.env.DB,
-          SELECT +
-            ` WHERE ${PUBLIC} AND i.featured_at IS NOT NULL ORDER BY i.featured_at DESC LIMIT 6`,
+          `SELECT t.*,(SELECT COUNT(*) FROM hub_item i WHERE i.content_type_id=t.id AND ${PUBLIC}) total FROM hub_contenttype t WHERE uploads_enabled=1 ORDER BY position,name`,
         ),
-    categoryTagGroups(c.env),
-  ]);
-  const search = catalogSearch(params);
-  const ranges = NUMERIC_FILTERS.map((k) => {
-    const label =
-      k === "collection_count" ? "Collection saves" : k.replaceAll("_", " ");
-    return {
-      name: k,
-      label,
-      minimum: safe(
-        `<input class="stats-filter-input" name="min_${k}" type="number" min="0" step="1" aria-label="Minimum ${label}" placeholder="Min" value="${esc(params.get("min_" + k))}">`,
-      ),
-      maximum: safe(
-        `<input class="stats-filter-input" name="max_${k}" type="number" min="0" step="1" aria-label="Maximum ${label}" placeholder="Max" value="${esc(params.get("max_" + k))}">`,
-      ),
-    };
-  });
-  c.header("X-Catalog-Cache", results?.headers.get("X-Cache") || "DEFERRED");
-  return render(c, "hub/catalog.html", {
-    ...search,
-    catalog_results: results ? safe(await results.text()) : null,
-    catalog_fragment_url: "/catalog/results/?" + params,
-    catalog_fallback_url:
-      "/?" + new URLSearchParams([...params, ["render", "full"]]),
-    types_with_counts: types,
-    catalog_types: types,
-    tag_groups: tagGroups,
-    stats,
-    featured_items: await viewItems(c.env, featured, u),
-    stats_form: {
-      ...search.stats_form,
-      ranges: ranges.filter((range) => range.name !== "collection_count"),
-      collection_ranges: ranges.filter(
-        (range) => range.name === "collection_count",
-      ),
+        one(
+          c.env.DB,
+          `SELECT COUNT(*) items,COALESCE(SUM(downloads),0) downloads,COUNT(DISTINCT author_id) authors FROM hub_item i WHERE ${PUBLIC}`,
+        ),
+        params.size
+          ? Promise.resolve([])
+          : all<CatalogItem>(
+              c.env.DB,
+              SELECT +
+                ` WHERE ${PUBLIC} AND i.featured_at IS NOT NULL ORDER BY i.featured_at DESC LIMIT 6`,
+            ),
+        categoryTagGroups(c.env),
+      ]);
+      const search = catalogSearch(params);
+      const ranges = NUMERIC_FILTERS.map((k) => {
+        const label =
+          k === "collection_count"
+            ? "Collection saves"
+            : k.replaceAll("_", " ");
+        return {
+          name: k,
+          label,
+          minimum: safe(
+            `<input class="stats-filter-input" name="min_${k}" type="number" min="0" step="1" aria-label="Minimum ${label}" placeholder="Min" value="${esc(params.get("min_" + k))}">`,
+          ),
+          maximum: safe(
+            `<input class="stats-filter-input" name="max_${k}" type="number" min="0" step="1" aria-label="Maximum ${label}" placeholder="Max" value="${esc(params.get("max_" + k))}">`,
+          ),
+        };
+      });
+      c.header(
+        "X-Catalog-Cache",
+        results?.headers.get("X-Cache") || "DEFERRED",
+      );
+      return render(c, "hub/catalog.html", {
+        ...search,
+        catalog_results: results ? safe(await results.text()) : null,
+        catalog_fragment_url: "/catalog/results/?" + params,
+        catalog_fallback_url:
+          "/?" + new URLSearchParams([...params, ["render", "full"]]),
+        types_with_counts: types,
+        catalog_types: types,
+        tag_groups: tagGroups,
+        stats,
+        featured_items: await viewItems(c.env, featured, u),
+        stats_form: {
+          ...search.stats_form,
+          ranges: ranges.filter((range) => range.name !== "collection_count"),
+          collection_ranges: ranges.filter(
+            (range) => range.name === "collection_count",
+          ),
+        },
+        seo: {
+          title: "CPC Hub — Car Park Capital community exchange",
+          description:
+            "Find community blueprints and scenarios for Car Park Capital.",
+          canonical: c.env.PUBLIC_URL + "/",
+          robots: params.size ? "noindex, follow" : "index, follow",
+          image: c.env.PUBLIC_URL + "/static/art/share-card.png",
+        },
+      });
     },
-    seo: {
-      title: "CPC Hub — Car Park Capital community exchange",
-      description:
-        "Find community blueprints and scenarios for Car Park Capital.",
-      canonical: c.env.PUBLIC_URL + "/",
-      robots: params.size ? "noindex, follow" : "index, follow",
-      image: c.env.PUBLIC_URL + "/static/art/share-card.png",
-    },
-  });
+  );
+  if (full && response.headers.get("X-Cache") === "HIT")
+    response.headers.set("X-Catalog-Cache", "HIT");
+  return response;
 });
 function itemContent(c: Context<App>, id: string, item?: CatalogItem) {
   const url = new URL(`/items/${publicId(dbId(id))}/content/`, c.req.url);
   url.searchParams.set("__fragment", "item-v1");
-  return cachedFragment(c, url, async () => {
+  return cachedHTML(c, url, async () => {
     const u = c.get("user"),
       i = item || (await getItem(c.env, id, u));
     return render(c, "hub/detail_content.html", {
@@ -196,60 +220,72 @@ function itemContent(c: Context<App>, id: string, item?: CatalogItem) {
 pages.get("/items/:id/content/", (c) => itemContent(c, c.req.param("id")));
 pages.get("/items/:id/", async (c) => {
   const u = c.get("user"),
-    i = await getItem(c.env, c.req.param("id"), u),
-    item = itemHeader(i);
-  const [content, screenshot, release] = await Promise.all([
-    c.req.query("render") === "full" ? itemContent(c, i.id, i) : null,
-    one<Pick<Table<"hub_screenshot">, "id" | "image">>(
-      c.env.DB,
-      "SELECT id,image FROM hub_screenshot WHERE item_id=? ORDER BY created_at,id LIMIT 1",
-      i.id,
-    ),
-    one(c.env.DB, "SELECT id FROM hub_release WHERE item_id=? LIMIT 1", i.id),
-  ]);
-  c.header("X-Item-Cache", content?.headers.get("X-Cache") || "DEFERRED");
-  return render(c, "hub/detail.html", {
-    item,
-    detail_content: content ? safe(await content.text()) : null,
-    can_edit: editable(i, u),
-    saved:
-      !!u &&
-      !!(await one(
-        c.env.DB,
-        "SELECT id FROM hub_bookmark WHERE user_id=? AND item_id=?",
-        u.id,
-        i.id,
-      )),
-    show_download_warning:
-      !!release &&
+    full = c.req.query("render") === "full",
+    showDownloadWarning =
       getCookie(c, "cpc_warning") !== "1" &&
       (!u ||
         !(await one(
           c.env.DB,
           "SELECT id FROM hub_userpreferences WHERE user_id=? AND ugc_warning_version=1",
           u.id,
-        ))),
-    download_warning_form: {
-      remember: safe(
-        '<input type="checkbox" id="remember" name="remember" value="1"><label for="remember">Don’t show this again</label>',
+        )));
+  const url = new URL(
+    `/items/${publicId(dbId(c.req.param("id")))}/`,
+    c.req.url,
+  );
+  url.searchParams.set("__html", full ? "page-full-v1" : "page-v1");
+  url.searchParams.set("__warning", String(showDownloadWarning));
+  const response = await cachedHTML(c, url, async () => {
+    const i = await getItem(c.env, c.req.param("id"), u),
+      item = itemHeader(i);
+    const [content, screenshot, release] = await Promise.all([
+      full ? itemContent(c, i.id, i) : null,
+      one<Pick<Table<"hub_screenshot">, "id" | "image">>(
+        c.env.DB,
+        "SELECT id,image FROM hub_screenshot WHERE item_id=? ORDER BY created_at,id LIMIT 1",
+        i.id,
       ),
-    },
-    seo: {
-      title: item.title + " — CPC Hub",
-      description: item.summary,
-      author: item.author.username,
-      canonical: c.env.PUBLIC_URL + item.get_absolute_url,
-      robots:
-        i.status === "published" && !i.is_hidden && !i.deleted_at
-          ? "index, follow"
-          : "noindex, nofollow",
-      image: screenshot
-        ? screenshotURL(c.env, i.id, screenshot)
-        : c.env.PUBLIC_URL + "/static/art/share-card.png",
-      image_type: "image/webp",
-      type: "website",
-    },
+      one(c.env.DB, "SELECT id FROM hub_release WHERE item_id=? LIMIT 1", i.id),
+    ]);
+    c.header("X-Item-Cache", content?.headers.get("X-Cache") || "DEFERRED");
+    return render(c, "hub/detail.html", {
+      item,
+      detail_content: content ? safe(await content.text()) : null,
+      can_edit: editable(i, u),
+      saved:
+        !!u &&
+        !!(await one(
+          c.env.DB,
+          "SELECT id FROM hub_bookmark WHERE user_id=? AND item_id=?",
+          u.id,
+          i.id,
+        )),
+      show_download_warning: !!release && showDownloadWarning,
+      download_warning_form: {
+        remember: safe(
+          '<input type="checkbox" id="remember" name="remember" value="1"><label for="remember">Don’t show this again</label>',
+        ),
+      },
+      seo: {
+        title: item.title + " — CPC Hub",
+        description: item.summary,
+        author: item.author.username,
+        canonical: c.env.PUBLIC_URL + item.get_absolute_url,
+        robots:
+          i.status === "published" && !i.is_hidden && !i.deleted_at
+            ? "index, follow"
+            : "noindex, nofollow",
+        image: screenshot
+          ? screenshotURL(c.env, i.id, screenshot)
+          : c.env.PUBLIC_URL + "/static/art/share-card.png",
+        image_type: "image/webp",
+        type: "website",
+      },
+    });
   });
+  if (full && response.headers.get("X-Cache") === "HIT")
+    response.headers.set("X-Item-Cache", "HIT");
+  return response;
 });
 async function editor(c: Context<App>, id?: string) {
   const u = c.get("user");

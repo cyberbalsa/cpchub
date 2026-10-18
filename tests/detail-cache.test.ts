@@ -25,7 +25,7 @@ void test("initial pages request their fragments separately and offer a complete
   assert.equal(placeholder.attribs["hx-get"], "/catalog/results/?" + query);
   assert.equal(placeholder.attribs["hx-trigger"], "load");
   assert.equal(placeholder.attribs["hx-sync"], "#catalog-filter:replace");
-  assert(!queries.some((sql) => sql.includes("FROM worker_cache_revision")));
+  assert.equal(response.headers.get("X-Cache"), "MISS");
   const fragment = await f.rawRequest(placeholder.attribs["hx-get"]!, {
     headers: {
       Cookie: "cpc_session=test-session",
@@ -66,11 +66,7 @@ void test("initial pages request their fragments separately and offer a complete
       `content="https://cpchub.net/api/v1/items/${publicId(f.item.id)}/screenshots/${publicId(f.screenshot.id)}/image/"`,
     ),
   );
-  assert(
-    !queries.some((sql) =>
-      /SELECT \* FROM hub_release|FROM worker_cache_revision/.test(sql),
-    ),
-  );
+  assert(!queries.some((sql) => /SELECT \* FROM hub_release/.test(sql)));
   const content = DomUtils.getElementById(
     "item-content",
     parseDocument(detailHTML).children,
@@ -242,7 +238,7 @@ void test("item counters expire in a minute while content edits and visibility c
   );
 });
 
-void test("cached item content leaves save counts and download preferences fresh in the wrapper", async (t) => {
+void test("cached item pages immediately refresh the saver's controls and download preferences", async (t) => {
   const f = await staffFixture();
   t.after(f.close);
   fragmentCache(t);
@@ -263,9 +259,15 @@ void test("cached item content leaves save counts and download preferences fresh
   const wrapper = await (await f.request(path)).text();
   assert(wrapper.includes("Saved by 1 person"));
   assert(wrapper.includes('id="download-warning"'));
+  assert.equal((await f.request(path)).headers.get("X-Cache"), "HIT");
   const removed = await (await toggle()).text();
   assert(removed.includes("Saved by 0 people"));
   assert(removed.includes("☆ Save creation"));
+  const updated = await f.request(path);
+  assert.equal(updated.headers.get("X-Cache"), "MISS");
+  const updatedHTML = await updated.text();
+  assert(updatedHTML.includes("Saved by 0 people"));
+  assert(updatedHTML.includes("☆ Save creation"));
   const remembered = await f.rawRequest(path, {
     headers: { Cookie: "cpc_session=test-session; cpc_warning=1" },
   });
@@ -273,6 +275,14 @@ void test("cached item content leaves save counts and download preferences fresh
   f.insert("hub_userpreferences", { user_id: 1, ugc_warning_version: 1 });
   assert(
     !(await (await f.request(path)).text()).includes('id="download-warning"'),
+  );
+  f.sqlite
+    .prepare(
+      "UPDATE hub_userpreferences SET ugc_warning_version=0 WHERE user_id=1",
+    )
+    .run();
+  assert(
+    (await (await f.request(path)).text()).includes('id="download-warning"'),
   );
   assert(
     (

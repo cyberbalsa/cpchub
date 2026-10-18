@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { DomUtils, parseDocument } from "htmlparser2";
 import { fixture } from "./helpers/app";
 import { staffFixture } from "./helpers/staff";
-import { cachedCatalogFragment } from "../src/cache";
+import { cachedCatalogHTML } from "../src/cache";
 import { hash, uuid, type App } from "../src/env";
 
 import { fragmentCache } from "./helpers/cache";
@@ -326,7 +326,7 @@ void test("fragment cache bypasses unsupported URLs and refuses failed or cookie
     await next();
   });
   app.get("/", (c) =>
-    cachedCatalogFragment(c, new URLSearchParams(), false, async () =>
+    cachedCatalogHTML(c, new URLSearchParams(), "inline", async () =>
       c.req.header("X-Test-Cookie")
         ? new Response("cookie", { headers: { "Set-Cookie": "test=1" } })
         : new Response("failed", { status: 503 }),

@@ -307,21 +307,15 @@ export async function render(
   status: ContentfulStatusCode = 200,
 ) {
   const u = c.get("user");
-  let csrf = u?.csrf || getCookie(c, "cpc_csrf");
   const fragment = [
     "hub/results.html",
     "hub/detail_content.html",
     "hub/bookmark.html",
   ].includes(template);
-  if (!csrf && !fragment) {
-    csrf = random();
-    setCookie(c, "cpc_csrf", csrf, {
-      secure: c.env.PUBLIC_URL.startsWith("https:"),
-      httpOnly: true,
-      sameSite: "Lax",
-      path: "/",
-    });
-  }
+  // Shared anonymous pages contain no browser-specific tokens or cookies.
+  // Download dialogs obtain their token only when the visitor confirms.
+  const cachedPage = ["hub/catalog.html", "hub/detail.html"].includes(template);
+  const csrf = fragment || cachedPage ? u?.csrf : csrfToken(c);
   const totals = fragment
     ? null
     : await one(
@@ -380,6 +374,19 @@ export async function render(
     ...data,
   };
   return c.html(environment.render(template, context), status);
+}
+export function csrfToken(c: Context<App>) {
+  let token = c.get("user")?.csrf || getCookie(c, "cpc_csrf");
+  if (!token) {
+    token = random();
+    setCookie(c, "cpc_csrf", token, {
+      secure: c.env.PUBLIC_URL.startsWith("https:"),
+      httpOnly: true,
+      sameSite: "Lax",
+      path: "/",
+    });
+  }
+  return token;
 }
 export function input(
   name: string,

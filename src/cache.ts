@@ -72,9 +72,9 @@ export const edgeCache: MiddlewareHandler<App> = async (c, next) => {
   } else c.header("Cache-Control", "private, no-store");
 };
 
-// Page wrappers stay request-specific. Rendered fragments have separate entries
-// for each authenticated session, content/visibility revision and HTML variant.
-export async function cachedFragment(
+// Rendered pages and fragments have separate entries for each authenticated
+// session, content/visibility revision and HTML variant.
+export async function cachedHTML(
   c: Context<App>,
   url: URL,
   load: () => Promise<Response>,
@@ -129,10 +129,10 @@ export async function cachedFragment(
   return response;
 }
 
-export async function cachedCatalogFragment(
+export async function cachedCatalogHTML(
   c: Context<App>,
   params: URLSearchParams,
-  oob: boolean,
+  variant: "oob" | "inline" | "page" | "page-full",
   load: () => Promise<Response>,
 ) {
   if (
@@ -143,9 +143,12 @@ export async function cachedCatalogFragment(
     response.headers.set("X-Cache", "BYPASS");
     return response;
   }
-  const url = new URL("/catalog/results/", c.req.url);
+  const url = new URL(
+    variant.startsWith("page") ? "/" : "/catalog/results/",
+    c.req.url,
+  );
   url.search = params.toString();
-  url.searchParams.set("__fragment", oob ? "oob-v1" : "inline-v1");
+  url.searchParams.set("__html", variant + "-v1");
   url.searchParams.set("__page_size", String(PAGE_SIZE));
-  return cachedFragment(c, url, load);
+  return cachedHTML(c, url, load);
 }

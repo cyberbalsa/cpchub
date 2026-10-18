@@ -144,6 +144,56 @@ void test("download warnings reset forms, confirm before navigation, handle erro
   await flush();
   assert.equal(f.window.document.querySelector("dialog"), null);
 });
+void test("shared cached download dialogs fetch a fresh token only on confirmation and recover from token failures", async (t) => {
+  const f = dom(
+    download.replace('value="csrf"', 'value=""') +
+      '<a data-download-name="parking.cpbp" href="/download/">Get file</a>',
+  );
+  t.after(f.close);
+  let tokenStatus = 503;
+  const requests: string[] = [];
+  f.window.fetch = async (url, init) => {
+    requests.push(String(url));
+    assert.equal(init?.credentials, "same-origin");
+    if (url === "/accounts/csrf/") {
+      assert.equal(init.method, undefined);
+      return Response.json(
+        { csrf_token: "fresh-browser-token" },
+        { status: tokenStatus },
+      );
+    }
+    assert.equal(init?.method, "POST");
+    assert.equal(String(init?.body), "csrfmiddlewaretoken=fresh-browser-token");
+    return Response.json({ remembered: false, download_url: "/approved/" });
+  };
+  initialize(f.window);
+  f.click(f.query("a"));
+  assert.deepEqual(requests, []);
+  const form = f.query<HTMLFormElement>("form");
+  f.submit(form);
+  await flush();
+  assert.deepEqual(requests, ["/accounts/csrf/"]);
+  assert.equal(
+    f.query<HTMLElement>("[data-download-warning-error]").hidden,
+    false,
+  );
+  assert.equal(
+    f.query<HTMLButtonElement>('button[type="submit"]').disabled,
+    false,
+  );
+  assert(f.query<HTMLDialogElement>("dialog").open);
+  assert.deepEqual(f.navigated, []);
+  tokenStatus = 200;
+  f.submit(form);
+  await flush();
+  assert.deepEqual(requests, [
+    "/accounts/csrf/",
+    "/accounts/csrf/",
+    "https://cpchub.net/download/",
+  ]);
+  assert.deepEqual(f.navigated, ["/approved/"]);
+  assert.equal(f.query<HTMLDialogElement>("dialog").open, false);
+});
 void test("copy controls, HTMX parameter cleanup and error feedback use text-only DOM updates", async (t) => {
   const f = dom(
     '<button data-copy="key">Copy</button><code id="key">&lt;script&gt;</code><div id="results"></div><form id="catalog-filter"></form>',

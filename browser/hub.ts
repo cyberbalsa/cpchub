@@ -130,6 +130,18 @@ export function initialize(window: BrowserWindow) {
       const body = new URLSearchParams();
       for (const [key, value] of new FormData(form))
         if (typeof value === "string") body.append(key, value);
+      if (!body.get("csrfmiddlewaretoken")) {
+        const tokenResponse = await window.fetch("/accounts/csrf/", {
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        });
+        if (!tokenResponse.ok)
+          throw new Error("Download confirmation unavailable");
+        const token = object({ csrf_token: string() }).parse(
+          await tokenResponse.json(),
+        );
+        body.set("csrfmiddlewaretoken", token.csrf_token);
+      }
       const response = await window.fetch(form.action, {
         method: "POST",
         body,
