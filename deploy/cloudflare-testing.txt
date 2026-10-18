@@ -1,0 +1,62 @@
+CPC Hub automated-test User-Agent — configured 2026-10-16
+
+Private local configuration:
+  /home/balsa/Projects/cpc-scn-catalog/.env.cloudflare-tests
+  Variable: CPCHUB_TEST_USER_AGENT
+  Mode: 0600. Git-ignored and excluded by .dockerignore's .env.* rule.
+
+Load it from the project folder before running HTTP tests:
+
+  set -a
+  . ./.env.cloudflare-tests
+  set +a
+  curl --user-agent "$CPCHUB_TEST_USER_AGENT" https://cpchub.net/admin/login/
+
+For a Python requests test after loading that environment:
+
+  import os
+  import requests
+  session = requests.Session()
+  session.headers["User-Agent"] = os.environ["CPCHUB_TEST_USER_AGENT"]
+  response = session.get("https://cpchub.net/admin/login/", timeout=20)
+
+The value is CPCHub- followed by 64 cryptographically random hexadecimal digits.
+Cloudflare matches the entire generated prefix using starts_with, so a suffix
+such as /e2e or /HeadlessChrome is allowed. An arbitrary CPCHub-* value is not.
+Keep the complete value private: it is an edge-security bypass credential. Do not
+put it into public browser bundles, request logs, test artifacts, or source control.
+Use the header only for cpchub.net / www.cpchub.net requests; do not forward it to
+Ko-fi or third-party download destinations. Cross-domain redirects require care.
+
+Cloudflare rule ref: cpchub_private_test_agent, first custom rule.
+Scope: cpchub.net and www.cpchub.net, every path and HTTP method.
+Skips remaining zone custom rules, managed WAF, edge rate limits, Super Bot Fight
+Mode rules, Browser Integrity Check, Security Level, User Agent Blocking, Zone
+Lockdown, Hotlink Protection and legacy WAF/rate limiting.
+Free Bot Fight Mode remains disabled (that product cannot be skipped by a rule).
+Cloudflare DDoS/protocol protections, Access if later enabled, application login,
+permissions, CSRF, and origin/application throttles are not bypassed by this rule.
+Caching, DNS, and the origin firewall were not changed.
+
+The Free plan's five custom-rule slots were preserved by combining the existing
+probe/scanner and unsupported-method block expressions with OR. Their behavior
+for ordinary traffic remains the same; the API-specific exemption is preserved.
+
+Verified over public HTTPS:
+  Normal /admin/login/ request: 403, Cloudflare managed challenge.
+  Private prefix /admin/login/: 200, Django login form, no challenge.
+  Private prefix with /HeadlessChrome suffix: same successful result.
+  Wrong CPCHub- prefix: 403, managed challenge.
+  Normal /.env request: Cloudflare 403.
+  Private prefix /.env: origin 404, no challenge.
+Rate-limit/WAF skip configuration was read back from Cloudflare; no load test ran.
+
+Maintenance script: /home/balsa/Projects/cpc-vm/ops/configure_test_agent.py
+Private backup value and before/after rules:
+  /home/balsa/.local/state/cpc-vm/
+To revoke, disable/delete only cpchub_private_test_agent in Cloudflare.
+To rotate, generate a new private value and update both the local test environment
+and that rule's prefix together. Do not weaken the rule to just starts_with(CPCHub-).
+
+Cloudflare skip documentation:
+  https://developers.cloudflare.com/waf/custom-rules/skip/options/

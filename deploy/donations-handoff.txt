@@ -1,0 +1,58 @@
+CPC Hub donation page — 2026-10-16
+
+LIVE UPDATE: https://cpchub.net/donate/ now returns 200 with the correct
+https://ko-fi.com/cpchub payment link and $45 monthly server cost. The concurrent
+site deployment included the page. This agent's deployment guard detected the
+changed running image and stopped its separate candidate before server changes.
+The live page and its donation stylesheet were verified. No second deployment
+is needed from this handoff; the old candidate in cpc-vm's private state is stale.
+
+Implemented in this source tree at /donate/ (URL name: donate).
+Uses the existing base template, theme variables, local pixel fonts, and map art.
+A Support CPC Hub link appears in the existing desktop footer.
+Displays the owner's approximate server cost: $45 USD per month.
+No amount-raised total or progress bar is shown without verified payment data.
+
+The owner supplied the public Ko-fi profile URL: https://ko-fi.com/cpchub.
+This is now the application's default and the value in .env.example.
+Optionally set KOFI_PAGE_URL=https://ko-fi.com/cpchub in the production app
+environment, then include these changes in the normal image build/deployment.
+With a missing/invalid URL, the page shows a setup message and no payment link.
+Only HTTPS ko-fi.com profile URLs are accepted; query strings and other hosts fail
+closed. Checkout is handled on Ko-fi, with no card collection on CPC Hub.
+
+The supplied API key has NOT been stored, committed, sent to Ko-fi, or embedded in
+HTML. The public donation link requires no key. Ko-fi's documented public API is
+for payment notifications, not profile creation or editing. Its Zapier API key
+and webhook verification token are separate integration settings; neither should
+be used as a public donation destination. No webhook is installed by this change.
+Automatic payment tracking would require separately configuring and verifying a
+webhook, including the actual webhook verification token and test delivery.
+
+This agent has not restarted services, changed routing, or rebuilt the production
+image while the other agent is installing the site. Source changes are confined
+to the donation view/template/stylesheet, two small config additions, the footer
+link, and the example public URL setting. Existing deployment changes were left
+alone. The new view has no database schema changes.
+
+Checks passed: Django system checks; existing catalog/account page render test;
+donation page render with a test Ko-fi profile; authenticated response privacy;
+missing/malicious destination fails closed; GET/HEAD-only behavior. Five checks
+ran against an isolated temporary database, which was then deleted.
+git diff --check passed. No browser was available for visual QA.
+The shared header can contain account details, so /donate/ uses no-store/private.
+
+Source files:
+  hub/support.py
+  templates/hub/donate.html
+  static/css/support.css
+  config/settings.py (KOFI_PAGE_URL)
+  config/urls.py (/donate/)
+  templates/base.html (footer link)
+  static/css/hub.css (footer link color)
+  .env.example (public URL setting)
+
+Official references:
+  https://help.ko-fi.com/hc/en-us/articles/360018381678-Ko-fi-tip-widget
+  https://help.ko-fi.com/hc/en-us/articles/360004162298-Does-Ko-fi-have-an-API-or-webhook
+  https://help.ko-fi.com/hc/en-us/articles/360018498537-Connect-Ko-fi-to-thousands-of-apps-with-Zapier
