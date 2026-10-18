@@ -2,6 +2,7 @@ import {Hono} from 'hono';
 import {App,all,one,run,now,admin,HttpError,random} from './env';
 import {body} from './api';
 import {refreshMonthlyCosts} from './billing';
+import {refreshEstimates} from './cost-estimates';
 import {render,safe,esc,input,area} from './render';
 
 export const settings=new Hono<App>();
@@ -9,7 +10,7 @@ settings.use('*',async(c,next)=>{if(!admin(c.get('user')))throw new HttpError(40
 settings.on(['GET','POST'],'/',async c=>{
  if(c.req.method==='POST'){
   const d=await body(c);
-  if(d.action==='refresh-costs'){await run(c.env.DB,"DELETE FROM worker_task WHERE name='billing'");await refreshMonthlyCosts(c.env);}
+  if(d.action==='refresh-costs'){await run(c.env.DB,"DELETE FROM worker_task WHERE name IN ('billing','cost-estimates')");await Promise.all([refreshMonthlyCosts(c.env),refreshEstimates(c.env)]);}
   else if(d.action==='client'){
    const name=String(d.name||'').trim(),uris=String(d.redirect_uris||'').trim().split(/\s+/);
    if(!name||name.length>255||!uris.length||uris.length>10)throw new HttpError(400,'Enter a name and 1–10 callback URLs.');

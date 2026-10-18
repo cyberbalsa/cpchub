@@ -7,16 +7,31 @@
   <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="{% url 'catalog' %}">Community exchange</a><span aria-hidden="true">/</span><span>Support CPC Hub</span></nav>
   <div class="support-layout">
     <section class="support-intro" aria-labelledby="support-title">
-      <span class="eyebrow">CPC HUB · COMMUNITY SUPPORTED</span>
+      <span class="eyebrow">SUPPORT CPC HUB</span>
       <h1 id="support-title">Help cover the<br>running costs.</h1>
-      <p class="support-lead">Tips help cover hosting and storage for CPC Hub’s blueprints, scenarios and mods.</p>
-      <div class="support-note"><span class="online-dot" aria-hidden="true"></span><p>Tips are optional. Browsing and sharing files are free.</p></div>
+      <p class="support-lead">Tips help pay for hosting and storing the blueprints and scenarios on CPC Hub.</p>
+      <div class="support-note"><span class="online-dot" aria-hidden="true"></span><p>Browsing, downloading and sharing files are free. Tips are optional.</p></div>
+      <table class="support-cost-table" aria-describedby="support-cost-note">
+        <caption>Costs by category</caption>
+        <thead><tr><th scope="col">Category</th><th scope="col">Monthly cost / calculation</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Cloudflare Pro<small>cpchub.net</small></th><td><strong>$25.00 / month</strong><small>Fixed subscription.</small></td></tr>
+          <tr><th scope="row">Website hosting<small>Pages, accounts and catalog</small></th><td><strong>$5.00 / month</strong><small>Fixed subscription.</small></td></tr>
+          <tr class="support-fixed-total"><th scope="row">Fixed subtotal</th><td><strong>$30.00 / month</strong><small>$25.00 + $5.00, before tax and usage.</small></td></tr>
+          {% for cost in cost_estimate.rows %}
+          <tr><th scope="row">{{ cost.label }}</th><td><strong>{{ cost.amount }}</strong><small>{{ cost.usage }}</small><details><summary>Calculation</summary><p>{{ cost.formula }}</p></details></td></tr>
+          {% endfor %}
+        </tbody>
+        <tfoot><tr class="support-fixed-total"><th scope="row">{% if cost_estimate.complete %}Estimated total{% else %}Estimated subtotal{% endif %}</th><td><strong>{{ cost_estimate.total }}</strong></td></tr></tfoot>
+      </table>
+      <p class="support-cost-footnote" id="support-cost-note">{{ cost_estimate.month }} · USD before tax. Includes the monthly subscriptions and reported usage so far. Usage covers the Cloudflare account and may include other projects. Usage below the plan limits costs $0 extra. Estimates use Cloudflare Analytics and may differ from the final bill.{% if not cost_estimate.complete %} Pending categories are excluded from the subtotal.{% endif %}{% if cost_estimate.updated_at %} Updated {{ cost_estimate.updated_at|date:"M j, Y H:i" }} UTC.{% endif %}</p>
     </section>
     <aside class="window support-checkout" aria-labelledby="support-checkout-title">
       <div class="title-bar"><div class="title-bar-text">{% include 'hub/icon.html' with icon='parking' %} Hosting and storage</div></div>
       <div class="window-body">
-        <span class="eyebrow">Monthly Costs</span>
-        <div class="support-cost" title="Cloudflare invoices issued in {{ monthly_cost_period }}"><strong>{% if monthly_cost %}{{ monthly_cost }}{% else %}Unavailable{% endif %}</strong></div>
+        <span class="eyebrow">{% if cost_estimate.complete %}Estimated total{% else %}Estimated subtotal{% endif %}</span>
+        <div class="support-cost"><strong>{{ cost_estimate.total }}</strong></div>
+        <p class="support-cost-caption">The total from the cost table, before tax.{% if not cost_estimate.complete %} Some usage reports are still pending.{% endif %}</p>
         <h2 id="support-checkout-title">Leave a tip on Ko-fi</h2>
         <p>Choose an amount on Ko-fi.</p>
         {% if kofi_page_url %}
@@ -25,15 +40,15 @@
         {% else %}
         <p class="support-pending">Donations are being set up. Please check back soon.</p>
         {% endif %}
-        <div class="support-thanks">Thanks for helping keep the Hub online.</div>
+        <div class="support-thanks">Thanks for supporting CPC Hub.</div>
       </div>
     </aside>
   </div>
   <section class="support-details" aria-labelledby="support-details-title">
     <h2 id="support-details-title">Supporting CPC Hub</h2>
     <div class="support-detail-grid">
-      <article><span class="support-detail-icon">{% include 'hub/icon.html' with icon='catalog' %}</span><h3>Keep the catalog online</h3><p>Tips go toward hosting the catalog and storing its uploads.</p></article>
-      <article><span class="support-detail-icon">{% include 'hub/icon.html' with icon='saved' %}</span><h3>Give what works for you</h3><p>Choose your amount on Ko-fi. Tipping is optional.</p></article>
+      <article><span class="support-detail-icon">{% include 'hub/icon.html' with icon='catalog' %}</span><h3>Keep the catalog online</h3><p>Tips cover the catalog’s hosting and file storage.</p></article>
+      <article><span class="support-detail-icon">{% include 'hub/icon.html' with icon='saved' %}</span><h3>Choose your amount</h3><p>Pick an amount that works for you.</p></article>
       <article><span class="support-detail-icon">{% include 'hub/icon.html' with icon='upload' %}</span><h3>More ways to help</h3><p>Upload a blueprint, share a scenario, or help another player find a file.</p></article>
     </div>
   </section>

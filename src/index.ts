@@ -10,6 +10,7 @@ import {maintenance,processJob} from './uploads';
 import {render,esc} from './render';
 import {PUBLIC} from './catalog';
 import {refreshMonthlyCosts} from './billing';
+import {refreshEstimates} from './cost-estimates';
 import {multipart} from './multipart';
 import {settings} from './settings';
 const app=new Hono<App>({strict:true});
@@ -40,4 +41,4 @@ app.get('/admin/',c=>c.redirect(c.get('user')?'/admin/settings':'/admin/login/')
 app.route('/',pages);
 app.notFound(c=>c.json({status:404,errors:{detail:'Not found.'}},404));
 app.onError(async(e,c)=>{const status=e instanceof HttpError?e.status:500;const message=e instanceof HttpError?e.message:'The request could not be completed.';if(status===500)console.error('Request failed',c.req.path,e instanceof Error?e.message:'unknown');if(c.req.header('Accept')?.includes('application/json')&&!c.req.path.startsWith('/api/'))return new Response(JSON.stringify({errors:[message]}),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});if(c.req.path.startsWith('/api/')||c.req.path.startsWith('/o/'))return new Response(JSON.stringify({status,errors:{detail:message}}),{status,headers:{'Content-Type':'application/json','Cache-Control':'private, no-store',...(status===429?{'Retry-After':'3600'}:{}),...(status===401?{'WWW-Authenticate':'Bearer realm="CPC Hub API"'}:{})}});if(status===401)return c.redirect('/accounts/login/');try{return await render(c,'hub/message.html',{heading:message,content:''},status);}catch{return new Response(message,{status});}});
-export default {fetch:app.fetch,async queue(batch:MessageBatch<{id:string}>,env:Env){for(const message of batch.messages){try{await processJob(env,message.body.id);message.ack();}catch{message.retry({delaySeconds:30});}}},async scheduled(_event:ScheduledController,env:Env,ctx:ExecutionContext){ctx.waitUntil(Promise.all([maintenance(env),refreshMonthlyCosts(env)]));}};
+export default {fetch:app.fetch,async queue(batch:MessageBatch<{id:string}>,env:Env){for(const message of batch.messages){try{await processJob(env,message.body.id);message.ack();}catch{message.retry({delaySeconds:30});}}},async scheduled(_event:ScheduledController,env:Env,ctx:ExecutionContext){ctx.waitUntil(Promise.all([maintenance(env),refreshMonthlyCosts(env),refreshEstimates(env)]));}};

@@ -1,5 +1,5 @@
 export interface Env extends CloudflareBindings {
- CF_BILLING_TOKEN: string; DISCORD_CLIENT_SECRET: string; STEAM_API_KEY: string;
+ CF_ANALYTICS_TOKEN: string; CF_BILLING_TOKEN: string; DISCORD_CLIENT_SECRET: string; STEAM_API_KEY: string;
 }
 export type Row = Record<string, any>;
 export type User = Row & { id:number; username:string; role:string; is_authenticated:boolean; auth:'session'|'key'|'oauth'; scopes:string[]; csrf?:string; client_id?:string };

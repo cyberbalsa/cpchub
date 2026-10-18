@@ -10,11 +10,3 @@ src/templates.generated.js
 migration-data/
 
 __pycache__/
-
-# Local artifacts retained from the legacy checkout
-.venv/
-media/
-staticfiles/
-.pytest_cache/
-artifacts/
-wasabis3.txt

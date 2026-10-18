@@ -7,6 +7,15 @@
 .support-note { display: flex; gap: 10px; margin-top: 18px; color: #515a41; }
 .support-note .online-dot { flex-shrink: 0; margin-top: 5px; }
 .support-note p { font-size: 12px; line-height: 1.7; margin: 0; }
+.support-cost-table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 26px; font: 12px/1.6 Tahoma, sans-serif; color: #364f39; background: none; white-space: normal; }
+.support-cost-table caption { text-align: left; font-size: 18px; font-weight: bold; margin-bottom: 12px; color: #344f3f; }
+.support-cost-table th, .support-cost-table td { padding: 12px 10px; border-bottom: 1px solid #b7a77b; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.support-cost-table thead th { position: static; background: #d8cca5; box-shadow: none; border-top: 1px solid #b7a77b; font-size: 11px; }
+.support-cost-table th:first-child { width: 43%; }
+.support-cost-table tbody th { font-weight: bold; }
+.support-cost-table .support-fixed-total { background: #e5d9b1; }
+.support-cost-table small { display: block; margin-top: 4px; font-size: 11px; font-weight: normal; color: #625a40; }
+.support-cost-footnote { margin: 12px 0 0; font-size: 11px; line-height: 1.7; color: #625a40; }
 .support-checkout { margin: 0; min-width: 0; }
 .support-checkout .window-body { padding: 26px 23px 0; margin: 0; }
 .support-checkout .eyebrow { font-size: 9px; color: #585f42; }
