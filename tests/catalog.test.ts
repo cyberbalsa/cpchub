@@ -191,3 +191,98 @@ void test("catalog search, tag visibility, saved views and numeric filters enfor
   assert.equal((await f.request("/api/v1/types/")).status, 200);
   assert.equal(item.status, "draft");
 });
+
+void test("collection bounds and popularity sorts match current saves and preserve visibility", async (t) => {
+  const f = await fixture();
+  t.after(f.close);
+  const items = [0, 1, 2].map((saves) => {
+    const item = f.insert("hub_item", {
+      id: uuid(),
+      author_id: 1,
+      content_type_id: 1,
+      status: "published",
+      title: "Creation " + saves,
+      tags: "parking garages",
+      downloads: 30 - saves * 10,
+      created_at: `2026-01-0${saves + 1}T00:00:00Z`,
+      updated_at: `2026-02-0${saves + 1}T00:00:00Z`,
+    });
+    f.sqlite
+      .prepare(
+        "INSERT INTO hub_item_tag_index(item_id,tag_id) SELECT ?,id FROM hub_tag WHERE name='parking garages'",
+      )
+      .run(item.id);
+    for (let user = 1; user <= saves; user++)
+      f.insert("hub_bookmark", { item_id: item.id, user_id: user });
+    return item;
+  });
+  f.insert("hub_release", {
+    id: uuid(),
+    item_id: items[1]!.id,
+    file_stats: '{"width":10}',
+  });
+  const privateItem = f.insert("hub_item", {
+    id: uuid(),
+    author_id: 2,
+    content_type_id: 1,
+    status: "draft",
+    title: "Private",
+    downloads: 1000,
+  });
+  f.insert("hub_bookmark", { item_id: privateItem.id, user_id: 2 });
+  for (const [query, expected] of [
+    ["", [0, 1, 2]],
+    ["sort=popular", [0, 1, 2]],
+    ["sort=toString", [0, 1, 2]],
+    ["sort=saved", [2, 1, 0]],
+    ["sort=updated", [2, 1, 0]],
+    ["sort=newest", [2, 1, 0]],
+    ["max_collection_count=0", [0]],
+    ["min_collection_count=1", [1, 2]],
+    ["min_collection_count=1&max_collection_count=1", [1]],
+    ["min_collection_count=2&max_collection_count=1", []],
+    ["min_collection_count=&max_collection_count=", [0, 1, 2]],
+    [
+      "min_collection_count=1&min_width=10&type=blueprints&tag=parking+garages",
+      [1],
+    ],
+  ] as const) {
+    const result = await listItems(f.env, new URLSearchParams(query), null);
+    assert.equal(result.count, expected.length, query);
+    assert.deepEqual(
+      result.items.map((item) => item.id),
+      expected.map((n) => items[n]!.id),
+      query,
+    );
+  }
+  for (const bound of ["min", "max"])
+    for (const value of ["-1", "1.5", "bad", "Infinity", "9007199254740992"])
+      assert.equal(
+        (await f.request(`/api/v1/items/?${bound}_collection_count=${value}`))
+          .status,
+        400,
+      );
+  const u = await userById(f.env, 2);
+  const own = await listItems(
+    f.env,
+    new URLSearchParams("view=mine&min_collection_count=1"),
+    u,
+  );
+  assert.deepEqual(
+    own.items.map((item) => item.id),
+    [privateItem.id],
+  );
+  f.sqlite
+    .prepare("DELETE FROM hub_bookmark WHERE item_id=? AND user_id=2")
+    .run(items[2]!.id);
+  assert.equal(
+    (
+      await listItems(
+        f.env,
+        new URLSearchParams("min_collection_count=2"),
+        null,
+      )
+    ).count,
+    0,
+  );
+});

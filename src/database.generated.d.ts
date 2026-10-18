@@ -418,6 +418,10 @@ export interface DatabaseTables {
     id: number;
     revision: number;
   };
+  worker_collection_revision: {
+    user_id: number;
+    revision: number;
+  };
   worker_cost_estimate: {
     id: number;
     payload: string;

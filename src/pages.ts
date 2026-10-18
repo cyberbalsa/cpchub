@@ -30,9 +30,11 @@ import {
   editable,
   PUBLIC,
   SELECT,
-  METRICS,
+  NUMERIC_FILTERS,
+  catalogSort,
   categoryTagGroups,
 } from "./catalog";
+import { cachedCatalogFragment } from "./cache";
 import {
   render,
   viewItem,
@@ -57,12 +59,58 @@ const paginate = <T>(items: T[], count: number, page = 1, pages = 1) =>
     previous_page_number: page - 1,
     next_page_number: page + 1,
   });
+function catalogSearch(params: URLSearchParams) {
+  const clear = new URLSearchParams(params);
+  for (const name of NUMERIC_FILTERS)
+    for (const bound of ["min", "max"]) clear.delete(bound + "_" + name);
+  clear.delete("page");
+  return {
+    catalog_view: params.get("view") || "all",
+    category: params.get("type") || "",
+    q: params.get("q") || "",
+    tag: params.get("tag") || "",
+    sort: catalogSort(params.get("sort")),
+    clear_stats_url: "/?" + clear,
+    stats_form: {
+      active: NUMERIC_FILTERS.some(
+        (k) => !!params.get("min_" + k) || !!params.get("max_" + k),
+      ),
+    },
+  };
+}
+function catalogResults(
+  c: Context<App>,
+  params: URLSearchParams,
+  oob: boolean,
+) {
+  return cachedCatalogFragment(c, params, oob, async () => {
+    const u = c.get("user"),
+      r = await listItems(c.env, params, u);
+    const [items, tagGroups] = await Promise.all([
+      viewItems(c.env, r.items, u),
+      oob ? categoryTagGroups(c.env) : Promise.resolve([]),
+    ]);
+    return render(c, "hub/results.html", {
+      ...catalogSearch(params),
+      page_obj: paginate(items, r.count, r.page, r.pages),
+      tag_groups: tagGroups,
+      category_filters_oob: oob,
+    });
+  });
+}
+pages.get("/catalog/results/", async (c) => {
+  const params = normalizeSearch(new URL(c.req.url).searchParams),
+    response = await catalogResults(c, params, true);
+  response.headers.set("HX-Push-Url", "/?" + params);
+  return response;
+});
 pages.get("/", async (c) => {
   const params = normalizeSearch(new URL(c.req.url).searchParams),
-    u = c.get("user"),
-    r = await listItems(c.env, params, u);
-  const [items, types, stats, featured, tagGroups] = await Promise.all([
-    viewItems(c.env, r.items, u),
+    u = c.get("user");
+  if (c.req.header("HX-Request") === "true")
+    return catalogResults(c, params, true);
+  const [results, types, stats, featured, tagGroups] = await Promise.all([
+    catalogResults(c, params, false),
     all(
       c.env.DB,
       `SELECT t.*,(SELECT COUNT(*) FROM hub_item i WHERE i.content_type_id=t.id AND ${PUBLIC}) total FROM hub_contenttype t WHERE uploads_enabled=1 ORDER BY position,name`,
@@ -80,48 +128,46 @@ pages.get("/", async (c) => {
         ),
     categoryTagGroups(c.env),
   ]);
-  return render(
-    c,
-    c.req.header("HX-Request") === "true"
-      ? "hub/results.html"
-      : "hub/catalog.html",
-    {
-      page_obj: paginate(items, r.count, r.page, r.pages),
-      types_with_counts: types,
-      catalog_types: types,
-      tag_groups: tagGroups,
-      category_filters_oob: c.req.header("HX-Request") === "true",
-      stats,
-      featured_items: await viewItems(c.env, featured, u),
-      catalog_view: params.get("view") || "all",
-      category: params.get("type") || "",
-      q: params.get("q") || "",
-      tag: params.get("tag") || "",
-      sort: params.get("sort") || "updated",
-      stats_form: {
-        active: METRICS.some(
-          (k) => params.has("min_" + k) || params.has("max_" + k),
-        ),
-        ranges: METRICS.map((k) => ({
-          label: k.replaceAll("_", " "),
-          minimum: safe(
-            `<input class="stats-filter-input" name="min_${k}" type="number" min="0" value="${esc(params.get("min_" + k))}">`,
-          ),
-          maximum: safe(
-            `<input class="stats-filter-input" name="max_${k}" type="number" min="0" value="${esc(params.get("max_" + k))}">`,
-          ),
-        })),
-      },
-      seo: {
-        title: "CPC Hub — Car Park Capital community exchange",
-        description:
-          "Find community blueprints and scenarios for Car Park Capital.",
-        canonical: c.env.PUBLIC_URL + "/",
-        robots: params.size ? "noindex, follow" : "index, follow",
-        image: c.env.PUBLIC_URL + "/static/art/share-card.png",
-      },
+  const search = catalogSearch(params);
+  const ranges = NUMERIC_FILTERS.map((k) => {
+    const label =
+      k === "collection_count" ? "Collection saves" : k.replaceAll("_", " ");
+    return {
+      name: k,
+      label,
+      minimum: safe(
+        `<input class="stats-filter-input" name="min_${k}" type="number" min="0" step="1" aria-label="Minimum ${label}" placeholder="Min" value="${esc(params.get("min_" + k))}">`,
+      ),
+      maximum: safe(
+        `<input class="stats-filter-input" name="max_${k}" type="number" min="0" step="1" aria-label="Maximum ${label}" placeholder="Max" value="${esc(params.get("max_" + k))}">`,
+      ),
+    };
+  });
+  c.header("X-Catalog-Cache", results.headers.get("X-Cache")!);
+  return render(c, "hub/catalog.html", {
+    ...search,
+    catalog_results: safe(await results.text()),
+    types_with_counts: types,
+    catalog_types: types,
+    tag_groups: tagGroups,
+    stats,
+    featured_items: await viewItems(c.env, featured, u),
+    stats_form: {
+      ...search.stats_form,
+      ranges: ranges.filter((range) => range.name !== "collection_count"),
+      collection_ranges: ranges.filter(
+        (range) => range.name === "collection_count",
+      ),
     },
-  );
+    seo: {
+      title: "CPC Hub — Car Park Capital community exchange",
+      description:
+        "Find community blueprints and scenarios for Car Park Capital.",
+      canonical: c.env.PUBLIC_URL + "/",
+      robots: params.size ? "noindex, follow" : "index, follow",
+      image: c.env.PUBLIC_URL + "/static/art/share-card.png",
+    },
+  });
 });
 pages.get("/items/:id/", async (c) => {
   const u = c.get("user"),

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import SwaggerParser from "@apidevtools/swagger-parser";
 import { api } from "../src/api";
 import { oauth } from "../src/oauth";
-import { METRICS, serialize } from "../src/catalog";
+import { METRICS, NUMERIC_FILTERS, serialize } from "../src/catalog";
 import { keyJSON } from "../src/api";
 import { jobJSON } from "../src/uploads";
 import { spec, check, validator } from "./helpers/openapi";
@@ -39,12 +39,12 @@ void test("OpenAPI 3.1 is valid and covers every registered API and OAuth operat
   assert.equal(spec.components.securitySchemes.cookieAuth!.name, "cpc_session");
   assert(spec.servers.some((s) => s.url === "https://cpchub.net"));
 });
-void test("all file-statistic filters and catalog views are documented", () => {
+void test("all numeric filters, catalog views and popularity sorts are documented", () => {
   const params = spec.paths["/api/v1/items/"]!.get!.parameters!;
   assert.deepEqual(
     params.map((p) => p.name).sort(),
     [
-      ...METRICS.flatMap((m) => ["min_" + m, "max_" + m]),
+      ...NUMERIC_FILTERS.flatMap((m) => ["min_" + m, "max_" + m]),
       "mine",
       "view",
       "author",

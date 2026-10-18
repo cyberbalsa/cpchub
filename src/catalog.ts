@@ -42,9 +42,21 @@ export const METRICS = [
   "entities",
   "format_version",
 ];
+export const NUMERIC_FILTERS = [...METRICS, "collection_count"];
+const COLLECTION_COUNT =
+  "(SELECT COUNT(*) FROM hub_bookmark b WHERE b.item_id=i.id)";
+const CATALOG_SORTS: Record<string, string> = {
+  popular: "i.downloads",
+  saved: "collection_count",
+  newest: "i.created_at",
+  updated: "i.updated_at",
+};
+export function catalogSort(value: string | null) {
+  return value && Object.hasOwn(CATALOG_SORTS, value) ? value : "popular";
+}
 export const PUBLIC =
   "i.status='published' AND i.is_hidden=0 AND i.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM hub_usermoderation m WHERE m.user_id=i.author_id AND m.shadow_banned_at IS NOT NULL)";
-export const SELECT = `SELECT i.*,u.username,t.slug type_slug,t.name type_name,(SELECT COUNT(*) FROM hub_bookmark b WHERE b.item_id=i.id) collection_count FROM hub_item i JOIN auth_user u ON u.id=i.author_id JOIN hub_contenttype t ON t.id=i.content_type_id`;
+export const SELECT = `SELECT i.*,u.username,t.slug type_slug,t.name type_name,${COLLECTION_COUNT} collection_count FROM hub_item i JOIN auth_user u ON u.id=i.author_id JOIN hub_contenttype t ON t.id=i.content_type_id`;
 export function editable(
   item: Pick<Table<"hub_item">, "author_id">,
   u: User | null,
@@ -264,27 +276,28 @@ export async function listItems(
       args.push(tag);
     }
   }
-  for (const name of METRICS)
+  for (const name of NUMERIC_FILTERS)
     for (const bound of ["min", "max"]) {
       const value = p.get(bound + "_" + name);
       if (value !== null && value !== "") {
         const n = Number(value);
         if (!Number.isSafeInteger(n) || n < 0)
-          throw new HttpError(400, "Invalid file statistics filter.");
-        filters.push(
-          `json_extract((SELECT r.file_stats FROM hub_release r WHERE r.item_id=i.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1),'$.${name}') ${bound === "min" ? ">=" : "<="} ?`,
-        );
+          throw new HttpError(
+            400,
+            name === "collection_count"
+              ? "Invalid collection count filter."
+              : "Invalid file statistics filter.",
+          );
+        const expression =
+          name === "collection_count"
+            ? COLLECTION_COUNT
+            : `json_extract((SELECT r.file_stats FROM hub_release r WHERE r.item_id=i.id ORDER BY r.created_at DESC,r.id DESC LIMIT 1),'$.${name}')`;
+        filters.push(`${expression} ${bound === "min" ? ">=" : "<="} ?`);
         args.push(n);
       }
     }
   const where = " WHERE " + filters.join(" AND "),
-    sort =
-      (
-        { newest: "i.created_at", popular: "i.downloads" } as Record<
-          string,
-          string
-        >
-      )[p.get("sort") || ""] || "i.updated_at";
+    sort = CATALOG_SORTS[catalogSort(p.get("sort"))];
   const count = (await one<{ n: number }>(
     env.DB,
     "SELECT COUNT(*) n FROM hub_item i JOIN hub_contenttype t ON t.id=i.content_type_id" +

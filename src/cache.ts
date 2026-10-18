@@ -1,5 +1,7 @@
-import type { MiddlewareHandler } from "hono";
-import { App, one } from "./env";
+import type { Context, MiddlewareHandler } from "hono";
+import { getCookie } from "hono/cookie";
+import { NUMERIC_FILTERS } from "./catalog";
+import { App, hash, one } from "./env";
 const publicPath =
   /^\/api\/v1\/(?:items\/(?:[0-9a-f-]+\/)?|types\/(?:[a-z-]+\/)?|tags\/)$/;
 const allowed = new Set([
@@ -11,21 +13,7 @@ const allowed = new Set([
   "mine",
   "view",
   "author",
-  ...[
-    "width",
-    "depth",
-    "height",
-    "footprint_tiles",
-    "objects",
-    "object_types",
-    "parking_spaces",
-    "golf_cart_spaces",
-    "entrances",
-    "exits",
-    "maps",
-    "entities",
-    "format_version",
-  ].flatMap((k) => ["min_" + k, "max_" + k]),
+  ...NUMERIC_FILTERS.flatMap((k) => ["min_" + k, "max_" + k]),
 ]);
 export const edgeCache: MiddlewareHandler<App> = async (c, next) => {
   const url = new URL(c.req.url);
@@ -55,6 +43,7 @@ export const edgeCache: MiddlewareHandler<App> = async (c, next) => {
   // A new presentation policy must never reuse an older unfiltered response.
   url.searchParams.set("__text_filter", "hearts-v1");
   url.searchParams.set("__tag_categories", "v1");
+  url.searchParams.set("__catalog", "popularity-v1");
   const key = new Request(url.href, { method: "GET" });
   const cache = caches.default;
   const hit = await cache.match(key);
@@ -80,3 +69,68 @@ export const edgeCache: MiddlewareHandler<App> = async (c, next) => {
     c.header("Cache-Control", "public, max-age=0, must-revalidate");
   } else c.header("Cache-Control", "private, no-store");
 };
+
+// The page wrapper stays request-specific. Only the bounded results fragment is
+// cached, with separate entries for each authenticated session and HTMX variant.
+export async function cachedCatalogFragment(
+  c: Context<App>,
+  params: URLSearchParams,
+  oob: boolean,
+  load: () => Promise<Response>,
+) {
+  const user = c.get("user");
+  if (
+    params.toString().length > 1000 ||
+    [...params.keys()].some((k) => !allowed.has(k)) ||
+    (!user && getCookie(c, "cpc_session"))
+  ) {
+    const response = await load();
+    response.headers.set("X-Cache", "BYPASS");
+    return response;
+  }
+  const revision = await one<{ revision: number; collection_revision: number }>(
+    c.env.DB,
+    "SELECT revision,COALESCE((SELECT revision FROM worker_collection_revision WHERE user_id=?),0) collection_revision FROM worker_cache_revision WHERE id=1",
+    user?.id || -1,
+  );
+  const url = new URL("/catalog/results/", c.req.url);
+  url.search = params.toString();
+  url.searchParams.sort();
+  url.searchParams.set("__revision", String(revision?.revision || 0));
+  url.searchParams.set("__fragment", oob ? "oob-v1" : "inline-v1");
+  if (user) {
+    url.searchParams.set(
+      "__session",
+      await hash(
+        JSON.stringify([
+          getCookie(c, "cpc_session"),
+          user.id,
+          user.role,
+          user.csrf,
+        ]),
+      ),
+    );
+    url.searchParams.set(
+      "__collections",
+      String(revision?.collection_revision || 0),
+    );
+  }
+  const key = new Request(url.href),
+    cache = caches.default,
+    hit = await cache.match(key);
+  if (hit) {
+    const response = new Response(hit.body, hit);
+    response.headers.set("X-Cache", "HIT");
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
+  }
+  const response = await load();
+  if (response.status === 200 && !response.headers.has("Set-Cookie")) {
+    const cached = new Response(response.clone().body, response);
+    cached.headers.set("Cache-Control", "public, max-age=60");
+    c.executionCtx.waitUntil(cache.put(key, cached));
+  }
+  response.headers.set("Cache-Control", "private, no-store");
+  response.headers.set("X-Cache", "MISS");
+  return response;
+}

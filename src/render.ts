@@ -273,7 +273,8 @@ export async function render(
 ) {
   const u = c.get("user");
   let csrf = u?.csrf || getCookie(c, "cpc_csrf");
-  if (!csrf) {
+  const fragment = template === "hub/results.html";
+  if (!csrf && !fragment) {
     csrf = random();
     setCookie(c, "cpc_csrf", csrf, {
       secure: c.env.PUBLIC_URL.startsWith("https:"),
@@ -282,16 +283,23 @@ export async function render(
       path: "/",
     });
   }
-  const totals = await one(
-    c.env.DB,
-    `SELECT COUNT(*) uploads,COALESCE(SUM((SELECT SUM(size) FROM hub_release r WHERE r.item_id=i.id)),0) total_bytes FROM hub_item i WHERE ${PUBLIC}`,
-  );
-  const cost = await one<
-    Pick<Table<"worker_monthly_cost">, "amount_cents" | "month" | "updated_at">
-  >(
-    c.env.DB,
-    "SELECT amount_cents,month,updated_at FROM worker_monthly_cost WHERE id=1",
-  );
+  const totals = fragment
+    ? null
+    : await one(
+        c.env.DB,
+        `SELECT COUNT(*) uploads,COALESCE(SUM((SELECT SUM(size) FROM hub_release r WHERE r.item_id=i.id)),0) total_bytes FROM hub_item i WHERE ${PUBLIC}`,
+      );
+  const cost = fragment
+    ? null
+    : await one<
+        Pick<
+          Table<"worker_monthly_cost">,
+          "amount_cents" | "month" | "updated_at"
+        >
+      >(
+        c.env.DB,
+        "SELECT amount_cents,month,updated_at FROM worker_monthly_cost WHERE id=1",
+      );
   const monthly_cost =
     cost && Date.now() - Date.parse(cost.updated_at) < 3 * 86400000
       ? "$" + (cost.amount_cents / 100).toFixed(2)

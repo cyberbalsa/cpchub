@@ -20,7 +20,17 @@ paths:
   /api/v1/items/:
     get:
       operationId: v1_items_list
+      description: Defaults to most downloaded. Public results are cached for up to 60 seconds;
+        collection saves and downloads can take up to a minute to update. Content and visibility
+        changes invalidate cached results immediately.
       parameters:
+        - in: query
+          name: max_collection_count
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          description: Inclusive maximum number of people currently saving the creation in their collection.
         - in: query
           name: max_depth
           schema:
@@ -111,6 +121,13 @@ paths:
             minimum: 0
           description: Maximum width (tiles) in the latest release. Missing statistics never match. Bounds are
             inclusive.
+        - in: query
+          name: min_collection_count
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          description: Inclusive minimum number of people currently saving the creation in their collection.
         - in: query
           name: min_depth
           schema:
@@ -219,11 +236,14 @@ paths:
           description: Search titles, descriptions and public tags (all own tags with mine=true)
         - in: query
           name: sort
+          description: popular sorts by downloads; saved by collection saves; newest by creation date; updated by last update.
           schema:
             type: string
+            default: popular
             enum:
               - newest
               - popular
+              - saved
               - updated
         - in: query
           name: tag
