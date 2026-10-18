@@ -1,17 +1,17 @@
-{% load static %}
+{% load static hub_text %}
 <div data-screenshot-gallery>
   <div class="detail-image">
-    {% with shot=item.screenshots.first %}{% if shot %}
-    <a data-screenshot-preview href="/api/v1/items/{{ item.pk }}/screenshots/{{ shot.pk }}/image/" aria-label="Enlarge screenshot" aria-haspopup="dialog" aria-controls="screenshot-viewer">
-      <img loading="eager" fetchpriority="high" decoding="async" width="960" height="540" data-image src="/api/v1/items/{{ item.pk }}/screenshots/{{ shot.pk }}/image/" alt="{{ shot.caption|default:item.title }}">
+    {% with shot=item.screenshots.first %}{% if shot %}{% screenshot_src shot as shot_url %}
+    <a data-screenshot-preview href="{{ shot_url }}" aria-label="Enlarge screenshot" aria-haspopup="dialog" aria-controls="screenshot-viewer">
+      <img loading="eager" fetchpriority="high" decoding="async" width="960" height="540" data-image src="{{ shot_url }}" alt="{{ shot.caption|default:item.title }}">
     </a>
     {% else %}<img loading="eager" fetchpriority="high" decoding="async" width="960" height="540" data-image src="{% static item.artwork_path %}" alt="Illustrative parking layout">{% endif %}{% endwith %}
   </div>
   {% if item.screenshots.exists %}
   <div class="screenshot-gallery" aria-label="Screenshots">
-    {% for shot in item.screenshots.all %}
-    <a data-screenshot href="/api/v1/items/{{ item.pk }}/screenshots/{{ shot.pk }}/image/" data-caption="{{ shot.caption }}" aria-label="Enlarge screenshot {{ forloop.counter }}" aria-haspopup="dialog" aria-controls="screenshot-viewer" {% if forloop.first %}aria-current="true"{% endif %}>
-      <div class="screenshot-picture"><img loading="lazy" decoding="async" width="150" height="85" data-image src="/api/v1/items/{{ item.pk }}/screenshots/{{ shot.pk }}/image/" alt="{% if shot.caption %}{{ shot.caption }}{% else %}Screenshot {{ forloop.counter }}{% endif %}"></div>
+    {% for shot in item.screenshots.all %}{% screenshot_src shot as shot_url %}
+    <a data-screenshot href="{{ shot_url }}" data-caption="{{ shot.caption }}" aria-label="Enlarge screenshot {{ forloop.counter }}" aria-haspopup="dialog" aria-controls="screenshot-viewer" {% if forloop.first %}aria-current="true"{% endif %}>
+      <div class="screenshot-picture"><img loading="lazy" decoding="async" width="150" height="85" data-image src="{{ shot_url }}" alt="{% if shot.caption %}{{ shot.caption }}{% else %}Screenshot {{ forloop.counter }}{% endif %}"></div>
       <span>{{ shot.caption }}</span>
     </a>
     {% endfor %}

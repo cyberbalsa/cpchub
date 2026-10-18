@@ -176,6 +176,45 @@ class R2ConfigurationTests(SimpleTestCase):
 class R2DeliveryTests(WasabiDeliveryTests):
     endpoint_host = "a" * 32 + ".r2.cloudflarestorage.com"
 
+    def test_page_images_are_signed_for_a_day_without_storage_requests(self):
+        import html
+        import re
+
+        self.client.force_login(self.author)
+        paths = ['/', self.item.get_absolute_url(), f'/items/{self.item.pk}/edit/']
+        for path in paths:
+            with self.subTest(path=path), Stubber(self.storage.connection.meta.client):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200)
+                urls = [html.unescape(url) for url in re.findall(r'<img[^>]+src="([^"]+)"', response.content.decode())]
+                direct = [url for url in urls if urlsplit(url).netloc == self.endpoint_host]
+                self.assertTrue(direct)
+                for url in direct:
+                    params = parse_qs(urlsplit(url).query)
+                    self.assertEqual(params['X-Amz-Expires'], ['86400'])
+                    self.assertEqual(params['response-content-type'], ['image/webp'])
+                    self.assertEqual(params['response-cache-control'], ['private, max-age=86400'])
+                self.assertIn('no-store', response['Cache-Control'])
+                if path == self.item.get_absolute_url():
+                    self.assertEqual(direct[0], direct[1])
+        # The API still advertises the stable application endpoint.
+        result = self.api.get(f'/api/v1/items/{self.item.pk}/')
+        self.assertTrue(result.data['screenshots'][0]['image_url'].endswith('/image/'))
+        self.assertNotIn('X-Amz', result.data['screenshots'][0]['image_url'])
+
+    def test_private_images_are_not_signed_for_unrelated_visitors(self):
+        self.item.status = 'draft'
+        self.item.save()
+        with patch.object(self.storage, 'signed_screenshot_url') as sign:
+            self.assertEqual(self.client.get(self.item.get_absolute_url()).status_code, 404)
+            self.assertEqual(self.client.get('/').status_code, 200)
+            sign.assert_not_called()
+
+    def test_day_long_signer_cannot_sign_release_paths(self):
+        for path in ['releases/test.cpbp', 'screenshots/../releases/test.cpbp']:
+            with self.assertRaises(ValueError):
+                self.storage.signed_screenshot_url(path)
+
     def test_r2_uses_auto_region_and_private_s3_options(self):
         self.assertEqual(self.storage.connection.meta.client.meta.region_name, "auto")
         self.assertIsNone(self.storage.default_acl)

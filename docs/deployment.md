@@ -122,7 +122,7 @@ user.save(update_fields=["is_staff", "is_superuser"])
 
 They can then open `/moderation/` and `/admin/` using the same social login. Use the moderation panel’s User management page for subsequent role assignments. New users receive no staff permissions automatically.
 
-The cleanup timer runs `python manage.py cleanup_deleted_files` every five minutes. It deletes expired login/upload activity, download IP records and upload quota events, permanently removes creations whose 14-day self-deletion period has ended, then retries pending file deletions. Check pending counts in the moderation panel and service logs with `cpc journalctl --user -u cpchub-cleanup.service`. Hiding or shadow banning blocks new signed URLs; already issued R2 URLs retain their original expiry, up to five minutes on this deployment.
+The cleanup timer runs `python manage.py cleanup_deleted_files` every five minutes. It deletes expired login/upload activity, download IP records and upload quota events, permanently removes creations whose 14-day self-deletion period has ended, then retries pending file deletions. Check pending counts in the moderation panel and service logs with `cpc journalctl --user -u cpchub-cleanup.service`. Hiding or shadow banning blocks new signed URLs; already issued R2 URLs retain their original expiry, five minutes for API redirects and release downloads, or 24 hours for on-page screenshots on this deployment.
 
 ## Isolated upload worker
 
@@ -136,3 +136,10 @@ Set `SUPPORT_VPS_YEARLY_USD` (default `71.28`) and `SUPPORT_DOMAIN_YEARLY_USD` (
 Run `python manage.py refresh_storage_usage` after migrating the database. Install `deploy/systemd/cpchub-storage-usage.{service,timer}` in the production user's `~/.config/systemd/user/`, reload systemd and enable the timer. It inventories the entire dedicated R2 bucket hourly using the existing bucket credentials, including files awaiting deletion. Pagination counts objects and bytes without downloading contents. Public page views read a database snapshot and never call R2. Failed inventories retain the last complete count; snapshots older than two hours are labelled delayed.
 
 The estimate applies [R2 Standard pricing](https://developers.cloudflare.com/r2/pricing/) checked 2026-10-17: first 10 decimal GB-month free per account, then $0.015 per GB-month rounded up to whole billing units. It assumes the current stored bytes persist for a month and this dedicated bucket uses the account's free storage allowance. Review this assumption if adding other buckets. Actual billing uses average daily peak storage; requests, unfinished multipart uploads and taxes are not included. Revisit the rates if Cloudflare changes pricing. This is a storage estimate, not a copy of the Cloudflare bill.
+
+
+### On-page R2 screenshots
+
+Catalog cards, galleries, lightboxes and editor previews use direct R2 GET URLs signed for 24 hours. Signing runs locally without an R2 HEAD request. URLs are reused within each rendered page and image responses allow private browser caching for one day. Page visibility checks still run before rendering; already-issued image links can work for up to 24 hours after an item is made private. Deleting the object invalidates the link. HTML responses remain private and uncached.
+
+The API screenshot endpoint, API serializer URLs, social previews and sitemap URLs remain stable application URLs with their existing permission checks. Release downloads and API redirects retain the configured short expiry. Local and Wasabi installs continue using the screenshot endpoint. See [Cloudflare's presigned URL documentation](https://developers.cloudflare.com/r2/api/s3/presigned-urls/).

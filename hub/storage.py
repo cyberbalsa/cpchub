@@ -42,3 +42,13 @@ class R2MediaStorage(PrivateS3MediaStorage):
     def __init__(self, **kwargs):
         kwargs["region_name"] = "auto"
         super().__init__(**kwargs)
+
+    def signed_screenshot_url(self, name):
+        if not name.startswith("screenshots/") or ".." in name.split("/"):
+            raise ValueError("Expected a screenshot path.")
+        # Signing is local: no HEAD, GET, or other R2 request during page rendering.
+        return self.url(name, expire=86400, http_method="GET", parameters={
+            "ResponseContentDisposition": "inline",
+            "ResponseContentType": "image/webp",
+            "ResponseCacheControl": "private, max-age=86400",
+        })

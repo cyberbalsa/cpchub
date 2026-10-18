@@ -69,7 +69,7 @@ This replaces the application containers and keeps the database and upload volum
 
 Production stores release files and screenshots in a private R2 bucket. Objects keep the same `ugc/releases/` and `ugc/screenshots/` names used by Wasabi. Site assets stay in the application image and use WhiteNoise.
 
-Set `R2_BUCKET_NAME`, `R2_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY`. Use R2 Object Read & Write credentials scoped to this bucket. The application uses S3 Signature V4 with region `auto`. `R2_SIGNED_URL_SECONDS` defaults to 300 and accepts 60–900 seconds. Jurisdiction-specific R2 endpoints are also supported.
+Set `R2_BUCKET_NAME`, `R2_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY`. Use R2 Object Read & Write credentials scoped to this bucket. The application uses S3 Signature V4 with region `auto`. `R2_SIGNED_URL_SECONDS` controls API redirects and release downloads; it defaults to 300 and accepts 60–900 seconds. On-page screenshots use direct R2 URLs valid for 24 hours, with private browser caching. Jurisdiction-specific R2 endpoints are also supported.
 
 Keep `r2.dev` access disabled and do not attach a public custom domain to this bucket. Downloads and screenshots need permission checks so drafts, hidden creations and deleted files stay private. Application URLs issue short-lived signed R2 URLs after those checks. A branded hostname such as `dl.cpchub.net` would require an authenticated proxy; a direct R2 custom-domain connection would expose the bucket.
 

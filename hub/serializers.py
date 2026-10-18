@@ -69,7 +69,7 @@ class ReleaseSerializer(serializers.ModelSerializer):
     file_stats = FileStatsSerializer(read_only=True, help_text='Statistics decoded in an isolated VM. Empty for files not yet inspected; null means unavailable or not applicable.')
     # Keep the PostgreSQL counter limit in the schema when developing with SQLite.
     downloads = serializers.IntegerField(min_value=0, max_value=2147483647, read_only=True, help_text="Download links issued for this release, deduplicated by account and by IP for 14 days. IPv6 uses /32 subnets. Historical totals are retained.")
-    download_url = serializers.SerializerMethodField(help_text="Stable application URL. Checks permissions and redirects to an expiring signed download URL when using Wasabi.")
+    download_url = serializers.SerializerMethodField(help_text="Stable application URL. Checks permissions and redirects to an expiring signed download URL when using R2 or Wasabi.")
 
     def get_download_url(self, obj) -> str:
         return self.context["request"].build_absolute_uri(f"/api/v1/items/{obj.item_id}/releases/{obj.pk}/download/")
@@ -87,7 +87,7 @@ class ReleaseUploadSerializer(serializers.Serializer):
 
 
 class ScreenshotSerializer(serializers.ModelSerializer):
-    image_url = serializers.SerializerMethodField(help_text="Stable application URL. Checks permissions and redirects to an expiring signed screenshot URL when using Wasabi.")
+    image_url = serializers.SerializerMethodField(help_text="Stable application URL. Checks permissions and redirects to an expiring signed screenshot URL when using R2 or Wasabi.")
 
     def get_image_url(self, obj) -> str:
         return self.context["request"].build_absolute_uri(f"/api/v1/items/{obj.item_id}/screenshots/{obj.pk}/image/")
