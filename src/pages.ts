@@ -48,7 +48,52 @@ pages.get('/accounts/logout/',c=>render(c,'account/logout.html'));
 pages.on(['GET','POST'],'/account/keys/',async c=>{const u=c.get('user');requireUser(u);let newKey;if(c.req.method==='POST')newKey=(await issueKey(c.env,u,await c.req.parseBody({all:true}))).key;const keys=(await all(c.env.DB,'SELECT * FROM hub_apikey WHERE user_id=? ORDER BY created_at DESC',u.id)).map(k=>({...keyJSON(k),pk:publicId(k.id),active:!k.revoked_at&&(!k.expires_at||Date.parse(k.expires_at)>Date.now())}));const apps=await all(c.env.DB,'SELECT DISTINCT a.id pk,a.name FROM oauth2_provider_application a JOIN worker_token t ON t.client_id=a.client_id WHERE t.user_id=?',u.id);return render(c,'hub/keys.html',{keys,connected_apps:apps,new_key:newKey,form:form(input('name','Name','','text','required maxlength="80"')+'<p><label><input type="checkbox" name="scopes" value="read" checked> Read</label><label><input type="checkbox" name="scopes" value="write"> Write</label></p>'+select('days','Expiry',[{value:'',label:'Never'},{value:7,label:'7 days'},{value:30,label:'30 days'},{value:90,label:'90 days'}],''))});});
 pages.post('/account/keys/:id/revoke/',async c=>{const u=c.get('user');requireUser(u);await run(c.env.DB,'UPDATE hub_apikey SET revoked_at=? WHERE id=? AND user_id=?',now(),dbId(c.req.param('id')),u.id);return c.redirect('/account/keys/');});
 pages.post('/account/managers/:id/revoke/',async c=>{const u=c.get('user');requireUser(u);await c.env.DB.batch([c.env.DB.prepare('DELETE FROM worker_token WHERE user_id=? AND client_id=(SELECT client_id FROM oauth2_provider_application WHERE id=?)').bind(u.id,Number(c.req.param('id'))),c.env.DB.prepare('UPDATE hub_apikey SET revoked_at=? WHERE user_id=? AND application_id=?').bind(now(),u.id,Number(c.req.param('id')))]);return c.redirect('/account/keys/');});
-pages.on(['GET','POST'],'/account/profile/',async c=>{const u=c.get('user');requireUser(u);if(c.req.method==='POST'){const d=await body(c);await run(c.env.DB,'DELETE FROM socialaccount_socialaccount WHERE id=? AND user_id=? AND (SELECT COUNT(*) FROM socialaccount_socialaccount WHERE user_id=?)>1',Number(d.account),u.id,u.id);return c.redirect('/account/profile/');}const accounts=await all(c.env.DB,'SELECT id,provider,uid name FROM socialaccount_socialaccount WHERE user_id=?',u.id);return render(c,'hub/profile.html',{hidden_creations:(await all(c.env.DB,'SELECT id,title,hidden_reason FROM hub_item WHERE author_id=? AND is_hidden=1 AND deleted_at IS NULL',u.id)).map(i=>({...i,pk:publicId(i.id)})),linked_accounts:accounts,can_disconnect:accounts.length>1,steam_enabled:true,discord_enabled:!!c.env.DISCORD_CLIENT_ID,site_role:u.role,download_warning_acknowledged:!!await one(c.env.DB,'SELECT id FROM hub_userpreferences WHERE user_id=? AND ugc_warning_version=1',u.id)});});
+const NAME_CHANGE_INTERVAL=30*86400000;
+pages.on(['GET','POST'],'/account/profile/',async c=>{
+ const u=c.get('user');requireUser(u);
+ let name=u.username,nameError='',status=200;
+ if(c.req.method==='POST'){
+  const d=await body(c);
+  if(d.action==='rename'){
+   name=typeof d.username==='string'?d.username.trim().normalize('NFC'):'';
+   if(!name)nameError='Enter a name.';
+   else if(name.length>150)nameError='Use 150 characters or fewer.';
+   else if(!/^[\p{L}\p{M}\p{N}_ .-]+$/u.test(name))nameError='Use letters, numbers, spaces, periods, hyphens, or underscores.';
+   else if(name===u.username)return c.redirect('/account/profile/#profile-name',303);
+   else{
+    const at=Date.now();
+    // Check availability and cooldown in the same write so concurrent requests cannot bypass either.
+    const changed=await c.env.DB.prepare(`UPDATE auth_user SET username=?1,username_changed_at=?2
+     WHERE id=?3 AND is_active=1 AND username<>?1
+      AND (username_changed_at IS NULL OR username_changed_at<=?4)
+      AND NOT EXISTS(SELECT 1 FROM auth_user WHERE username=?1 AND id<>?3)
+     RETURNING id`).bind(name,at,u.id,at-NAME_CHANGE_INTERVAL).first<Row>();
+    if(changed)return c.redirect('/account/profile/?name_changed=1#profile-name',303);
+    const current=await one(c.env.DB,'SELECT username,username_changed_at FROM auth_user WHERE id=? AND is_active=1',u.id);
+    if(!current)throw new HttpError(403,'This account is inactive.');
+    Object.assign(u,current);
+    if(name===u.username)return c.redirect('/account/profile/#profile-name',303);
+    nameError=u.username_changed_at!==null&&u.username_changed_at+NAME_CHANGE_INTERVAL>at
+     ?'You can change your name once every 30 days.':'That name is taken.';
+    status=409;
+   }
+   if(nameError&&status===200)status=400;
+  }else if(d.action==='unlink'||(!d.action&&d.account)){
+   await run(c.env.DB,'DELETE FROM socialaccount_socialaccount WHERE id=? AND user_id=? AND (SELECT COUNT(*) FROM socialaccount_socialaccount WHERE user_id=?)>1',Number(d.account),u.id,u.id);
+   return c.redirect('/account/profile/');
+  }else throw new HttpError(400,'Unknown action.');
+ }
+ const availableAt=u.username_changed_at==null?null:u.username_changed_at+NAME_CHANGE_INTERVAL;
+ const canChangeName=availableAt===null||availableAt<=Date.now();
+ const accounts=await all(c.env.DB,'SELECT id,provider,uid name FROM socialaccount_socialaccount WHERE user_id=?',u.id);
+ return render(c,'hub/profile.html',{
+  profile_name:canChangeName?name:u.username,name_error:nameError,name_changed:c.req.query('name_changed')==='1',
+  can_change_name:canChangeName,name_change_available_at:availableAt===null?null:new Date(availableAt).toISOString(),
+  hidden_creations:(await all(c.env.DB,'SELECT id,title,hidden_reason FROM hub_item WHERE author_id=? AND is_hidden=1 AND deleted_at IS NULL',u.id)).map(i=>({...i,pk:publicId(i.id)})),
+  linked_accounts:accounts,can_disconnect:accounts.length>1,steam_enabled:true,discord_enabled:!!c.env.DISCORD_CLIENT_ID,site_role:u.role,
+  download_warning_acknowledged:!!await one(c.env.DB,'SELECT id FROM hub_userpreferences WHERE user_id=? AND ugc_warning_version=1',u.id)
+ },status);
+});
 pages.post('/account/download-warning/reset/',async c=>{const u=c.get('user');requireUser(u);await run(c.env.DB,'UPDATE hub_userpreferences SET ugc_warning_version=0 WHERE user_id=?',u.id);setCookie(c,'cpc_warning','0',{path:'/',httpOnly:true});return c.redirect('/account/profile/');});
 pages.get('/install/',c=>render(c,'hub/install.html'));pages.get('/developers/',c=>render(c,'hub/developers.html',{api_base:c.env.PUBLIC_URL+'/api/v1/'}));
 pages.get('/donate/',c=>render(c,'hub/donate.html'));
