@@ -1,3 +1,4 @@
+import { permanentlyDelete } from "./permanent-delete";
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
@@ -501,7 +502,11 @@ for (const action of ["delete", "restore", "unpublish"] as const)
     requireUser(u);
     const i = await getItem(c.env, c.req.param("id")!, u, true);
     if (c.req.method === "POST") {
-      await selfAction(c.env, u, i, action);
+      const d = await body(c);
+      if (action === "delete" && d.delete_now === "on") {
+        if (!admin(u)) throw new HttpError(403, "Admin required.");
+        await permanentlyDelete(c.env, "item", i.id);
+      } else await selfAction(c.env, u, i, action);
       return c.redirect("/?view=mine");
     }
     return render(c, "hub/self_delete.html", {

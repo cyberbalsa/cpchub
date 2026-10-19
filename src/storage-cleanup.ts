@@ -49,15 +49,20 @@ export function jobCleanupStatements(
 export async function deleteStoredFiles(
   env: Env,
   time = Date.now(),
+  names?: string[],
 ): Promise<void> {
   const failures: unknown[] = [];
   const deletions = await all<Deletion>(
     env.DB,
-    "SELECT * FROM hub_filedeletion WHERE not_before<=? ORDER BY attempts,id LIMIT 100",
-    time,
+    names
+      ? "SELECT * FROM hub_filedeletion WHERE name IN (SELECT value FROM json_each(?)) ORDER BY attempts,id"
+      : "SELECT * FROM hub_filedeletion WHERE not_before<=? ORDER BY attempts,id LIMIT 100",
+    ...(names ? [JSON.stringify(names)] : [time]),
   );
   for (const entry of deletions) {
     try {
+      if (entry.not_before > time)
+        throw new Error("File is still protected by an upload lease");
       const bucket =
         entry.bucket ??
         (PUBLIC_IMAGE_KEY.test(entry.name) ? "images" : "files");

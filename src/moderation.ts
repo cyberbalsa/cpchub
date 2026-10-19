@@ -1,3 +1,4 @@
+import { permanentlyDelete } from "./permanent-delete";
 import type { Table } from "./env";
 import type { CatalogItem } from "./catalog";
 import { normalizeText, normalizeSearch } from "./text-input";
@@ -276,7 +277,12 @@ moderation.on(["GET", "POST"], "/items/:id/delete/", async (c) => {
   if (!admin(c.get("user"))) throw new HttpError(403, "Admin required.");
   const i = await getItem(c.env, c.req.param("id"), c.get("user"));
   if (c.req.method === "POST") {
-    await log(c, "delete", i, String((await body(c)).reason || ""));
+    const d = await body(c);
+    if (d.delete_now === "on") {
+      await permanentlyDelete(c.env, "item", i.id);
+      return c.redirect("/moderation/");
+    }
+    await log(c, "delete", i, String(d.reason || ""));
     await run(
       c.env.DB,
       "UPDATE hub_item SET deleted_at=?,status='draft' WHERE id=?",
@@ -287,6 +293,10 @@ moderation.on(["GET", "POST"], "/items/:id/delete/", async (c) => {
   }
   return render(c, "hub/moderation/delete.html", {
     item: await viewItem(c.env, i, c.get("user")),
+    name: i.title,
+    consequence:
+      "Delete this creation and all its releases and screenshots. Normally files are removed by scheduled cleanup.",
+    cancel_url: "/moderation/items/" + publicId(i.id) + "/",
     form: form(area("reason", "Reason", "", 2000)),
   });
 });
@@ -318,6 +328,14 @@ for (const kind of ["releases", "screenshots"])
         if (!file) throw new HttpError(404, "File not found.");
         if (c.req.method === "POST") {
           const d = await body(c);
+          if (action === "delete" && d.delete_now === "on") {
+            await permanentlyDelete(
+              c.env,
+              kind === "releases" ? "release" : "screenshot",
+              file.id,
+            );
+            return c.redirect("/moderation/items/" + publicId(i.id) + "/");
+          }
           if (action === "delete") {
             await c.env.DB.batch([
               c.env.DB.prepare(`DELETE FROM ${table} WHERE id=?`).bind(file.id),
@@ -735,6 +753,11 @@ moderation.on(["GET", "POST"], "/users/:id/delete/", async (c) => {
   if (!target || target.id === c.get("user")!.id)
     throw new HttpError(400, "Cannot delete this account.");
   if (c.req.method === "POST") {
+    const d = await body(c);
+    if (d.delete_now === "on") {
+      await permanentlyDelete(c.env, "user", target.id);
+      return c.redirect("/moderation/users/");
+    }
     await log(
       c,
       "user-delete",
@@ -745,12 +768,11 @@ moderation.on(["GET", "POST"], "/users/:id/delete/", async (c) => {
     await run(c.env.DB, "DELETE FROM auth_user WHERE id=?", target.id);
     return c.redirect("/moderation/users/");
   }
-  return render(c, "hub/message.html", {
-    heading: "Delete " + target.username,
-    content: safe(
-      '<form method="post"><input type="hidden" name="csrfmiddlewaretoken" value="' +
-        esc(c.get("user")!.csrf) +
-        '"><p>Permanently delete this account and its creations?</p><button>Delete account</button></form>',
-    ),
+  return render(c, "hub/moderation/delete.html", {
+    name: target.username,
+    consequence:
+      "Delete this account, its creations, linked logins, sessions, API access and files. Normally files are removed by scheduled cleanup and a staff purge record remains.",
+    cancel_url: "/moderation/users/" + target.id + "/",
+    form: form(area("reason", "Reason", "", 2000)),
   });
 });

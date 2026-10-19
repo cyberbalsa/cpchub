@@ -144,7 +144,10 @@ function analyticsResponse(init: RequestInit | undefined, truncated = false) {
     truncated && field === "r2StorageAdaptiveGroups"
       ? Array(10000).fill(rows[0])
       : rows;
-  return Response.json({ data: { viewer: { accounts: [{ [field]: data }] } } });
+  return Response.json({
+    data: { viewer: { accounts: [{ [field]: data }] } },
+    errors: null,
+  });
 }
 
 void test("collector reads monthly image counts and excludes truncated categories", async () => {

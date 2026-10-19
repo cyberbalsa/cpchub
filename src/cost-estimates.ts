@@ -1,7 +1,7 @@
 import { z } from "zod";
 const object = z.record(z.string(), z.unknown());
 const analyticsResponse = z.object({
-  errors: z.array(z.unknown()).optional(),
+  errors: z.array(z.unknown()).nullish(),
   data: z
     .object({
       viewer: z.object({
