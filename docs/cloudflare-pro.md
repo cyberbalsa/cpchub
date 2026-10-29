@@ -4,6 +4,16 @@ Checked and applied to **cpchub.net** on 18 October 2026 UTC. Worker version: `b
 
 The largest opportunities were blocking scanners before they invoke the Worker, using the full Pro WAF, and consolidating public screenshot cache entries. The architecture already served static assets directly and stored converted screenshots in R2. Those choices were retained.
 
+## Upload false positives — 29 October 2026
+
+MungusXIX's upload attempts at 08:58:43, 09:01:14, 09:02:10 and 10:32:16 UTC were blocked before Worker execution by OWASP rule `949110` (`6179ae15870a4bb7b2d480d4843b323c`), with an anomaly score of 100. Their connection matched the account's login request. No creation or upload job was recorded for the account. The existing browser-challenge exception did not skip OWASP inspection. OWASP had been enabled after the original audit below.
+
+The OWASP execute rule now excludes multipart POSTs on the application hosts to `/upload/`, `/items/*/edit/`, and browser/API item routes ending in `/releases/` or `/screenshots/`. Other requests retain the existing OWASP scope. The full Cloudflare Managed Ruleset, rate limits, Worker authentication/CSRF checks, and isolated native/image validators remain enabled. The exception does not treat a cookie or request header as proof of authentication; the Worker validates credentials before staging uploads. [Cloudflare documents OWASP false positives](https://developers.cloudflare.com/waf/managed-rules/reference/owasp-core-ruleset/).
+
+`scripts/cloudflare-pro.py` preserves this exclusion when reconciling an existing OWASP execute rule, without enabling OWASP when absent. The production change updated only that rule's expression, after remote validation and a concurrent-version check. Private before/after snapshots and the exact applied rule are in `.wrangler/upload-waf/20261029T163619Z/`. To roll back this specific change, restore the original OWASP rule from `before.json` using `cf rulesets rules update`; this snapshot is not a full `--restore` snapshot for the Pro policy script.
+
+Verification used the same native `Tron.cpcs` file before and after the change: an anonymous multipart POST changed from Cloudflare HTML 403 to the Worker's JSON 401. A temporary authenticated account then submitted that scenario and a valid PNG through `/upload/`, received 202, and both queued validators passed. The temporary account, session, draft, and R2 objects were removed. No Worker deployment was needed.
+
 ## What changed
 
 | Control | Previous state | Applied state and purpose |

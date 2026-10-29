@@ -26,6 +26,15 @@ RULE_FIELDS = (
     "enabled", "logging", "ratelimit",
 )
 MANAGED_ID = "efb7b8c949ac4650a09736fc376e9aee"
+OWASP_ID = "4814384a9e5d4991b9815dcfc25d2f1f"
+MULTIPART_UPLOAD = (
+    f'{APP_HOSTS} and http.request.method eq "POST" '
+    'and starts_with(lower(http.request.headers["content-type"][0]), "multipart/form-data") '
+    'and (http.request.uri.path eq "/upload/" '
+    'or (starts_with(http.request.uri.path, "/items/") and ends_with(http.request.uri.path, "/edit/")) '
+    'or ((starts_with(http.request.uri.path, "/items/") or starts_with(http.request.uri.path, "/api/v1/items/")) '
+    'and (ends_with(http.request.uri.path, "/releases/") or ends_with(http.request.uri.path, "/screenshots/"))))'
+)
 WORKER_CONFIG = json.loads((ROOT / "wrangler.jsonc").read_text())
 RATE_BINDINGS = {binding["name"]: binding for binding in WORKER_CONFIG["ratelimits"]}
 
@@ -104,6 +113,19 @@ def upsert(rules, rule):
     rules.append(rule)
 
 
+def protect_binary_uploads(rules):
+    # OWASP's text signatures score native game bytes as injection attempts.
+    # Preserve its existing scope/settings elsewhere and the full Cloudflare WAF.
+    # The Worker authenticates requests; cookie presence cannot establish identity.
+    exclusion = f" and not ({MULTIPART_UPLOAD})"
+    for rule in rules:
+        if rule.get("action") == "execute" and rule.get("action_parameters", {}).get("id") == OWASP_ID:
+            if rule["expression"] == "true":
+                rule["expression"] = f"not ({MULTIPART_UPLOAD})"
+            elif rule["expression"] not in ("false", f"not ({MULTIPART_UPLOAD})") and not rule["expression"].endswith(exclusion):
+                rule["expression"] = f'({rule["expression"]}){exclusion}'
+
+
 def policy(current):
     desired = {phase: writable_rules(current[phase]["rules"]) for phase in PHASES}
     custom = desired[PHASES[0]]
@@ -169,6 +191,7 @@ def policy(current):
     desired[PHASES[0]] = [r for r in custom if r.get("ref") in first] + [r for r in custom if r.get("ref") not in first]
 
     managed = desired[PHASES[1]]
+    protect_binary_uploads(managed)
     # The full ruleset includes the free ruleset's coverage. Deploy it only once.
     managed[:] = [r for r in managed if r.get("ref") != "cpchub_free_managed_waf"]
     existing = next((r for r in managed if r.get("action_parameters", {}).get("id") == MANAGED_ID), None)

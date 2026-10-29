@@ -383,6 +383,18 @@ void test("cleanup defers leased objects, recognizes legacy keys and retains fai
   await queueDeletion(f.db, "files", "future", now(), Date.now() + 60000).run();
   await queueDeletion(f.db, "files", "future", now(), 0).run();
   f.objects.set("future", new Uint8Array([1]));
+  await assert.rejects(
+    deleteStoredFiles(f.env, Date.now(), ["future"]),
+    (error: unknown) => {
+      assert(error instanceof AggregateError);
+      assert.match(String(error.errors[0]), /protected by an upload lease/);
+      return true;
+    },
+  );
+  assert(
+    f.objects.has("future"),
+    "Explicit cleanup must respect the upload lease",
+  );
   await f.db.batch(
     jobCleanupStatements(
       f.db,

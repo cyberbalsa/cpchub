@@ -4,6 +4,28 @@ import { staffFixture } from "./helpers/staff";
 import { uuid } from "../src/env";
 import { deleteStoredFiles } from "../src/storage-cleanup";
 
+void test("the author's delete form allows an immediate wipe only for admins", async (t) => {
+  const f = await staffFixture();
+  t.after(f.close);
+  f.sqlite.prepare("UPDATE hub_item SET author_id=1 WHERE id=?").run(f.item.id);
+  const path = `/items/${f.item.id}/delete/`;
+  f.role("");
+  assert.equal(
+    (await f.request(path, "POST", { delete_now: "on" })).status,
+    403,
+  );
+  assert(f.sqlite.prepare("SELECT id FROM hub_item WHERE id=?").get(f.item.id));
+  f.role("Admin");
+  assert.equal(
+    (await f.request(path, "POST", { delete_now: "on" })).status,
+    302,
+  );
+  assert.equal(
+    f.sqlite.prepare("SELECT id FROM hub_item WHERE id=?").get(f.item.id),
+    undefined,
+  );
+});
+
 for (const kind of ["item", "user", "release", "screenshot"] as const)
   void test(`immediate ${kind} deletion wipes its data and storage before redirecting`, async (t) => {
     const f = await staffFixture();
